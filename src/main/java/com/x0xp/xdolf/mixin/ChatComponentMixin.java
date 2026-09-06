@@ -60,20 +60,14 @@ public abstract class ChatComponentMixin {
         cir.setReturnValue(Math.max(cir.getReturnValue(),XdolfFont.lineHeight()));
     }
 
-    /**
-     * Minecraft places vanilla text from the bottom of each row using a fixed 8px baseline rule.
-     * Derive the correction from the current chat-line spacing, actual row height and Xdolf TTF
-     * height so the text remains vertically centred at every GUI scale instead of using a guessed
-     * global Y offset.
-     */
+    /** Centre the actual visible glyph pixels in each received-message row. */
     @Unique
     private static int xdolf$messageYOffset() {
         double spacing=Minecraft.getInstance().options.chatLineSpacing().get();
         int vanillaRow=(int)(9.0*(spacing+1.0));
         int rowHeight=Math.max(vanillaRow,XdolfFont.lineHeight());
-        int vanillaTopFromBottom=(int)Math.round(-8.0*(spacing+1.0)+4.0*spacing);
-        int desiredTopFromBottom=-rowHeight+(rowHeight-XdolfFont.lineHeight())/2;
-        return desiredTopFromBottom-vanillaTopFromBottom;
+        int vanillaTextY=(int)Math.round(-8.0*(spacing+1.0)+4.0*spacing);
+        return XdolfFont.centeredYOffset(-rowHeight,rowHeight,vanillaTextY);
     }
 
     /** Fit each individual message background to the line being rendered, not the widest line on screen. */
