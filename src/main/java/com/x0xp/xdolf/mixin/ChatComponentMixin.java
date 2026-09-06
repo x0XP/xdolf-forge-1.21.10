@@ -2,6 +2,7 @@ package com.x0xp.xdolf.mixin;
 
 import com.x0xp.xdolf.XdolfFont;
 import net.minecraft.client.GuiMessage;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ChatComponent;
@@ -32,6 +33,7 @@ public abstract class ChatComponentMixin {
     @Inject(method="render",at=@At("HEAD"))
     private void xdolf$beginTtfChat(GuiGraphics graphics,int tickCount,int mouseX,int mouseY,boolean focused,CallbackInfo ci) {
         XdolfFont.beginChat();
+        ChatTextContext.push(xdolf$messageYOffset());
         int first=Math.max(0,chatScrollbarPos);
         int last=Math.min(trimmedMessages.size(),first+Math.max(0,getLinesPerPage()));
         var widths=new ArrayList<Integer>(Math.max(0,last-first));
@@ -45,6 +47,7 @@ public abstract class ChatComponentMixin {
 
     @Inject(method="render",at=@At("RETURN"))
     private void xdolf$endTtfChat(GuiGraphics graphics,int tickCount,int mouseX,int mouseY,boolean focused,CallbackInfo ci) {
+        ChatTextContext.pop();
         XdolfFont.endChat();
         xdolf$visibleLineWidths=List.of();
         xdolf$backgroundLine=0;
@@ -57,14 +60,26 @@ public abstract class ChatComponentMixin {
     }
 
     /**
-     * Fit each message background to its own TTF width. Current Minecraft does not guarantee the
-     * old -4 left coordinate for every chat configuration, so identify message-row fills by their
-     * short height and left-edge placement instead of one exact vanilla coordinate.
+     * Minecraft places vanilla text from the bottom of each row using a fixed 8px baseline rule.
+     * Derive the correction from the current chat-line spacing, actual row height and Xdolf TTF
+     * height so the text remains vertically centred at every GUI scale instead of using a guessed
+     * global Y offset.
      */
+    @Unique
+    private static int xdolf$messageYOffset() {
+        double spacing=Minecraft.getInstance().options.chatLineSpacing().get();
+        int vanillaRow=(int)(9.0*(spacing+1.0));
+        int rowHeight=Math.max(vanillaRow,XdolfFont.lineHeight());
+        int vanillaTopFromBottom=(int)Math.round(-8.0*(spacing+1.0)+4.0*spacing);
+        int desiredTopFromBottom=-rowHeight+(rowHeight-XdolfFont.lineHeight())/2;
+        return desiredTopFromBottom-vanillaTopFromBottom;
+    }
+
+    /** Fit each individual message background to the line being rendered, not the widest line on screen. */
     @Redirect(method="render",at=@At(value="INVOKE",target="Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"))
     private void xdolf$fitMessageBackground(GuiGraphics graphics,int left,int top,int right,int bottom,int color) {
         int rowHeight=bottom-top;
-        if(left<=0&&right>left&&rowHeight>0&&rowHeight<=18&&xdolf$backgroundLine<xdolf$visibleLineWidths.size()) {
+        if(left<=0&&right>left&&rowHeight>0&&rowHeight<=20&&xdolf$backgroundLine<xdolf$visibleLineWidths.size()) {
             int textWidth=xdolf$visibleLineWidths.get(xdolf$backgroundLine++);
             right=Math.min(right,left+textWidth+9);
         }
