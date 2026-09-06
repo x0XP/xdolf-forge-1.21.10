@@ -44,11 +44,11 @@ final class LegacyCommands {
         var mc=Minecraft.getInstance();
         try {
             switch(cmd) {
-                case "help" -> {SYNTAX.values().forEach(s->say("."+s));say("Port aliases: .gui, .mods, .t, .set <mod> <setting> <value>, .bind <mod> <key/NONE>");}
+                case "help" -> {SYNTAX.values().forEach(s->say(LegacyChat.colourArguments("."+s)));say(LegacyChat.colourArguments("Port aliases: .gui, .mods, .t, .set <mod> <setting> <value>, .bind <mod> <key/NONE>"));}
                 case "gui" -> mc.execute(()->mc.setScreen(new ClientScreen()));
                 case "toggle","t" -> {need(p,2);if(p[1].equalsIgnoreCase("GUI")){mc.execute(()->mc.setScreen(new ClientScreen()));break;}ClientRuntime.toggle(module(p[1]));}
                 case "alloff" -> {int count=0;for(var m:ClientRuntime.MODULES)if(m.enabled()){m.setEnabled(false);count++;}say(count+(count==1?" hack":" hacks")+" turned off.");}
-                case "mods","modlist" -> {ClientRuntime.MODULES.forEach(m->say(ClientScreen.label(m)+" - "+m.description));say("GUI - Open the click GUI.");}
+                case "mods","modlist" -> {ClientRuntime.MODULES.forEach(m->say(LegacyChat.colourArguments(ClientScreen.label(m))+" - "+m.description));say("GUI - Open the click GUI.");}
                 case "timer" -> {need(p,2);module("Timer").setting("speed").set(number(p[1]));ClientConfig.save(ClientRuntime.MODULES);say("Timer updated.");}
                 case "bind" -> bind(p);
                 case "set" -> ClientRuntime.configure(p);
@@ -61,7 +61,7 @@ final class LegacyCommands {
                     if(p[1].equalsIgnoreCase("chat"))value="<"+p[2]+"> "+msg;
                     else if(p[1].equalsIgnoreCase("whisper"))value="\u00a7d"+p[2]+" whispers: "+msg;
                     else throw new IllegalArgumentException();
-                    mc.player.displayClientMessage(Component.literal(value),false);}
+                    mc.player.displayClientMessage(LegacyChat.parse(value),false);}
                 case "xray" -> xray(p);
                 case "waypoint" -> waypoint(p);
                 case "praiseore" -> send(OriginalQuotes.VALUES[new Random().nextInt(OriginalQuotes.VALUES.length)]);
@@ -82,7 +82,7 @@ final class LegacyCommands {
                 case "vclip" -> {need(p,2);player();int y=Integer.parseInt(p[1]);var e=mc.player.getVehicle()==null?mc.player:mc.player.getVehicle();e.setPos(e.getX(),e.getY()+y,e.getZ());}
                 default -> say("Invalid command. Type .help for a list of commands.");
             }
-        } catch(IllegalArgumentException e) {say("Usage: ."+SYNTAX.getOrDefault(cmd,cmd));if(e.getMessage()!=null)say(e.getMessage());}
+        } catch(IllegalArgumentException e) {say("Usage: ."+LegacyChat.colourArguments(SYNTAX.getOrDefault(cmd,cmd)));if(e.getMessage()!=null)say(e.getMessage());}
         catch(RuntimeException e) {LogUtils.getLogger().error("Xdolf command failed: {}",cmd,e);say("Command failed; check latest.log.");if(Boolean.getBoolean("xdolf.smokeTest"))throw e;}
         return true;
     }
@@ -120,19 +120,20 @@ final class LegacyCommands {
         finally {macroDepth--;}
     }
     private static void spam(String body,String[] p) {
-        need(p,2);
+        need(p,2);String response;
         switch(p[1].toLowerCase(Locale.ROOT)) {
-            case "mode" -> {need(p,3);if(!Set.of("normal","antispam").contains(p[2].toLowerCase(Locale.ROOT)))throw new IllegalArgumentException("Use normal or antispam.");spamMode=p[2].toLowerCase(Locale.ROOT);}
-            case "delay" -> {need(p,3);int delay=Integer.parseInt(p[2]);if(delay<1)throw new IllegalArgumentException("Delay must be positive milliseconds.");spamDelay=delay;}
-            case "msg" -> {need(p,3);NetworkModules.spamMessage=body.split("\\s+",3)[2];}
-            default -> NetworkModules.spamMessage=body.substring(body.indexOf(' ')+1);
+            case "mode" -> {need(p,3);if(!Set.of("normal","antispam").contains(p[2].toLowerCase(Locale.ROOT)))throw new IllegalArgumentException("Use normal or antispam.");spamMode=p[2].toLowerCase(Locale.ROOT);response="Spam mode changed to \u00a7e"+spamMode;}
+            case "delay" -> {need(p,3);int delay=Integer.parseInt(p[2]);if(delay<1)throw new IllegalArgumentException("Delay must be positive milliseconds.");spamDelay=delay;response="Spam delay changed to \u00a7e"+spamDelay;}
+            case "msg" -> {need(p,3);NetworkModules.spamMessage=body.split("\\s+",3)[2];response="Spam message changed to \u00a7e"+NetworkModules.spamMessage;}
+            default -> {NetworkModules.spamMessage=body.substring(body.indexOf(' ')+1);response="Spam message changed to \u00a7e"+NetworkModules.spamMessage;}
         }
-        module("Spammer").reset(Minecraft.getInstance());ClientConfig.save(ClientRuntime.MODULES);save();say("Spam configuration updated.");
+        module("Spammer").reset(Minecraft.getInstance());ClientConfig.save(ClientRuntime.MODULES);save();say(response);
     }
     private static void xray(String[] p) {
-        need(p,3);var id=ResourceLocation.tryParse(p[2]);if(id==null||!BuiltInRegistries.BLOCK.containsKey(id))throw new IllegalArgumentException("Unrecognized block.");
-        if(!p[1].equalsIgnoreCase("add")&&!p[1].equalsIgnoreCase("del"))throw new IllegalArgumentException();
-        XRayModule.edit(id.toString(),p[1].equalsIgnoreCase("add"));save();say("Xray list updated: "+id);
+        need(p,3);var id=ResourceLocation.tryParse(p[2]);
+        if(id==null||!BuiltInRegistries.BLOCK.containsKey(id)){say("\u00a7e"+p[2]+"\u00a7f is not a recognized block.");return;}
+        boolean add=p[1].equalsIgnoreCase("add");if(!add&&!p[1].equalsIgnoreCase("del"))throw new IllegalArgumentException();
+        XRayModule.edit(id.toString(),add);save();say((add?"Added ":"Removed ")+"\u00a7e"+p[2]+"\u00a7f "+(add?"to":"from")+" xray list.");
     }
     private static void waypoint(String[] p) {
         need(p,2);if(p[1].equalsIgnoreCase("clear")){waypoints.clear();save();say("Cleared waypoints.");return;}need(p,3);
@@ -145,7 +146,7 @@ final class LegacyCommands {
         for(var slot:List.of(EquipmentSlot.HEAD,EquipmentSlot.CHEST,EquipmentSlot.LEGS,EquipmentSlot.FEET,EquipmentSlot.MAINHAND)) {
             var item=p.getItemBySlot(slot);var enchants=item.getOrDefault(DataComponents.ENCHANTMENTS,ItemEnchantments.EMPTY);
             if(enchants.isEmpty())continue;var entries=new ArrayList<String>();entries.add(item.getHoverName().getString());
-            for(var entry:enchants.entrySet())entries.add(Enchantment.getFullname(entry.getKey(),entry.getIntValue()).getString());say(entries.toString());
+            for(var entry:enchants.entrySet())entries.add(Enchantment.getFullname(entry.getKey(),entry.getIntValue()).getString());say("\u00a7f"+entries);
         }
     }
     static void recordDeath(Minecraft mc) {if(mc.player==null)return;boolean dead=mc.player.isDeadOrDying();if(dead&&!wasDead){deathX=mc.player.getX();deathY=mc.player.getY();deathZ=mc.player.getZ();}wasDead=dead;}
