@@ -24,10 +24,8 @@ public abstract class EditBoxMixin {
         if(!XdolfFont.renderingChat())return;
 
         EditBox box=(EditBox)(Object)this;
-        int fontHeight=XdolfFont.lineHeight();
         int vanillaTextY=box.isBordered()?box.getY()+(box.getHeight()-8)/2:box.getY();
-        int centeredTextY=box.getY()+Math.floorDiv(box.getHeight()-fontHeight,2);
-        ChatTextContext.push(centeredTextY-vanillaTextY);
+        ChatTextContext.push(XdolfFont.centeredYOffset(box.getY(),box.getHeight(),vanillaTextY));
         xdolf$pushedChatOffset=true;
     }
 
