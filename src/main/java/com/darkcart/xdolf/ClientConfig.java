@@ -21,14 +21,12 @@ final class ClientConfig {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(FILE)) {
             properties.load(reader);
-            guiKey = LegacyKeys.read(properties.getProperty("GUI.key"), guiKey);
+            guiKey = KeyNames.read(properties.getProperty("GUI.key"), guiKey);
             NetworkModules.spamMessage = properties.getProperty("Spammer.message", "");
             if (NetworkModules.spamMessage.length() > 256) NetworkModules.spamMessage = "";
             for (ClientModule module : modules) {
                 module.restoreEnabled(!module.name.equals("Spammer") && !module.name.equals("Freecam")
                     && Boolean.parseBoolean(properties.getProperty(module.name + ".enabled", "false")));
-                // Keep the module's compiled-in original key when an older config does not yet
-                // contain an entry for it (important for newly restored modules such as Waypoints).
                 int defaultKey = module.key;
                 String raw = properties.getProperty(module.name + ".key", Integer.toString(defaultKey));
                 try {
@@ -41,7 +39,7 @@ final class ClientConfig {
                     String value = properties.getProperty(module.name + "." + setting.name);
                     if (value != null) {
                         try { setting.set(Double.parseDouble(value)); }
-                        catch (IllegalArgumentException ignored) { /* Keep the validated default. */ }
+                        catch (IllegalArgumentException ignored) { }
                     }
                 }
             }
@@ -65,7 +63,7 @@ final class ClientConfig {
         try {
             Files.createDirectories(FILE.getParent());
             try (Writer writer = Files.newBufferedWriter(temporary)) {
-                properties.store(writer, "Xdolf settings, key bindings and original persistent module states.");
+                properties.store(writer, "Xdolf settings, key bindings and persistent module states.");
             }
             try {
                 Files.move(temporary, FILE, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
