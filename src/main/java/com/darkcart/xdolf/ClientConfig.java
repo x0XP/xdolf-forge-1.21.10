@@ -27,12 +27,15 @@ final class ClientConfig {
             for (ClientModule module : modules) {
                 module.restoreEnabled(!module.name.equals("Spammer") && !module.name.equals("Freecam")
                     && Boolean.parseBoolean(properties.getProperty(module.name + ".enabled", "false")));
-                String raw = properties.getProperty(module.name + ".key", "-1");
+                // Keep the module's compiled-in original key when an older config does not yet
+                // contain an entry for it (important for newly restored modules such as Waypoints).
+                int defaultKey = module.key;
+                String raw = properties.getProperty(module.name + ".key", Integer.toString(defaultKey));
                 try {
                     int key = Integer.parseInt(raw);
                     module.key = key >= 32 && key <= 348 ? key : -1;
                 } catch (NumberFormatException ignored) {
-                    module.key = -1;
+                    module.key = defaultKey;
                 }
                 for (var setting : module.settings) {
                     String value = properties.getProperty(module.name + "." + setting.name);
