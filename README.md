@@ -33,11 +33,9 @@ Xdolf uses the original `.` command prefix. Examples:
 
 See [COMMANDS.md](COMMANDS.md) for the full command reference.
 
-## Current port
+## Current build
 
-The active client includes the original-style click GUI and restored gameplay/render modules, including Freecam, Tracers, Nametags, XRay, Waypoints, LogoutSpot and AutoTotem. Modern-only compatibility code is kept internal rather than exposed as separate user-facing features.
-
-See [PORTING.md](PORTING.md) for port status and behavioural differences.
+The active client includes the original-style click GUI and restored gameplay/render modules, including Freecam, Tracers, Nametags, XRay, Waypoints, LogoutSpot and AutoTotem. Modern compatibility code is kept internal rather than exposed as separate user-facing features.
 
 ## Build
 
@@ -66,7 +64,6 @@ Built JARs are written to `build/libs`. GitHub Actions also compiles the project
 - `gradle/`, `gradlew`, `gradlew.bat` — Gradle wrapper required for reproducible builds
 - `build.gradle`, `gradle.properties`, `settings.gradle` — build configuration
 - `COMMANDS.md` — command reference
-- `PORTING.md` — port status and compatibility notes
 - `LICENSE` — project license
 
 ## License and attribution
