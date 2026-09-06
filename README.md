@@ -11,7 +11,7 @@ This repository contains the standalone Forge mod, with original attribution and
 ## Install
 
 Install Forge 60.1.0 for Minecraft 1.21.10, launch its profile once, and place
-`xdolf-4.0.0-dev.8.jar` in that profile's `mods` folder. Launch with Java 21.
+`xdolf-4.0.0-dev.9.jar` in that profile's `mods` folder. Launch with Java 21.
 This is a client-only mod. It does not need installation on a server.
 
 Press **grave/backtick** (the original key) or **Right Shift** in a world to open
@@ -20,16 +20,19 @@ on the HUD; the right square expands/collapses it. Left-click module names to to
 right-click names marked **+** for the original options window. Adjust numeric
 settings in **Values**. Use `.bind` for key bindings and `.set` for additional
 Forge-port settings. Windows start collapsed at their original positions down the
-left edge. Their positions, open states and pins save in `config/xdolf-gui.properties`. All modules start disabled and turn off when changing worlds.
+left edge. Their positions, open states and pins save in `config/xdolf-gui.properties`. Enabled modules remain selected across disconnects, server restarts, world changes and respawns. Their states also save across client launches, except Spammer and Freecam, matching the original source.
 Settings, key bindings, and friends persist in the `config` folder.
 
 Local chat commands:
 
 - `.help`, `.gui`, `.mods`, `.alloff`
-- `.toggle Sprint`, `.bind Sprint R`, `.bind Sprint NONE`
+- `.toggle AutoSprint`, `.bind add AutoSprint R`, `.bind del R`
+- `.bind add GUI GRAVE` rebinds the GUI; old port `.bind <mod> <key/NONE>` syntax also works.
+- `.macro add F8 .toggle Fullbright`, `.macro del F8`; multiple macros may share a key.
 - `.set Flight` lists settings; `.set Flight Speed 1` changes a setting.
 - `.friend` shows friend commands; friends are excluded from KillAura.
-- `.spam` configures Spammer's message; the module must also be enabled.
+- `.spam mode normal/antispam`, `.spam msg <message>`, `.spam delay <milliseconds>`; enable Spammer separately.
+- See [COMMANDS.md](COMMANDS.md) for all restored commands and compatibility notes.
 
 Opening screens suspends action modules. Visual modules remain active; AutoRespawn
 can act on the death screen. Freecam suspends other action modules. Flight,

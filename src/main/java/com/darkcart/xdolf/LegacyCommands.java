@@ -67,7 +67,7 @@ final class LegacyCommands {
                 case "praiseore" -> send(OriginalQuotes.VALUES[new Random().nextInt(OriginalQuotes.VALUES.length)]);
                 case "deathcoords" -> say("You died at X: "+deathX+", Y: "+deathY+", Z: "+deathZ);
                 case "info" -> {need(p,2);info(target(p[1]));}
-                case "music" -> {mc.getMusicManager().startPlaying(Musics.GAME);say("Music started.");}
+                case "music" -> {mc.getMusicManager().startPlaying(new net.minecraft.client.sounds.MusicInfo(Musics.GAME));say("Music started.");}
                 case "hide" -> {need(p,2);switch(p[1].toLowerCase(Locale.ROOT)) {
                     case "logo" -> showLogo=!showLogo;
                     case "mods" -> LegacyHud.showModules=!LegacyHud.showModules;

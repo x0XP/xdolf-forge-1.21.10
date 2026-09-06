@@ -35,7 +35,7 @@ This table describes implemented behavior, not exhaustive runtime certification.
 ## State and differences
 
 Settings and bindings persist in `config/xdolf.properties`; friends in
-`config/xdolf-friends.txt`. Enabled states intentionally do not persist.
+`config/xdolf-friends.txt`. Enabled states persist across connections and client launches, with the original Spammer/Freecam launch exceptions.
 
 The click GUI now follows `clickgui/XdolfGuiClick`, `elements` and `windows`:
 100-unit windows, half-unit borders, translucent black panels/background, red
@@ -46,10 +46,8 @@ The original layout starts collapsed. Numeric controls restore the original labe
 Crystal Speed uses attacks per second, Mine Speed sets minimum mining progress,
 and fishing delays use seconds. Existing saved values remain where valid.
 
-Macros, waypoint system, protocol switching, and bundled OptiFine/shader client
-are not reproduced. Waypoints and AutoTotem were
-commented out in the old registry and are not implemented here. The complete old
-command set is not carried over; `.help` describes the supported local commands.
+Original commands, macros and waypoint storage are restored in dev.9. Protocol switching and bundled OptiFine/shader client are not reproduced. Waypoints and AutoTotem were
+commented out in the old registry and are not implemented here. The original registered command names are available; see COMMANDS.md for explicit compatibility differences.
 
 The visual rewrite uses world-space rendering through Forge frame passes.
 Trajectories preserve the original block-ray prediction; they do not predict all entity collisions. Server authority can
