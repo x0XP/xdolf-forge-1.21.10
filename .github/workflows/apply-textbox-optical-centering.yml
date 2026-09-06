@@ -24,14 +24,13 @@ jobs:
           from pathlib import Path
           p = Path('src/main/java/com/x0xp/xdolf/ClientScreen.java')
           text = p.read_text()
-          old = '''        int valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
-              Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop));'''
-          new = '''        float valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
-              Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop)) + 1.5f;'''
-          count = text.count(old)
-          if count != 2:
-              raise SystemExit(f'Expected 2 textbox valueY blocks, found {count}')
-          p.write_text(text.replace(old, new))
+          first = '        int valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset('
+          second = '            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop));'
+          if text.count(first) != 2 or text.count(second) < 2:
+              raise SystemExit(f'Unexpected textbox valueY layout: first={text.count(first)}, second={text.count(second)}')
+          text = text.replace(first, '        float valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(', 2)
+          text = text.replace(second, '            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop)) + 1.5f;', 2)
+          p.write_text(text)
           PY
 
       - name: Commit final source and remove temporary workflow
