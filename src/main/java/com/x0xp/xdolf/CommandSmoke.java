@@ -28,9 +28,9 @@ final class CommandSmoke {
         Commands.execute(".macro add F8 .toggle NoHurtcam");
         ClientRuntime.handleKey(GLFW.GLFW_KEY_F8,GLFW.GLFW_PRESS);
         check(ClientRuntime.find("Fullbright").enabled()&&ClientRuntime.find("NoHurtCam").enabled(),"Shared-key macros failed");
-        Commands.execute(".timer 2");check(ClientRuntime.find("Timer").setting("speed").get()==2,"Timer command failed");
+        Commands.execute(".timer 2");check(ClientRuntime.find("Timer").numberSetting("speed").get()==2,"Timer command failed");
         Commands.execute(".spam mode antispam");Commands.execute(".spam delay 1800");Commands.execute(".spam msg Mixed Case: test");
-        check(NetworkModules.spamMessage.equals("Mixed Case: test"),"Message content changed");
+        check(NetworkModules.spammer().message.get().equals("Mixed Case: test"),"Message content changed");
         Commands.execute(".xray add stone");check(XRayModule.visible(Blocks.STONE.defaultBlockState()),"Xray add failed");
         Commands.execute(".xray del stone");check(!XRayModule.visible(Blocks.STONE.defaultBlockState()),"Xray del failed");
         Commands.execute(".waypoint add TestHome");check(Commands.waypoints.size()==1,"Waypoint add failed");

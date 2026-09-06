@@ -10,10 +10,14 @@ final class AutoFishModule extends ClientModule {
     private record Splash(Vec3 position, long time) {}
     private volatile Splash splash;
     private int delay = 20;
-    private final ModuleSetting autoCast = setting("autocast", 0, 0, 1, 1);
-    private final ModuleSetting recastDelay = setting("recast", 40, 10, 120, 1);
-    private final ModuleSetting castDelay = setting("castdelay", 5, 1, 60, 1);
-    private final ModuleSetting recaster = setting("recaster", 1, 0, 1, 1);
+    private final BooleanSetting autoCast = booleanSetting("autocast", "Auto Cast",
+        "Cast automatically when a fishing rod is selected.", false);
+    private final NumberSetting recastDelay = numberSetting("recast", "Recast Delay",
+        "Ticks to wait before casting again.", 40, 10, 120, 1);
+    private final NumberSetting castDelay = numberSetting("castdelay", "Auto Cast Delay",
+        "Ticks to wait before the first automatic cast.", 5, 1, 60, 1);
+    private final BooleanSetting recaster = booleanSetting("recaster", "Recaster",
+        "Recast after a catch or a lost hook.", true);
     private long lastUse;
     private boolean castAfterCatch;
 

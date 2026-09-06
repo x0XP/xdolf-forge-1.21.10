@@ -12,12 +12,12 @@ import java.util.List;
 final class CombatModules {
     static void addTo(List<ClientModule> modules) {
         modules.add(new ClientModule("KillAura", "Attack the nearest visible selected target at full cooldown.", "Combat") {
-            final ModuleSetting range = setting("range", 3.75, 3, 10, 0.25);
-            final ModuleSetting players = setting("players", 1, 0, 1, 1);
-            final ModuleSetting monsters = setting("monsters", 1, 0, 1, 1);
-            final ModuleSetting mobs = setting("mobs", 1, 0, 1, 1);
-            final ModuleSetting walls = setting("walls", 1, 0, 1, 1);
-            final ModuleSetting seen = setting("seen", 0, 0, 1, 1);
+            final NumberSetting range = setting("range", 3.75, 3, 10, 0.25);
+            final BooleanSetting players = toggle("players", true);
+            final BooleanSetting monsters = toggle("monsters", true);
+            final BooleanSetting mobs = toggle("mobs", true);
+            final BooleanSetting walls = booleanSetting("walls", "Hit Through Walls", "", true);
+            final BooleanSetting seen = booleanSetting("seen", "Can Be Seen", "", false);
             public void tick(Minecraft mc) {
                 if (mc.gameMode == null || mc.player.isUsingItem() || mc.player.getAttackStrengthScale(0) < 1) return;
                 var target = mc.level.getEntitiesOfClass(LivingEntity.class, mc.player.getBoundingBox().inflate(range.get()), entity ->
@@ -35,8 +35,8 @@ final class CombatModules {
             }
         });
         modules.add(new ClientModule("CrystalAura", "Break the nearest visible end crystal in range.", "Combat") {
-            final ModuleSetting range = setting("range", 3.75, 3, 10, 0.25);
-            final ModuleSetting rate = setting("speed", 8, 1, 20, 1);
+            final NumberSetting range = setting("range", 3.75, 3, 10, 0.25);
+            final NumberSetting rate = setting("speed", 8, 1, 20, 1);
             long lastAttack;
             public void tick(Minecraft mc) {
                 long now = System.nanoTime();

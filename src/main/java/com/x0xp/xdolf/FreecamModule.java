@@ -7,7 +7,7 @@ import net.minecraft.world.phys.Vec3;
 final class FreecamModule extends ClientModule {
     private static Vec3 position;
     private static long lastFrameNanos;
-    final ModuleSetting speed = setting("speed", 0.5, 0.05, 3, 0.05);
+    final NumberSetting speed = setting("speed", 0.5, 0.05, 3, 0.05);
 
     FreecamModule() { super("Freecam", "Move the camera independently; your player remains in the world.", "World"); }
 

@@ -19,11 +19,10 @@ final class ClientConfig {
     static void load(List<ClientModule> modules) {
         if (!Files.isRegularFile(FILE)) return;
         Properties properties = new Properties();
+        Properties legacyCommands = legacyCommands();
         try (Reader reader = Files.newBufferedReader(FILE)) {
             properties.load(reader);
             guiKey = KeyNames.read(properties.getProperty("GUI.key"), guiKey);
-            NetworkModules.spamMessage = properties.getProperty("Spammer.message", "");
-            if (NetworkModules.spamMessage.length() > 256) NetworkModules.spamMessage = "";
             for (ClientModule module : modules) {
                 module.restoreEnabled(!module.name.equals("Spammer") && !module.name.equals("Freecam")
                     && Boolean.parseBoolean(properties.getProperty(module.name + ".enabled", "false")));
@@ -37,8 +36,12 @@ final class ClientConfig {
                 }
                 for (var setting : module.settings) {
                     String value = properties.getProperty(module.name + "." + setting.name);
+                    if (value == null && module.name.equals("Spammer") && setting.name.equals("mode"))
+                        value = legacyCommands.getProperty("spam.mode");
+                    if (value == null && module.name.equals("Spammer") && setting.name.equals("delay"))
+                        value = legacyCommands.getProperty("spam.delay");
                     if (value != null) {
-                        try { setting.set(Double.parseDouble(value)); }
+                        try { setting.parse(value); }
                         catch (IllegalArgumentException ignored) { }
                     }
                 }
@@ -50,14 +53,14 @@ final class ClientConfig {
 
     static void save(List<ClientModule> modules) {
         Properties properties = new Properties();
+        properties.setProperty("config.version", "2");
         properties.setProperty("GUI.key", Integer.toString(guiKey));
-        properties.setProperty("Spammer.message", NetworkModules.spamMessage);
         for (ClientModule module : modules) {
             if (!module.name.equals("Spammer") && !module.name.equals("Freecam"))
                 properties.setProperty(module.name + ".enabled", Boolean.toString(module.enabled()));
             properties.setProperty(module.name + ".key", Integer.toString(module.key));
             for (var setting : module.settings)
-                properties.setProperty(module.name + "." + setting.name, Double.toString(setting.get()));
+                properties.setProperty(module.name + "." + setting.name, setting.serialize());
         }
         Path temporary = FILE.resolveSibling(FILE.getFileName() + ".tmp");
         try {
@@ -74,5 +77,15 @@ final class ClientConfig {
             LogUtils.getLogger().warn("Could not save Xdolf configuration", error);
             ClientRuntime.message("Could not save key bindings; check the log.");
         }
+    }
+
+    private static Properties legacyCommands() {
+        var properties = new Properties();
+        Path legacy = FMLPaths.CONFIGDIR.get().resolve("xdolf-commands.properties");
+        if (!Files.isRegularFile(legacy)) return properties;
+        try (Reader reader = Files.newBufferedReader(legacy)) {
+            properties.load(reader);
+        } catch (IOException ignored) { }
+        return properties;
     }
 }

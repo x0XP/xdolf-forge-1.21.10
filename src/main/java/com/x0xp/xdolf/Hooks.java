@@ -25,13 +25,32 @@ public final class Hooks {
      * Tick-driven gameplay modules independently avoid advancing during a true paused game.
      */
     public static boolean active(String name) {
-        return enabled(name) && (name.equals("Freecam") || !enabled("Freecam"));
+        var module = ClientRuntime.find(name);
+        return module != null && ModuleManager.active(module, Minecraft.getInstance());
     }
 
     public static double setting(String module, String name, double fallback) {
         var value = ClientRuntime.find(module);
-        if (value == null || value.setting(name) == null) return fallback;
-        return value.setting(name).get();
+        if (value == null) return fallback;
+        var setting = value.setting(name);
+        if (setting instanceof NumberSetting number) return number.get();
+        if (setting instanceof BooleanSetting toggle) return toggle.on() ? 1 : 0;
+        return fallback;
+    }
+
+    public static void announcerBlockBroken(String name) {
+        var module = ClientRuntime.find("Announcer");
+        if (active("Announcer") && module instanceof AnnouncerModule announcer) announcer.blockBroken(name);
+    }
+
+    public static void announcerFoodEaten(String name) {
+        var module = ClientRuntime.find("Announcer");
+        if (active("Announcer") && module instanceof AnnouncerModule announcer) announcer.foodEaten(name);
+    }
+
+    public static void announcerEntityAttacked() {
+        var module = ClientRuntime.find("Announcer");
+        if (active("Announcer") && module instanceof AnnouncerModule announcer) announcer.entityAttacked();
     }
 
     public static boolean espTarget(Entity entity) {

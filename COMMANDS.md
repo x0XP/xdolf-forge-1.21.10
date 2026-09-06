@@ -1,4 +1,4 @@
-# Original commands and keybinds — dev.9
+# Commands, settings and keybinds — dev.15
 
 Original source: [Xdolf commands](https://github.com/x0XP/xdolf/tree/main/minecraft/com/x0xp/xdolf/commands).
 Commands begin with a dot and are handled locally. Unknown dot commands are also consumed locally.
@@ -35,6 +35,12 @@ Press period in the world to open chat with a dot already entered.
 
 The same spam message, mode and delay are available in the click GUI by
 right-clicking Spammer. Command and GUI changes update the same saved values.
+The generic `.set <module> <setting> <value>` command now accepts every typed
+setting: numbers, ON/OFF booleans, text and named choices.
+
+Announcer is configured by right-clicking the module. Its default 1800 ms delay,
+minimum walking distance, and separate walking, block-breaking, eating, jumping
+and attacking switches all use the same persisted settings as `.set`.
 
 Key names translate from LWJGL 2 names to GLFW: letters, digits, function keys,
 LSHIFT/RSHIFT, LCONTROL/RCONTROL, LMENU/RMENU, GRAVE, RETURN, navigation keys,
@@ -55,8 +61,10 @@ Spammer and Freecam remain enabled through a reconnect in the same client sessio
 but start off after a client relaunch, matching original FileManager.saveHacks.
 Modules that deliberately disable themselves (for example AutoLog) still do so.
 
-Macro text, waypoint dimensions/coordinates, spam options and XRay edits persist
-in `config/xdolf-commands.properties`; friend names retain their existing file.
+Typed module options, including Spammer and Announcer, persist in
+`config/xdolf.properties`. Macro text, waypoint dimensions/coordinates and XRay
+edits persist in `config/xdolf-commands.properties`; friend names retain their existing file.
+Existing Spammer mode/delay values are migrated from the older command file.
 Old port settings/keybinds are retained. The old 1.12.2 `Xdolf/*.txt` files are not
 automatically imported. Waypoint rendering was commented out in the original
 registry; this restores the registered storage commands, not an unregistered module.

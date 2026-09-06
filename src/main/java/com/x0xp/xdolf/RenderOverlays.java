@@ -7,7 +7,7 @@ import java.util.List;
 final class RenderOverlays {
     static void addTo(List<ClientModule> modules) {
         modules.add(new ClientModule("Tracers","Original distance-coloured player and chest tracers.","Render") {
-            {setting("players",1,0,1,1);setting("chests",0,0,1,1);}
+            {toggle("players",true);toggle("chests",false);}
             public void tick(Minecraft mc) {}
         });
         modules.add(new ClientModule("Nametags","Original player names and health percentages.","Render") {public void tick(Minecraft mc) {}});

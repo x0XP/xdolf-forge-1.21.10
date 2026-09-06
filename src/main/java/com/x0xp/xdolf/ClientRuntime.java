@@ -25,6 +25,7 @@ final class ClientRuntime {
         WorldVisuals.register();
         MarkerVisuals.register();
         ClientConfig.load(MODULES);
+        ModuleManager.reconcileRestoredSelections();
         SocialState.load();
         Commands.load();
         TickEvent.ClientTickEvent.Post.BUS.addListener(ClientRuntime::tick);
@@ -62,15 +63,13 @@ final class ClientRuntime {
             if (!module.enabled()) continue;
 
             boolean respawnScreen = module.name.equals("AutoRespawn") && mc.screen instanceof DeathScreen;
-            boolean visual = module.category.equals("Render") || module.name.equals("Fullbright") || module.name.equals("XRay");
-            boolean freecamSuspended = Hooks.enabled("Freecam") && !visual && !module.name.equals("Freecam");
-
-            if (freecamSuspended) {
+            var status = ModuleManager.status(module, mc);
+            if (status.activity() == ModuleManager.Activity.SUSPENDED
+                || status.activity() == ModuleManager.Activity.MISSING_DEPENDENCY) {
                 module.reset(mc);
                 continue;
             }
-
-            if (!visual && mc.isPaused() && !respawnScreen) continue;
+            if (status.activity() == ModuleManager.Activity.PAUSED && !respawnScreen) continue;
 
             try {
                 module.tick(mc);
@@ -112,17 +111,22 @@ final class ClientRuntime {
         ClientModule module = parts.length >= 2 ? find(parts[1]) : null;
         if (module == null) { message(".set <module> <setting> <value>"); return; }
         if (parts.length == 2) {
-            module.settings.forEach(s -> message(s.name + " = " + s.display() + " (" + s.min + " to " + s.max + ")"));
+            module.settings.forEach(setting -> {
+                String limits = setting instanceof NumberSetting number
+                    ? " (" + number.min + " to " + number.max + ")"
+                    : setting instanceof ChoiceSetting choice ? " (" + String.join("/", choice.choices) + ")" : "";
+                message(setting.name + " = " + setting.display() + limits);
+            });
             return;
         }
-        var setting = parts.length == 4 ? module.setting(parts[2]) : null;
+        var setting = parts.length >= 4 ? module.setting(parts[2]) : null;
         if (setting == null) { message("Use .set " + module.name + " to list settings."); return; }
         try {
-            setting.set(Double.parseDouble(parts[3]));
+            setting.parse(String.join(" ", java.util.Arrays.copyOfRange(parts, 3, parts.length)));
             ClientConfig.save(MODULES);
             message(module.name + " " + setting.name + " = " + setting.display());
         } catch (IllegalArgumentException error) {
-            message("Enter a number between " + setting.min + " and " + setting.max + ".");
+            message(error.getMessage() == null ? "Invalid setting value." : error.getMessage());
         }
     }
 
@@ -132,11 +136,7 @@ final class ClientRuntime {
     }
 
     static void toggle(ClientModule module) {
-        if (!module.enabled() && List.of("Flight", "ElytraFly", "ElytraPlus").contains(module.name)) {
-            for (var other : MODULES)
-                if (other != module && List.of("Flight", "ElytraFly", "ElytraPlus").contains(other.name)) other.setEnabled(false);
-        }
-        module.setEnabled(!module.enabled());
+        ModuleManager.toggle(module);
         NotificationCards.module(module, module.enabled());
     }
 

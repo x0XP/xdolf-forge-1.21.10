@@ -25,8 +25,6 @@ final class Commands {
     static double deathX,deathY,deathZ;
     private static boolean wasDead;
     private static int macroDepth;
-    static String spamMode="normal";
-    static int spamDelay=1800;
     private static final Map<String,String> SYNTAX=new LinkedHashMap<>();
 
     static {
@@ -67,7 +65,7 @@ final class Commands {
                 }
                 case "timer" -> {
                     need(p,2);
-                    module("Timer").setting("speed").set(number(p[1]));
+                    module("Timer").numberSetting("speed").set(number(p[1]));
                     ClientConfig.save(ClientRuntime.MODULES);
                     say("Timer updated.");
                 }
@@ -196,25 +194,25 @@ final class Commands {
 
     private static void spam(String body,String[] p) {
         need(p,2);
+        SpammerModule spammer=NetworkModules.spammer();
         String response;
         switch(p[1].toLowerCase(Locale.ROOT)) {
             case "mode" -> {
                 need(p,3);
                 if(!Set.of("normal","antispam").contains(p[2].toLowerCase(Locale.ROOT)))throw new IllegalArgumentException("Use normal or antispam.");
-                spamMode=p[2].toLowerCase(Locale.ROOT);
-                response="Spam mode changed to \u00a7e"+spamMode;
+                spammer.mode.set(p[2].toLowerCase(Locale.ROOT));
+                response="Spam mode changed to \u00a7e"+spammer.mode.get();
             }
             case "delay" -> {
                 need(p,3);int delay=Integer.parseInt(p[2]);
                 if(delay<1)throw new IllegalArgumentException("Delay must be positive milliseconds.");
-                spamDelay=delay;response="Spam delay changed to \u00a7e"+spamDelay;
+                spammer.delay.set(delay);response="Spam delay changed to \u00a7e"+spammer.delay.display();
             }
-            case "msg" -> {need(p,3);NetworkModules.spamMessage=body.split("\\s+",3)[2];response="Spam message changed to \u00a7e"+NetworkModules.spamMessage;}
-            default -> {NetworkModules.spamMessage=body.substring(body.indexOf(' ')+1);response="Spam message changed to \u00a7e"+NetworkModules.spamMessage;}
+            case "msg" -> {need(p,3);spammer.message.set(body.split("\\s+",3)[2]);response="Spam message changed to \u00a7e"+spammer.message.get();}
+            default -> {spammer.message.set(body.substring(body.indexOf(' ')+1));response="Spam message changed to \u00a7e"+spammer.message.get();}
         }
-        module("Spammer").reset(Minecraft.getInstance());
+        spammer.reset(Minecraft.getInstance());
         ClientConfig.save(ClientRuntime.MODULES);
-        save();
         say(response);
     }
 
@@ -279,8 +277,6 @@ final class Commands {
         try(var r=Files.newBufferedReader(path)){p.load(r);}
         catch(Exception e){LogUtils.getLogger().warn("Could not load Xdolf commands",e);return;}
         macros.clear();waypoints.clear();
-        spamMode=p.getProperty("spam.mode","normal");
-        try{spamDelay=Math.max(1,Integer.parseInt(p.getProperty("spam.delay","1800")));}catch(NumberFormatException ignored){}
         for(int i=0;i<10000;i++) {
             String command=p.getProperty("macro."+i+".command");if(command==null)break;
             int key=KeyNames.read(p.getProperty("macro."+i+".key"),-1);
@@ -298,8 +294,6 @@ final class Commands {
 
     static void save() {
         var p=new Properties();
-        p.setProperty("spam.mode",spamMode);
-        p.setProperty("spam.delay",Integer.toString(spamDelay));
         for(int i=0;i<macros.size();i++) {
             var m=macros.get(i);
             p.setProperty("macro."+i+".key",Integer.toString(m.key));

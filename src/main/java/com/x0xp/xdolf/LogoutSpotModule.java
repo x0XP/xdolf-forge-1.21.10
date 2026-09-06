@@ -26,7 +26,7 @@ final class LogoutSpotModule extends ClientModule {
 
     LogoutSpotModule() {
         super("LogoutSpot", "Render logout positions, retained player models and optional tracers.", "Render");
-        setting("tracers", 1, 0, 1, 1);
+        toggle("tracers", true);
     }
 
     static java.util.Collection<Spot> spots() {

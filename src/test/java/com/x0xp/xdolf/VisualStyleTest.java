@@ -29,6 +29,18 @@ public final class VisualStyleTest {
         equal(1.5,VisualStyle.TRACER_WIDTH);
         equal(1.8,VisualStyle.TRAJECTORY_WIDTH);
         equal(0x80000000,VisualStyle.BOX_EDGE);
+        var number=new NumberSetting("delay","Delay","",1800,250,120000,100);
+        number.parse("2400");
+        equal("2400",number.display());
+        var toggle=new BooleanSetting("walking","Walking","",true);
+        toggle.parse("0.0");
+        equal(false,toggle.on());
+        var choice=new ChoiceSetting("mode","Mode","","normal","normal","antispam");
+        choice.parse("ANTISPAM");
+        equal("antispam",choice.get());
+        var text=new TextSetting("message","Message","","hello",16);
+        text.parse("typed settings");
+        equal("typed settings",text.get());
         System.out.println("Xdolf visual style golden cases passed");
     }
 }

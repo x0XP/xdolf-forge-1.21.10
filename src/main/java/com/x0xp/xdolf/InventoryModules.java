@@ -82,7 +82,7 @@ final class InventoryModules {
             public void reset(Minecraft mc) { delay = 0; }
         });
         modules.add(new ClientModule("AutoEat", "Eat ordinary food; preserve golden apples and avoid harmful food.", "Player") {
-            final ModuleSetting hunger = setting("hunger", 7, 0, 19, 1);
+            final NumberSetting hunger = setting("hunger", 7, 0, 19, 1);
             int original = -1, selected = -1;
             LocalPlayer owner;
             boolean holdingUse;

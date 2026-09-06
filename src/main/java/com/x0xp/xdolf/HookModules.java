@@ -12,7 +12,7 @@ final class HookModules {
         modules.add(hook("Fullbright", "Client-side night vision without changing real potion effects.", "World"));
         modules.add(hook("NoHurtCam", "Disable the camera shake caused by damage.", "Render"));
         modules.add(new ClientModule("EntityESP", "Show selected entities with outlines or boxes.", "Render") {
-            { setting("players",1,0,1,1); setting("monsters",1,0,1,1); setting("passive",1,0,1,1); setting("items",1,0,1,1); setting("outline",1,0,1,1); }
+            { toggle("players",true); toggle("monsters",true); toggle("passive",true); toggle("items",true); toggle("outline",true); }
             public void tick(Minecraft mc) {}
         });
         modules.add(hook("Chams", "Render textured living-entity models through walls.", "Render"));

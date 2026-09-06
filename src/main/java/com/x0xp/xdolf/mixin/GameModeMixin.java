@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -22,6 +23,20 @@ public abstract class GameModeMixin {
     @Shadow private float destroyProgress;
     @Shadow private boolean isDestroying;
     @Shadow private BlockPos destroyBlockPos;
+    @Unique private String xdolf$destroyedBlockName;
+
+    @Inject(method = "destroyBlock", at = @At("HEAD"))
+    private void xdolf$captureDestroyedBlock(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+        var mc = Minecraft.getInstance();
+        xdolf$destroyedBlockName = mc.level == null ? "block"
+            : mc.level.getBlockState(pos).getBlock().getName().getString();
+    }
+
+    @Inject(method = "destroyBlock", at = @At("RETURN"))
+    private void xdolf$announceDestroyedBlock(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+        if (cir.getReturnValue()) Hooks.announcerBlockBroken(xdolf$destroyedBlockName);
+        xdolf$destroyedBlockName = null;
+    }
     @Inject(method = "continueDestroyBlock", at = @At("HEAD"))
     private void xdolf$speedmine(BlockPos pos, Direction direction, CallbackInfoReturnable<Boolean> cir) {
         if (!Hooks.active("Speedmine")) return;
@@ -35,6 +50,7 @@ public abstract class GameModeMixin {
     }
     @Inject(method = "attack", at = @At("HEAD"))
     private void xdolf$critical(Player player, Entity target, CallbackInfo ci) {
+        Hooks.announcerEntityAttacked();
         if (!Hooks.active("Criticals") || Hooks.active("NoFall") || !(target instanceof LivingEntity)
             || !player.onGround() || player.isInWater() || player.isInLava() || player.isPassenger()) return;
         var connection = Minecraft.getInstance().player.connection;

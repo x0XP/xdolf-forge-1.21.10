@@ -4,10 +4,12 @@ import net.minecraft.client.Minecraft;
 import java.util.List;
 
 final class NetworkModules {
-    static String spamMessage = "test";
-
     private static ClientModule hook(String name, String description, String category) {
         return new ClientModule(name, description, category) { public void tick(Minecraft mc) {} };
+    }
+
+    static SpammerModule spammer() {
+        return (SpammerModule) ClientRuntime.find("Spammer");
     }
 
     static void addTo(List<ClientModule> modules) {
@@ -18,27 +20,8 @@ final class NetworkModules {
             { setting("speed", 1.2, 0.1, 5, 0.1); }
             public void tick(Minecraft mc) {}
         });
-        modules.add(new ClientModule("Spammer", "Repeat the message set with .spam while enabled.", "Player") {
-            long lastMessage;
-            public void tick(Minecraft mc) {
-                if (spamMessage.isBlank()) {
-                    setEnabled(false);
-                    ClientRuntime.message("Set a message first with .spam <message>.");
-                    return;
-                }
-                long now = System.nanoTime();
-                if (lastMessage == 0) lastMessage = now;
-                if (now - lastMessage >= Commands.spamDelay * 1_000_000L) {
-                    lastMessage = now;
-                    String suffix = Commands.spamMode.equals("antispam")
-                        ? " [" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16) + "]"
-                        : "";
-                    String message = spamMessage.substring(0, Math.min(spamMessage.length(), 256 - suffix.length())) + suffix;
-                    mc.player.connection.sendChat(message);
-                }
-            }
-            public void reset(Minecraft mc) { lastMessage = 0; }
-        });
+        modules.add(new SpammerModule());
+        modules.add(new AnnouncerModule());
         modules.add(new ClientModule("Jesus", "Walk on fluid surfaces; sneak to descend.", "Player") {
             public void tick(Minecraft mc) {
                 if ((mc.player.isInWater() || mc.player.isInLava()) && !mc.options.keyShift.isDown() && !mc.player.isPassenger()) {
