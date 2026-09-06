@@ -1,69 +1,77 @@
-# Xdolf — AI-assisted Forge 1.21.10 rebuild
+# Xdolf for Forge 1.21.10
 
-**Development build, not certified visually identical.** See [VISUAL_PARITY.md](VISUAL_PARITY.md) for restored visuals, validation and remaining reference gaps.
+AI-assisted rebuild of the original Xdolf Minecraft client for **Minecraft 1.21.10**, **Forge 60.1.0**, and **Java 21**.
 
-Development port of Xdolf to Minecraft **1.21.10**, Forge **60.1.0**, and **Java 21**.
-An AI-assisted rebuild of the original Xdolf Minecraft client by x0XP and contributors.
-Original 1.12.2 source: https://github.com/x0XP/xdolf
+This project ports the original Xdolf behaviour, GUI, commands and visuals to the modern Minecraft renderer and client APIs while keeping the project client-only.
 
-This repository contains the standalone Forge mod, with original attribution and GPL-3.0 licensing preserved. AI assistance does not imply full feature or visual parity.
+Original Xdolf source: https://github.com/x0XP/xdolf
+
+> Development build. Behaviour and visual parity are actively being tested and refined.
 
 ## Install
 
-Install Forge 60.1.0 for Minecraft 1.21.10, launch its profile once, and place
-`xdolf-4.0.0-dev.9.jar` in that profile's `mods` folder. Launch with Java 21.
-This is a client-only mod. It does not need installation on a server.
+1. Install Forge 60.1.0 for Minecraft 1.21.10 and launch it once.
+2. Put the latest `xdolf-4.0.0-dev.*.jar` into the profile's `mods` folder.
+3. Launch Minecraft with Java 21.
 
-Press **grave/backtick** (the original key) or **Right Shift** in a world to open
-the original click GUI. Drag a window by its title. The left header square pins it
-on the HUD; the right square expands/collapses it. Left-click module names to toggle;
-right-click names marked **+** for the original options window. Adjust numeric
-settings in **Values**. Use `.bind` for key bindings and `.set` for additional
-Forge-port settings. Windows start collapsed at their original positions down the
-left edge. Their positions, open states and pins save in `config/xdolf-gui.properties`. Enabled modules remain selected across disconnects, server restarts, world changes and respawns. Their states also save across client launches, except Spammer and Freecam, matching the original source.
-Settings, key bindings, and friends persist in the `config` folder.
+Xdolf is client-only and does not need to be installed on the server.
 
-Local chat commands:
+The click GUI uses the original grave/backtick default key. Module states, keybinds and settings are stored under Minecraft's `config` folder. Normal inventory/chat/settings screens do **not** disable enabled modules.
 
-- `.help`, `.gui`, `.mods`, `.alloff`
-- `.toggle AutoSprint`, `.bind add AutoSprint R`, `.bind del R`
-- `.bind add GUI GRAVE` rebinds the GUI; old port `.bind <mod> <key/NONE>` syntax also works.
-- `.macro add F8 .toggle Fullbright`, `.macro del F8`; multiple macros may share a key.
-- `.set Flight` lists settings; `.set Flight Speed 1` changes a setting.
-- `.friend` shows friend commands; friends are excluded from KillAura.
-- `.spam mode normal/antispam`, `.spam msg <message>`, `.spam delay <milliseconds>`; enable Spammer separately.
-- See [COMMANDS.md](COMMANDS.md) for all restored commands and compatibility notes.
+## Commands
 
-Opening screens suspends action modules. Visual modules remain active; AutoRespawn
-can act on the death screen. Freecam suspends other action modules. Flight,
-ElytraFly and ElytraPlus are mutually exclusive. Vanilla key bindings can still
-share keys with module bindings.
+Xdolf uses the original `.` command prefix. Examples:
+
+- `.help`
+- `.toggle Fullbright`
+- `.bind add AutoSprint R`
+- `.macro add F8 .toggle Fullbright`
+- `.set Flight Speed 1`
+- `.friend add <name>`
+- `.waypoint add <name>`
+- `.xray add minecraft:diamond_ore`
+
+See [COMMANDS.md](COMMANDS.md) for the full command reference.
+
+## Current port
+
+The active client includes the original-style click GUI and restored gameplay/render modules, including Freecam, Tracers, Nametags, XRay, Waypoints, LogoutSpot and AutoTotem. Modern-only compatibility code is kept internal rather than exposed as separate user-facing features.
+
+See [PORTING.md](PORTING.md) for port status and behavioural differences, and [VISUAL_PARITY.md](VISUAL_PARITY.md) for visual parity notes and validation work.
 
 ## Build
 
-From this directory with a Java 21 JDK and internet access:
+Requires a Java 21 JDK.
+
+Windows:
 
 ```powershell
 .\gradlew.bat clean build
 .\gradlew.bat runClient
 ```
 
-Linux/macOS: `bash gradlew clean build` and `bash gradlew runClient`.
-JARs are written to `build/libs`. The repository's GitHub Actions workflow builds
-and uploads the development JAR and client test logs.
+Linux/macOS:
 
-## Scope and verification
+```bash
+bash gradlew clean build
+bash gradlew runClient
+```
 
-All 37 functional entries in the original module registry now have implementations,
-with the original draggable click GUI rebuilt for its GUI entry. See [PORTING.md](PORTING.md) for differences.
-Compilation and client menu startup have passed GitHub Actions. The workflow also
-contains an opt-in singleplayer launch test (`-PxdolfSmokeTest`) that creates a test
-world under the development run directory and enables visual modules briefly.
-Consult the latest workflow result for that test's outcome.
+Built JARs are written to `build/libs`. GitHub Actions also compiles the project and runs client/smoke validation for development commits.
 
-This remains a development build: individual gameplay behavior, multiplayer server
-compatibility, and combinations with other rendering mods need manual testing.
-No claim of exact feature or visual parity with the old client is made.
+## Project files
 
-GPL-3.0-only. Original attribution to x0XP, Sgt Pepper, and Xdolf contributors is
-preserved. The JAR includes this mod's code and license, not bundled Minecraft code.
+- `src/` — Xdolf source and tests
+- `.github/` — GitHub Actions build/test workflow
+- `gradle/`, `gradlew`, `gradlew.bat` — Gradle wrapper required for reproducible builds
+- `build.gradle`, `gradle.properties`, `settings.gradle` — build configuration
+- `COMMANDS.md` — command reference
+- `PORTING.md` — port status and compatibility notes
+- `VISUAL_PARITY.md` — visual parity tracking
+- `LICENSE` — project license
+
+## License and attribution
+
+Xdolf is released under **GPL-3.0-only**. Original attribution to x0XP, Sgt Pepper and Xdolf contributors is preserved.
+
+Minecraft Forge is a build/runtime dependency and is not bundled as source in this repository or inside the Xdolf mod JAR. Forge remains licensed by its own authors under its own terms.
