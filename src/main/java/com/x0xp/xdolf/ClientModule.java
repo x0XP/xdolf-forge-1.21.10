@@ -44,6 +44,6 @@ public abstract class ClientModule {
     public abstract void tick(Minecraft mc);
     public void activate(Minecraft mc) {}
 
-    /** Also called on world changes and when opening a screen. Must be idempotent. */
+    /** Called when the module is disabled and when the world/player session changes. Must be idempotent. */
     public void reset(Minecraft mc) {}
 }
