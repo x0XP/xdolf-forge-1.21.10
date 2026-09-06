@@ -33,6 +33,9 @@ Press period in the world to open chat with a dot already entered.
 | `.macro add <key> <command>` / `.macro del <key>` | Bind a dot command; multiple macros on one key all run |
 | `.vclip <height>` | Move the player or ridden entity vertically; server-dependent |
 
+The same spam message, mode and delay are available in the click GUI by
+right-clicking Spammer. Command and GUI changes update the same saved values.
+
 Key names translate from LWJGL 2 names to GLFW: letters, digits, function keys,
 LSHIFT/RSHIFT, LCONTROL/RCONTROL, LMENU/RMENU, GRAVE, RETURN, navigation keys,
 and numpad names. Never copy raw LWJGL 2 numeric key codes into GLFW configuration.

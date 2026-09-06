@@ -24,15 +24,18 @@ import javax.imageio.ImageIO;
 public final class XdolfFont {
     private static final int ATLAS_WIDTH = 2048;
     private static final int BASE_FONT_SIZE = 9;
+    private static final int COMPACT_FONT_SIZE = 7;
     private static final int MAX_RASTER_SCALE = 4;
     private static final int GLYPH_COUNT = 2048;
     private static final FontAtlas[] ATLASES = new FontAtlas[MAX_RASTER_SCALE + 1];
+    private static final FontAtlas[] COMPACT_ATLASES = new FontAtlas[MAX_RASTER_SCALE + 1];
     private static final char[] FORMAT_CODES = "0123456789abcdef".toCharArray();
     private static final int[] CHAT_RGB = {
         0x000000,0x0000AA,0x00AA00,0x00AAAA,0xAA0000,0xAA00AA,0xFFAA00,0xAAAAAA,
         0x555555,0x5555FF,0x55FF55,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
     };
     private static FontAtlas activeAtlas;
+    private static FontAtlas activeCompactAtlas;
     private static int chatDepth;
     private static int smokeRasterScale;
 
@@ -77,10 +80,24 @@ public final class XdolfFont {
         if(current!=null&&current.scale==desiredScale)return current;
         FontAtlas cached=ATLASES[desiredScale];
         if(cached==null) {
-            cached=buildAtlas(desiredScale);
+            cached=buildAtlas(desiredScale,BASE_FONT_SIZE,"client_font_","main");
             ATLASES[desiredScale]=cached;
         }
         activeAtlas=cached;
+        return cached;
+    }
+
+    /** Smaller, separately rasterised text for subordinate click-GUI controls. */
+    private static FontAtlas compactAtlas() {
+        int desiredScale=currentRasterScale();
+        FontAtlas current=activeCompactAtlas;
+        if(current!=null&&current.scale==desiredScale)return current;
+        FontAtlas cached=COMPACT_ATLASES[desiredScale];
+        if(cached==null) {
+            cached=buildAtlas(desiredScale,COMPACT_FONT_SIZE,"client_font_compact_","compact");
+            COMPACT_ATLASES[desiredScale]=cached;
+        }
+        activeCompactAtlas=cached;
         return cached;
     }
 
@@ -97,12 +114,13 @@ public final class XdolfFont {
         if(!Boolean.getBoolean("xdolf.smokeTest"))return;
         smokeRasterScale=scale>=1&&scale<=MAX_RASTER_SCALE?scale:0;
         activeAtlas=null;
+        activeCompactAtlas=null;
     }
 
-    private static FontAtlas buildAtlas(int scale) {
+    private static FontAtlas buildAtlas(int scale,int baseFontSize,String texturePrefix,String role) {
         long started=System.nanoTime();
         try {
-            int fontSize=BASE_FONT_SIZE*scale;
+            int fontSize=baseFontSize*scale;
             int cellPadding=Math.max(2,2*scale);
             int leftPadding=Math.max(1,Math.round(0.75f*scale));
             int topPadding=Math.max(0,Math.round(0.25f*scale));
@@ -145,14 +163,14 @@ public final class XdolfFont {
             var bytes=new ByteArrayOutputStream();
             ImageIO.write(imageBuffer,"png",bytes);
             var nativeImage=NativeImage.read(new ByteArrayInputStream(bytes.toByteArray()));
-            var dynamicTexture=new DynamicTexture(() -> "Xdolf TTF font scale "+scale,nativeImage);
+            var dynamicTexture=new DynamicTexture(() -> "Xdolf "+role+" TTF font scale "+scale,nativeImage);
             dynamicTexture.setFilter(false,false);
-            ResourceLocation texture=ResourceLocation.fromNamespaceAndPath("xdolf","client_font_"+scale);
+            ResourceLocation texture=ResourceLocation.fromNamespaceAndPath("xdolf",texturePrefix+scale);
             Minecraft.getInstance().getTextureManager().register(texture,dynamicTexture);
 
             if(Boolean.getBoolean("xdolf.smokeTest")) {
                 double elapsed=(System.nanoTime()-started)/1_000_000_000.0;
-                LogUtils.getLogger().info("XDOLF_FONT_ATLAS_OK: scale {} {}x{} built in {} ms",scale,ATLAS_WIDTH,textureHeight,Math.round(elapsed*1000.0));
+                LogUtils.getLogger().info("XDOLF_FONT_ATLAS_OK: {} scale {} {}x{} built in {} ms",role,scale,ATLAS_WIDTH,textureHeight,Math.round(elapsed*1000.0));
             }
             return new FontAtlas(scale,textureHeight,glyphHeight,cellPadding,visible[0],visible[1],width,xPos,yPos,texture);
         } catch(java.io.IOException error) {
@@ -195,7 +213,14 @@ public final class XdolfFont {
      * one-pixel drop shadow) inside a container whose vanilla text origin is already known.
      */
     public static int centeredYOffset(int containerTop,int containerHeight,int vanillaTextY) {
-        FontAtlas atlas=atlas();
+        return centeredYOffset(atlas(),containerTop,containerHeight,vanillaTextY);
+    }
+
+    public static int compactCenteredYOffset(int containerTop,int containerHeight,int vanillaTextY) {
+        return centeredYOffset(compactAtlas(),containerTop,containerHeight,vanillaTextY);
+    }
+
+    private static int centeredYOffset(FontAtlas atlas,int containerTop,int containerHeight,int vanillaTextY) {
         float scale=1.0f/atlas.scale;
         float visibleTopGui=atlas.visibleTop*scale;
         float visibleBottomGui=atlas.visibleBottom*scale+1.0f;
@@ -241,7 +266,14 @@ public final class XdolfFont {
     }
 
     public static int width(String text) {
-        FontAtlas atlas=atlas();
+        return width(atlas(),text);
+    }
+
+    public static int compactWidth(String text) {
+        return width(compactAtlas(),text);
+    }
+
+    private static int width(FontAtlas atlas,String text) {
         int width=0;
         for(int i=0;i<text.length();i++) {
             char c=text.charAt(i);
@@ -254,8 +286,16 @@ public final class XdolfFont {
     public static int width(FormattedCharSequence sequence) { return width(toFormattedString(sequence)); }
 
     public static String trim(String text,int max) {
+        return trim(atlas(),text,max);
+    }
+
+    public static String compactTrim(String text,int max) {
+        return trim(compactAtlas(),text,max);
+    }
+
+    private static String trim(FontAtlas atlas,String text,int max) {
         int end=text.length();
-        while(end>0&&width(text.substring(0,end))>max)end--;
+        while(end>0&&width(atlas,text.substring(0,end))>max)end--;
         return text.substring(0,end);
     }
 
@@ -281,6 +321,13 @@ public final class XdolfFont {
     public static void draw(GuiGraphics g,String text,float x,float y,int color) { draw(g,text,x,y,color,true); }
     public static void draw(GuiGraphics g,String text,float x,float y,int color,boolean shadow) {
         FontAtlas atlas=atlas();
+        color=opaqueIfNeeded(color);
+        if(shadow)drawLine(atlas,g,text,x+1,y+1,(color&0xFF000000)|0x000D0D0D,true);
+        drawLine(atlas,g,text,x,y,color,false);
+    }
+    public static void drawCompact(GuiGraphics g,String text,float x,float y,int color) { drawCompact(g,text,x,y,color,true); }
+    public static void drawCompact(GuiGraphics g,String text,float x,float y,int color,boolean shadow) {
+        FontAtlas atlas=compactAtlas();
         color=opaqueIfNeeded(color);
         if(shadow)drawLine(atlas,g,text,x+1,y+1,(color&0xFF000000)|0x000D0D0D,true);
         drawLine(atlas,g,text,x,y,color,false);

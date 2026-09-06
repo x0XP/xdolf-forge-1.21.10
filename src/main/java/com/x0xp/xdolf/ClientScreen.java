@@ -29,15 +29,19 @@ import static com.x0xp.xdolf.UiDraw.*;
 public final class ClientScreen extends Screen {
     private static final List<Panel> PANELS = new ArrayList<>();
     private static final long OPTION_ANIMATION_NS = 135_000_000L;
-    private static final float BOOLEAN_ROW_HEIGHT = 12.0f;
-    private static final float BOOLEAN_WRAPPED_ROW_HEIGHT = 21.0f;
-    private static final float NUMBER_ROW_HEIGHT = 25.0f;
+    private static final float BOOLEAN_ROW_HEIGHT = 10.0f;
+    private static final float BOOLEAN_WRAPPED_ROW_HEIGHT = 18.0f;
+    private static final float NUMBER_ROW_HEIGHT = 22.0f;
     private static final float NUMBER_FIELD_WIDTH = 19.0f;
-    private static final float KEYBIND_ROW_HEIGHT = 14.0f;
+    private static final float KEYBIND_ROW_HEIGHT = 12.0f;
     private static final float KEYBIND_FIELD_WIDTH = 34.0f;
+    private static final float SPAM_MESSAGE_ROW_HEIGHT = 22.0f;
+    private static final float SPAM_MODE_ROW_HEIGHT = 12.0f;
+    private static final float SPAM_DELAY_ROW_HEIGHT = 12.0f;
+    private static final float SPAM_FIELD_WIDTH = 34.0f;
     private static final float CATEGORY_MAX_BODY_HEIGHT = 205.0f;
     private static final long SCROLL_ANIMATION_NS = 120_000_000L;
-    private static final float TOGGLE_LABEL_SINGLE_LINE_WIDTH = 76.0f;
+    private static final float TOGGLE_LABEL_SINGLE_LINE_WIDTH = 78.0f;
     private static boolean loaded;
 
     private Panel dragging;
@@ -45,11 +49,19 @@ public final class ClientScreen extends Screen {
     private double sliderLeft;
     private double sliderWidth;
     private ModuleSetting editing;
+    private EditKind editKind = EditKind.NONE;
     private String editingText = "";
     private ClientModule binding;
     private int pendingBindingKey = -1;
     private List<ClientModule> pendingBindingConflicts = List.of();
     private double offsetX, offsetY;
+
+    private enum EditKind {
+        NONE,
+        NUMBER,
+        SPAM_MESSAGE,
+        SPAM_DELAY
+    }
 
     private static final class Expansion {
         boolean open;
@@ -279,7 +291,7 @@ public final class ClientScreen extends Screen {
 
 
     private static boolean wrappedToggle(SettingRow row) {
-        return row.toggle && XdolfFont.width(row.label) > TOGGLE_LABEL_SINGLE_LINE_WIDTH;
+        return row.toggle && XdolfFont.compactWidth(row.label) > TOGGLE_LABEL_SINGLE_LINE_WIDTH;
     }
 
     private static float settingRowHeight(SettingRow row) {
@@ -289,18 +301,21 @@ public final class ClientScreen extends Screen {
 
     private static float settingContainerHeight(ClientModule module) {
         float height = 4.0f + KEYBIND_ROW_HEIGHT;
+        if (module.name.equals("Spammer")) {
+            height += SPAM_MESSAGE_ROW_HEIGHT + SPAM_MODE_ROW_HEIGHT + SPAM_DELAY_ROW_HEIGHT;
+        }
         for (var row : settings(module)) height += settingRowHeight(row);
         return height;
     }
 
     private static List<String> wrapLabel(String text, int maxWidth) {
-        if (XdolfFont.width(text) <= maxWidth) return List.of(text);
+        if (XdolfFont.compactWidth(text) <= maxWidth) return List.of(text);
         var words = text.split(" ");
         var lines = new ArrayList<String>(2);
         var current = new StringBuilder();
         for (String word : words) {
             String candidate = current.isEmpty() ? word : current + " " + word;
-            if (!current.isEmpty() && XdolfFont.width(candidate) > maxWidth) {
+            if (!current.isEmpty() && XdolfFont.compactWidth(candidate) > maxWidth) {
                 lines.add(current.toString());
                 current.setLength(0);
                 current.append(word);
@@ -312,7 +327,28 @@ public final class ClientScreen extends Screen {
         }
         if (!current.isEmpty()) lines.add(current.toString());
         if (lines.size() <= 2) return lines;
-        return List.of(lines.get(0), XdolfFont.trim(String.join(" ", lines.subList(1, lines.size())), maxWidth));
+        return List.of(lines.get(0), XdolfFont.compactTrim(String.join(" ", lines.subList(1, lines.size())), maxWidth));
+    }
+
+    private static float compactCenteredY(float top, float bottom) {
+        int roundedTop = Math.round(top);
+        int height = Math.max(1, Math.round(bottom - top));
+        return roundedTop + XdolfFont.compactCenteredYOffset(roundedTop, height, roundedTop) + 1.0f;
+    }
+
+    private static String fitCompactField(String text, int maxWidth, boolean keepEnd) {
+        if (XdolfFont.compactWidth(text) <= maxWidth) return text;
+        String ellipsis = "...";
+        if (XdolfFont.compactWidth(ellipsis) >= maxWidth) return XdolfFont.compactTrim(text, maxWidth);
+        if (!keepEnd) return XdolfFont.compactTrim(text, maxWidth - XdolfFont.compactWidth(ellipsis)) + ellipsis;
+
+        int start = 0;
+        while (start < text.length()
+            && XdolfFont.compactWidth(ellipsis + text.substring(start)) > maxWidth) {
+            int codePoint = text.codePointAt(start);
+            start += Character.charCount(codePoint);
+        }
+        return ellipsis + text.substring(Math.min(start, text.length()));
     }
 
     private static void keybindRow(GuiGraphics graphics, ClientModule module, float left, float right, float y,
@@ -321,12 +357,12 @@ public final class ClientScreen extends Screen {
         boolean pending = listening && screen.pendingBindingKey >= 0 && !screen.pendingBindingConflicts.isEmpty();
         boolean existingConflict = !listening && module.key >= 0 && !Keybinds.conflicts(module, module.key).isEmpty();
         int labelColor = pending ? 0xFFFFC66D : hover || listening ? 0xFFFFFFFF : 0xD8FFFFFF;
-        XdolfFont.draw(graphics, "Keybind", left, y + 1, fade(labelColor, alpha));
 
         float fieldRight = right - 1;
         float fieldLeft = fieldRight - KEYBIND_FIELD_WIDTH;
         float fieldTop = y + 0.5f;
-        float fieldBottom = y + 10.5f;
+        float fieldBottom = y + 9.5f;
+        XdolfFont.drawCompact(graphics, "Keybind", left, compactCenteredY(fieldTop, fieldBottom), fade(labelColor, alpha));
         int fieldFill = listening ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
         int fieldBorder = pending ? 0xFFFFB347 : existingConflict ? 0xFFFF5D6C
             : listening ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
@@ -335,11 +371,9 @@ public final class ClientScreen extends Screen {
 
         String value = pending ? Keybinds.display(screen.pendingBindingKey) + " !"
             : listening ? "Press..." : Keybinds.display(module.key) + (existingConflict ? " !" : "");
-        value = XdolfFont.trim(value, Math.max(1, (int) (KEYBIND_FIELD_WIDTH - 4)));
-        float valueX = fieldLeft + (KEYBIND_FIELD_WIDTH - XdolfFont.width(value)) / 2.0f;
-        float valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
-            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop)) + 1.5f;
-        XdolfFont.draw(graphics, value, valueX, valueY,
+        value = fitCompactField(value, Math.max(1, (int) (KEYBIND_FIELD_WIDTH - 4)), false);
+        float valueX = fieldLeft + (KEYBIND_FIELD_WIDTH - XdolfFont.compactWidth(value)) / 2.0f;
+        XdolfFont.drawCompact(graphics, value, valueX, compactCenteredY(fieldTop, fieldBottom),
             fade(pending ? 0xFFFFC66D : listening ? 0xFF44AAFF : 0xFFFFFFFF, alpha));
     }
 
@@ -363,10 +397,11 @@ public final class ClientScreen extends Screen {
         float rowHeight = settingRowHeight(row);
         var labelLines = wrapLabel(row.label, (int) (right - left - 8));
         if (labelLines.size() == 1) {
-            XdolfFont.draw(graphics, labelLines.get(0), left, y, fade(color, alpha));
+            XdolfFont.drawCompact(graphics, labelLines.get(0), left,
+                compactCenteredY(y, y + rowHeight - 1), fade(color, alpha));
         } else {
-            XdolfFont.draw(graphics, labelLines.get(0), left, y, fade(color, alpha));
-            XdolfFont.draw(graphics, labelLines.get(1), left, y + 9, fade(color, alpha));
+            XdolfFont.drawCompact(graphics, labelLines.get(0), left, y, fade(color, alpha));
+            XdolfFont.drawCompact(graphics, labelLines.get(1), left, y + 8, fade(color, alpha));
         }
         float center = y + rowHeight / 2.0f;
         rect(graphics, right - 2, center - 4, right - 1, center + 4, fade(stateColor, alpha));
@@ -375,15 +410,16 @@ public final class ClientScreen extends Screen {
 
     private static void numberRow(GuiGraphics graphics, SettingRow row, float left, float right, float y,
                                   boolean hover, float alpha, ClientScreen screen) {
-        boolean editing = screen != null && screen.editing == row.setting;
+        boolean editing = screen != null && screen.editKind == EditKind.NUMBER && screen.editing == row.setting;
 
         float fieldRight = right - 1;
         float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
         float fieldTop = y + 0.5f;
-        float fieldBottom = y + 10.5f;
+        float fieldBottom = y + 9.5f;
         float labelRight = fieldLeft - 2;
-        String label = XdolfFont.trim(row.label, Math.max(1, (int) (labelRight - left)));
-        XdolfFont.draw(graphics, label, left, y + 1, fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
+        String label = XdolfFont.compactTrim(row.label, Math.max(1, (int) (labelRight - left)));
+        XdolfFont.drawCompact(graphics, label, left, compactCenteredY(fieldTop, fieldBottom),
+            fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
 
         int fieldFill = editing ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
         int fieldBorder = editing ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
@@ -392,15 +428,14 @@ public final class ClientScreen extends Screen {
 
         String value = editing ? screen.editingText : row.setting.display();
         if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
-        value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 3));
-        float valueX = fieldRight - 1.5f - XdolfFont.width(value);
-        float valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
-            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop)) + 1.5f;
-        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 1.5f, valueX), valueY, fade(0xFFFFFFFF, alpha));
+        value = fitCompactField(value, (int) (fieldRight - fieldLeft - 3), editing);
+        float valueX = fieldRight - 1.5f - XdolfFont.compactWidth(value);
+        XdolfFont.drawCompact(graphics, value, Math.max(fieldLeft + 1.5f, valueX),
+            compactCenteredY(fieldTop, fieldBottom), fade(0xFFFFFFFF, alpha));
 
         float trackLeft = left;
         float trackRight = right - 1;
-        float trackTop = y + 14.0f;
+        float trackTop = y + 12.0f;
         float trackBottom = trackTop + 6;
         double span = row.setting.max - row.setting.min;
         float fraction = span <= 0 ? 0 : (float) ((row.setting.get() - row.setting.min) / span);
@@ -410,6 +445,66 @@ public final class ClientScreen extends Screen {
         rect(graphics, trackLeft + 1, trackTop + 1, fillRight, trackBottom - 1, fade(0xFFFF0000, alpha));
         float knob = Math.max(trackLeft + 1, Math.min(trackRight - 2, fillRight - 1));
         rect(graphics, knob, trackTop, knob + 2, trackBottom, fade(hover ? 0xFF44AAFF : 0xFFFF4C4C, alpha));
+    }
+
+    private static void spamMessageRow(GuiGraphics graphics, float left, float right, float y,
+                                       boolean hover, float alpha, ClientScreen screen) {
+        boolean editing = screen != null && screen.editKind == EditKind.SPAM_MESSAGE;
+        XdolfFont.drawCompact(graphics, "Message", left, y,
+            fade(editing || hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
+
+        float fieldTop = y + 8.5f;
+        float fieldBottom = y + 18.5f;
+        int fieldFill = editing ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
+        int fieldBorder = editing ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
+        rect(graphics, left, fieldTop, right - 1, fieldBottom, fade(fieldFill, alpha));
+        outline(graphics, left, fieldTop, right - 1, fieldBottom, fade(fieldBorder, alpha));
+
+        String value = editing ? screen.editingText : NetworkModules.spamMessage;
+        if (value.isEmpty() && !editing) value = "Not set";
+        if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
+        value = fitCompactField(value, Math.max(1, (int) (right - left - 4)), editing);
+        XdolfFont.drawCompact(graphics, value, left + 2, compactCenteredY(fieldTop, fieldBottom),
+            fade(value.equals("Not set") ? 0xFF8B919C : 0xFFFFFFFF, alpha));
+    }
+
+    private static void spamModeRow(GuiGraphics graphics, float left, float right, float y,
+                                    boolean hover, float alpha) {
+        boolean antiSpam = Commands.spamMode.equals("antispam");
+        float fieldRight = right - 1;
+        float fieldLeft = fieldRight - SPAM_FIELD_WIDTH;
+        float fieldTop = y + 0.5f;
+        float fieldBottom = y + 9.5f;
+        XdolfFont.drawCompact(graphics, "Mode", left, compactCenteredY(fieldTop, fieldBottom),
+            fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
+        rect(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom, fade(hover ? 0xD0191D24 : 0xC0101318, alpha));
+        outline(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom,
+            fade(hover ? 0xFF44AAFF : antiSpam ? 0xFFFF4C4C : 0xFF4D535D, alpha));
+        String value = antiSpam ? "Anti-spam" : "Normal";
+        float valueX = fieldLeft + (SPAM_FIELD_WIDTH - XdolfFont.compactWidth(value)) / 2.0f;
+        XdolfFont.drawCompact(graphics, value, valueX, compactCenteredY(fieldTop, fieldBottom),
+            fade(antiSpam ? 0xFFFFC1C1 : 0xFFFFFFFF, alpha));
+    }
+
+    private static void spamDelayRow(GuiGraphics graphics, float left, float right, float y,
+                                     boolean hover, float alpha, ClientScreen screen) {
+        boolean editing = screen != null && screen.editKind == EditKind.SPAM_DELAY;
+        float fieldRight = right - 1;
+        float fieldLeft = fieldRight - SPAM_FIELD_WIDTH;
+        float fieldTop = y + 0.5f;
+        float fieldBottom = y + 9.5f;
+        XdolfFont.drawCompact(graphics, "Delay (ms)", left, compactCenteredY(fieldTop, fieldBottom),
+            fade(editing || hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
+        rect(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom,
+            fade(editing ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318, alpha));
+        outline(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom,
+            fade(editing ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D, alpha));
+        String value = editing ? screen.editingText : Integer.toString(Commands.spamDelay);
+        if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
+        value = fitCompactField(value, Math.max(1, (int) (SPAM_FIELD_WIDTH - 4)), editing);
+        float valueX = fieldRight - 2 - XdolfFont.compactWidth(value);
+        XdolfFont.drawCompact(graphics, value, Math.max(fieldLeft + 2, valueX),
+            compactCenteredY(fieldTop, fieldBottom), fade(0xFFFFFFFF, alpha));
     }
 
     private static void settingContainer(GuiGraphics graphics, Panel panel, ClientModule module, float top,
@@ -437,7 +532,34 @@ public final class ClientScreen extends Screen {
         boolean keyHover = interactive && hit(mouseX, mouseY, keyFieldLeft, y, KEYBIND_FIELD_WIDTH, 11);
         keybindRow(graphics, module, rowLeft, rowRight, y, keyHover, progress, screen);
         y += KEYBIND_ROW_HEIGHT;
-        if (!rows.isEmpty()) rect(graphics, left + 4, y - 0.5f, right - 4, y, fade(0x28000000, progress));
+        boolean spammer = module.name.equals("Spammer");
+        if (spammer || !rows.isEmpty()) {
+            rect(graphics, left + 4, y - 0.5f, right - 4, y, fade(0x28000000, progress));
+        }
+
+        if (spammer) {
+            boolean messageHover = interactive && hit(mouseX, mouseY, rowLeft, y + 8.5f,
+                rowRight - rowLeft - 1, 10);
+            spamMessageRow(graphics, rowLeft, rowRight, y, messageHover, progress, screen);
+            y += SPAM_MESSAGE_ROW_HEIGHT;
+            rect(graphics, left + 4, y - 0.5f, right - 4, y, fade(0x28000000, progress));
+
+            boolean modeHover = interactive && hit(mouseX, mouseY, rowLeft, y,
+                rowRight - rowLeft - 1, SPAM_MODE_ROW_HEIGHT - 1);
+            spamModeRow(graphics, rowLeft, rowRight, y, modeHover, progress);
+            y += SPAM_MODE_ROW_HEIGHT;
+            rect(graphics, left + 4, y - 0.5f, right - 4, y, fade(0x28000000, progress));
+
+            float delayFieldRight = rowRight - 1;
+            float delayFieldLeft = delayFieldRight - SPAM_FIELD_WIDTH;
+            boolean delayHover = interactive && hit(mouseX, mouseY, delayFieldLeft, y,
+                SPAM_FIELD_WIDTH, SPAM_DELAY_ROW_HEIGHT - 1);
+            spamDelayRow(graphics, rowLeft, rowRight, y, delayHover, progress, screen);
+            y += SPAM_DELAY_ROW_HEIGHT;
+            if (!rows.isEmpty()) {
+                rect(graphics, left + 4, y - 0.5f, right - 4, y, fade(0x28000000, progress));
+            }
+        }
 
         for (int i = 0; i < rows.size(); i++) {
             var settingRow = rows.get(i);
@@ -605,12 +727,39 @@ public final class ClientScreen extends Screen {
                         float rowRight = right - 2;
                         float keyFieldRight = rowRight - 1;
                         float keyFieldLeft = keyFieldRight - KEYBIND_FIELD_WIDTH;
-                        if (button == 0 && hit(mouseX, mouseY, keyFieldLeft, settingY, KEYBIND_FIELD_WIDTH, 11)) {
+                        if (button == 0 && hit(mouseX, mouseY, keyFieldLeft, settingY, KEYBIND_FIELD_WIDTH, 10)) {
                             commitEditing();
                             beginBinding(module);
                             return true;
                         }
                         settingY += KEYBIND_ROW_HEIGHT;
+
+                        if (module.name.equals("Spammer")) {
+                            if (button == 0 && hit(mouseX, mouseY, rowLeft, settingY + 8.5f,
+                                rowRight - rowLeft - 1, 10)) {
+                                beginSpecialEditing(EditKind.SPAM_MESSAGE, NetworkModules.spamMessage);
+                                return true;
+                            }
+                            settingY += SPAM_MESSAGE_ROW_HEIGHT;
+
+                            if (button == 0 && hit(mouseX, mouseY, rowLeft, settingY,
+                                rowRight - rowLeft - 1, SPAM_MODE_ROW_HEIGHT - 1)) {
+                                commitEditing();
+                                Commands.spamMode = Commands.spamMode.equals("antispam") ? "normal" : "antispam";
+                                saveSpamSettings();
+                                return true;
+                            }
+                            settingY += SPAM_MODE_ROW_HEIGHT;
+
+                            float spamFieldRight = rowRight - 1;
+                            float spamFieldLeft = spamFieldRight - SPAM_FIELD_WIDTH;
+                            if (button == 0 && hit(mouseX, mouseY, spamFieldLeft, settingY,
+                                SPAM_FIELD_WIDTH, SPAM_DELAY_ROW_HEIGHT - 1)) {
+                                beginSpecialEditing(EditKind.SPAM_DELAY, Integer.toString(Commands.spamDelay));
+                                return true;
+                            }
+                            settingY += SPAM_DELAY_ROW_HEIGHT;
+                        }
 
                         for (var settingRow : rows) {
                             if (settingRow.toggle) {
@@ -625,11 +774,11 @@ public final class ClientScreen extends Screen {
                             } else {
                                 float fieldRight = rowRight - 1;
                                 float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
-                                if (button == 0 && hit(mouseX, mouseY, fieldLeft, settingY, NUMBER_FIELD_WIDTH, 11)) {
+                                if (button == 0 && hit(mouseX, mouseY, fieldLeft, settingY, NUMBER_FIELD_WIDTH, 10)) {
                                     beginEditing(settingRow.setting);
                                     return true;
                                 }
-                                float trackTop = settingY + 14.0f;
+                                float trackTop = settingY + 12.0f;
                                 if (button == 0 && hit(mouseX, mouseY, rowLeft, trackTop, rowRight - rowLeft - 1, 7)) {
                                     commitEditing();
                                     sliding = settingRow.setting;
@@ -699,30 +848,69 @@ public final class ClientScreen extends Screen {
     }
 
     private void beginEditing(ModuleSetting setting) {
-        if (editing != setting) commitEditing();
+        if (editKind == EditKind.NUMBER && editing == setting) return;
+        commitEditing();
+        editKind = EditKind.NUMBER;
         editing = setting;
         editingText = "";
     }
 
+    private void beginSpecialEditing(EditKind kind, String value) {
+        if (kind != EditKind.SPAM_MESSAGE && kind != EditKind.SPAM_DELAY) {
+            throw new IllegalArgumentException("Unsupported text editor: " + kind);
+        }
+        if (editKind == kind) return;
+        commitEditing();
+        editKind = kind;
+        editing = null;
+        editingText = value;
+    }
+
     private void cancelEditing() {
+        editKind = EditKind.NONE;
         editing = null;
         editingText = "";
     }
 
     private void commitEditing() {
-        if (editing == null) return;
+        if (editKind == EditKind.NONE) return;
         try {
-            if (!editingText.isBlank() && !editingText.equals("-") && !editingText.equals(".") && !editingText.equals("-.")) {
-                double value = Double.parseDouble(editingText);
-                value = Math.max(editing.min, Math.min(editing.max, value));
-                if (integerSetting(editing)) value = Math.rint(value);
-                editing.set(value);
-                ClientConfig.save(ClientRuntime.MODULES);
+            switch (editKind) {
+                case NUMBER -> {
+                    if (!editingText.isBlank() && !editingText.equals("-") && !editingText.equals(".") && !editingText.equals("-.")) {
+                        double value = Double.parseDouble(editingText);
+                        value = Math.max(editing.min, Math.min(editing.max, value));
+                        if (integerSetting(editing)) value = Math.rint(value);
+                        editing.set(value);
+                        ClientConfig.save(ClientRuntime.MODULES);
+                    }
+                }
+                case SPAM_MESSAGE -> {
+                    NetworkModules.spamMessage = editingText;
+                    saveSpamSettings();
+                }
+                case SPAM_DELAY -> {
+                    if (!editingText.isBlank()) {
+                        int delay = Integer.parseInt(editingText);
+                        if (delay > 0) {
+                            Commands.spamDelay = delay;
+                            saveSpamSettings();
+                        }
+                    }
+                }
+                case NONE -> { }
             }
         } catch (IllegalArgumentException ignored) {
             // Invalid partial input simply reverts to the previous setting value.
         }
         cancelEditing();
+    }
+
+    private static void saveSpamSettings() {
+        var spammer = ClientRuntime.find("Spammer");
+        if (spammer != null) spammer.reset(Minecraft.getInstance());
+        ClientConfig.save(ClientRuntime.MODULES);
+        Commands.save();
     }
 
     @Override
@@ -762,7 +950,7 @@ public final class ClientScreen extends Screen {
             }
             return true;
         }
-        if (editing == null) return super.keyPressed(event);
+        if (editKind == EditKind.NONE) return super.keyPressed(event);
         if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
             commitEditing();
             return true;
@@ -772,7 +960,10 @@ public final class ClientScreen extends Screen {
             return true;
         }
         if (key == GLFW.GLFW_KEY_BACKSPACE) {
-            if (!editingText.isEmpty()) editingText = editingText.substring(0, editingText.length() - 1);
+            if (!editingText.isEmpty()) {
+                int start = editingText.offsetByCodePoints(editingText.length(), -1);
+                editingText = editingText.substring(0, start);
+            }
             return true;
         }
         if (key == GLFW.GLFW_KEY_DELETE) {
@@ -784,15 +975,24 @@ public final class ClientScreen extends Screen {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
-        if (editing == null) return super.charTyped(event);
+        if (editKind == EditKind.NONE) return super.charTyped(event);
         int codepoint = event.codepoint();
         if (!Character.isValidCodePoint(codepoint)) return true;
+        if (editKind == EditKind.SPAM_MESSAGE) {
+            if (!Character.isISOControl(codepoint)) {
+                String typed = new String(Character.toChars(codepoint));
+                if (editingText.length() + typed.length() <= 256) editingText += typed;
+            }
+            return true;
+        }
+
         char c = (char) codepoint;
         if (Character.isDigit(c)) {
-            if (editingText.length() < 14) editingText += c;
-        } else if (c == '.' && !integerSetting(editing) && !editingText.contains(".")) {
+            int limit = editKind == EditKind.SPAM_DELAY ? 10 : 14;
+            if (editingText.length() < limit) editingText += c;
+        } else if (editKind == EditKind.NUMBER && c == '.' && !integerSetting(editing) && !editingText.contains(".")) {
             editingText += editingText.isEmpty() ? "0." : ".";
-        } else if (c == '-' && editing.min < 0 && editingText.isEmpty()) {
+        } else if (editKind == EditKind.NUMBER && c == '-' && editing.min < 0 && editingText.isEmpty()) {
             editingText = "-";
         }
         return true;
@@ -932,6 +1132,41 @@ public final class ClientScreen extends Screen {
         autoFishExpansion.finish();
         player.scroll = player.scrollFrom = player.scrollTarget = 0.0f;
 
+        var spammer = player.modules.stream().filter(module -> module.name.equals("Spammer")).findFirst().orElseThrow();
+        var spammerExpansion = player.expansion(spammer);
+        spammerExpansion.setOpen(true);
+        spammerExpansion.finish();
+        if (XdolfFont.compactWidth("Keybind") >= XdolfFont.width("Keybind")) {
+            throw new IllegalStateException("Settings typography was not reduced below the module font size");
+        }
+        float ordinaryContainerHeight = 4.0f + KEYBIND_ROW_HEIGHT;
+        if (settingContainerHeight(spammer) <= ordinaryContainerHeight) {
+            throw new IllegalStateException("Spammer command controls missing from click GUI");
+        }
+
+        String oldSpamMessage = NetworkModules.spamMessage;
+        int oldSpamDelay = Commands.spamDelay;
+        String oldSpamMode = Commands.spamMode;
+        screen.beginSpecialEditing(EditKind.SPAM_MESSAGE, oldSpamMessage);
+        screen.editingText = "GUI spam smoke";
+        screen.commitEditing();
+        if (!NetworkModules.spamMessage.equals("GUI spam smoke")) {
+            throw new IllegalStateException("GUI spam message editor failed");
+        }
+        screen.beginSpecialEditing(EditKind.SPAM_DELAY, Integer.toString(oldSpamDelay));
+        screen.editingText = "2400";
+        screen.commitEditing();
+        if (Commands.spamDelay != 2400) throw new IllegalStateException("GUI spam delay editor failed");
+
+        int spammerY = player.y + 12 + player.modules.indexOf(spammer) * 12;
+        float spamModeY = spammerY + 14 + KEYBIND_ROW_HEIGHT + SPAM_MESSAGE_ROW_HEIGHT;
+        screen.click(player.x + 20, spamModeY + 2, 0);
+        if (Commands.spamMode.equals(oldSpamMode)) throw new IllegalStateException("GUI spam mode control failed");
+        NetworkModules.spamMessage = oldSpamMessage;
+        Commands.spamDelay = oldSpamDelay;
+        Commands.spamMode = oldSpamMode;
+        saveSpamSettings();
+
         var killAura = combat.modules.stream().filter(module -> module.name.equals("KillAura")).findFirst().orElseThrow();
         int killAuraY = combat.y + 12 + combat.modules.indexOf(killAura) * 12;
         screen.click(combat.x + 30, killAuraY + 5, 1);
@@ -988,7 +1223,7 @@ public final class ClientScreen extends Screen {
         load();
         if (player.x != savedX || !player.open) throw new IllegalStateException("Window state roundtrip failed");
 
-        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, smooth category scrolling, keybind conflicts, compact settings, typed values, animation, pin/open/drag controls");
+        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, compact nested text, GUI spam controls, smooth scrolling, keybind conflicts, typed values, animation, pin/open/drag controls");
     }
 
     private static void load() {

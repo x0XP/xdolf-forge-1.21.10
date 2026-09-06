@@ -16,7 +16,7 @@ Original Xdolf source: https://github.com/x0XP/xdolf
 
 Xdolf is client-only and does not need to be installed on the server.
 
-The click GUI uses the original grave/backtick default key. Module states, keybinds and settings are stored under Minecraft's `config` folder. Normal inventory/chat/settings screens do **not** disable enabled modules.
+The click GUI uses the original grave/backtick default key. Right-click a module to open its compact inline controls. Spammer's message, normal/anti-spam mode and delay can be edited there as well as through `.spam`. Module states, keybinds and settings are stored under Minecraft's `config` folder. Normal inventory/chat/settings screens do **not** disable enabled modules.
 
 ## Commands
 
