@@ -137,7 +137,7 @@ final class ClientRuntime {
                 if (other != module && List.of("Flight", "ElytraFly", "ElytraPlus").contains(other.name)) other.setEnabled(false);
         }
         module.setEnabled(!module.enabled());
-        message(module.name + (module.enabled() ? " enabled" : " disabled"));
+        NotificationCards.module(module, module.enabled());
     }
 
     static void message(String text) {
