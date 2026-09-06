@@ -180,7 +180,8 @@ final class MarkerVisuals implements FramePassManager.PassDefinition {
                 if(!dimension.equals(spot.dimension()))continue;
                 var p=spot.position();
                 boxes.add(new Box(new AABB(p.x,p.y,p.z,p.x+1.0,p.y+2.0,p.z+1.0),0x2FFF0000,0xFFFF0000));
-                lines.add(new Segment(start,p.add(0.5,1.0,0.5),0xFFFF0000,1.5,true));
+                if(Hooks.setting("LogoutSpot","tracers",1)!=0)
+                    lines.add(new Segment(start,p.add(0.5,1.0,0.5),0xFFFF0000,1.5,true));
             }
         }
 

@@ -26,6 +26,7 @@ final class LogoutSpotModule extends ClientModule {
 
     LogoutSpotModule() {
         super("LogoutSpot", "Render the last known position of players who log out.", "Render");
+        setting("tracers", 1, 0, 1, 1);
     }
 
     static java.util.Collection<Spot> spots() {

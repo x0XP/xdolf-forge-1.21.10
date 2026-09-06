@@ -89,6 +89,7 @@ public final class ClientScreen extends Screen {
             case "KillAura" -> new String[][] {{"Players", "players"}, {"Mobs", "mobs"}, {"Hit Through Walls", "walls"}, {"Can Be Seen", "seen"}};
             case "Tracers" -> new String[][] {{"Players", "players"}, {"Chests", "chests"}};
             case "EntityESP" -> new String[][] {{"Players", "players"}, {"Monsters", "monsters"}, {"Passive", "passive"}, {"Items", "items"}, {"Outline", "outline"}};
+            case "LogoutSpot" -> new String[][] {{"Tracers", "tracers"}};
             case "ElytraPlus" -> new String[][] {{"Instant fly - easy takeoff", "takeoff"}, {"Stop in water", "stopwater"}};
             default -> new String[0][];
         };
@@ -274,6 +275,10 @@ public final class ClientScreen extends Screen {
         if(render.modules.stream().noneMatch(m->m.name.equals("Waypoints")) || render.modules.stream().noneMatch(m->m.name.equals("LogoutSpot"))
             || combat.modules.stream().noneMatch(m->m.name.equals("AutoTotem")))
             throw new IllegalStateException("Restored modules missing from click GUI");
+        var logout=render.modules.stream().filter(m->m.name.equals("LogoutSpot")).findFirst().orElseThrow();
+        var logoutOptions=options(logout);
+        if(logoutOptions.size()!=1 || !logoutOptions.get(0).label.equals("Tracers") || logout.setting("tracers")==null)
+            throw new IllegalStateException("LogoutSpot tracer option missing from click GUI");
         var player=PANELS.stream().filter(p->p.title.equals("Player")).findFirst().orElseThrow();
         screen.click(player.x+94,player.y+6,0);
         if(!player.open) throw new IllegalStateException("Open control failed");
