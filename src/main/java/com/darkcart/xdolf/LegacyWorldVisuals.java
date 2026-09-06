@@ -1,5 +1,6 @@
 package com.darkcart.xdolf;
 
+import com.darkcart.xdolf.mixin.GameRendererAccess;
 import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -45,7 +46,9 @@ import java.util.OptionalDouble;
 
 /** World-space port of the original render modules; never projects geometry into GUI pixels. */
 final class LegacyWorldVisuals implements FramePassManager.PassDefinition {
-    private record Segment(Vec3 a, Vec3 b, int color, double width) {}
+    private record Segment(Vec3 a, Vec3 b, int color, double width, boolean stableStart) {
+        Segment(Vec3 a, Vec3 b, int color, double width) { this(a,b,color,width,false); }
+    }
     private record Box(AABB bounds, int fill, Vec3 pivot, float yaw) {}
     private record Tag(Vec3 position, String text, float scale, int offset) {}
     private record Scene(Vec3 camera, Quaternionf rotation, List<Segment> lines, List<Box> boxes, List<Tag> tags) {
@@ -90,14 +93,27 @@ final class LegacyWorldVisuals implements FramePassManager.PassDefinition {
         if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
             smokeLines=scene.lines.size();smokeBoxes=scene.boxes.size();smokeTags=scene.tags.size();
         }
-        // Forge executes this inside the world frame graph with the actual world projection,
-        // including view bobbing/FOV. Only the view rotation belongs in our vertex transform.
+        // Forge executes this pass with Minecraft's already-bobbed world projection. Keep the
+        // world bobbing intact, but pre-cancel that transform on tracer origins so the line
+        // remains anchored to the centre of the view instead of bouncing while walking.
         var pose=new PoseStack();pose.mulPose(new Quaternionf(scene.rotation).conjugate());
+        Matrix4f inverseBob=null,inverseView=null;
+        var mc=Minecraft.getInstance();
+        if(mc.options.bobView().get()) {
+            var bob=new PoseStack();
+            ((GameRendererAccess)mc.gameRenderer).xdolf$bobView(bob,mc.gameRenderer.getMainCamera().getPartialTickTime());
+            inverseBob=new Matrix4f(bob.last().pose()).invert();
+            inverseView=new Matrix4f(pose.last().pose()).invert();
+        }
         var modelView=RenderSystem.getModelViewStack();modelView.pushMatrix();modelView.identity();
         try(var storage=new ByteBufferBuilder(65536)) {
             var buffers=MultiBufferSource.immediate(storage);
             for(var box:scene.boxes) drawBox(buffers,pose.last().pose(),box,scene.camera);
-            for(var segment:scene.lines) line(buffers,pose.last().pose(),segment.a.subtract(scene.camera),segment.b.subtract(scene.camera),segment.color,segment.width);
+            for(var segment:scene.lines) {
+                var a=segment.a.subtract(scene.camera);var b=segment.b.subtract(scene.camera);
+                if(segment.stableStart&&inverseBob!=null)a=unbobbedStart(a,pose.last().pose(),inverseBob,inverseView);
+                line(buffers,pose.last().pose(),a,b,segment.color,segment.width);
+            }
             buffers.endBatch();
             for(var tag:scene.tags) {
                 var matrix=new Matrix4f(pose.last().pose()).translate((float)(tag.position.x-scene.camera.x),(float)(tag.position.y-scene.camera.y),(float)(tag.position.z-scene.camera.z))
@@ -114,6 +130,11 @@ final class LegacyWorldVisuals implements FramePassManager.PassDefinition {
                 buffers.endBatch();
             }
         } finally {modelView.popMatrix();}
+    }
+    private static Vec3 unbobbedStart(Vec3 relative,Matrix4f view,Matrix4f inverseBob,Matrix4f inverseView) {
+        var point=new org.joml.Vector3f((float)relative.x,(float)relative.y,(float)relative.z);
+        view.transformPosition(point);inverseBob.transformPosition(point);inverseView.transformPosition(point);
+        return new Vec3(point.x,point.y,point.z);
     }
     private static final class LineStates extends RenderStateShard {
         private LineStates() { super("xdolf_lines",()->{},()->{}); }
@@ -162,11 +183,11 @@ final class LegacyWorldVisuals implements FramePassManager.PassDefinition {
         var forward=camera.getLookVector();var start=origin.add(forward.x,forward.y,forward.z);
         for(var entity:mc.level.entitiesForRendering()) {
             if(entity instanceof Player player&&player!=mc.player) {
-                if(tracers&&Hooks.setting("Tracers","players",1)!=0)segments.add(new Segment(start,entity.position(),LegacyVisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),LegacyVisualStyle.TRACER_WIDTH));
+                if(tracers&&Hooks.setting("Tracers","players",1)!=0)segments.add(new Segment(start,entity.position(),LegacyVisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),LegacyVisualStyle.TRACER_WIDTH,true));
                 if(names&&player.deathTime<=0) {
-                    String text=LegacyVisualStyle.tag(player.getName().getString(),player.getHealth(),SocialState.isFriend(player.getName().getString()));
+                    String text=LegacyVisualStyle.tag(player.getName().getString(),player.getHealth(),player.getArmorValue(),SocialState.isFriend(player.getName().getString()));
                     float distance=mc.player.distanceTo(player);int offset=LegacyVisualStyle.tagOffset(distance,player.isShiftKeyDown());
-                    tags.add(new Tag(player.position().add(0,player.getBbHeight()+0.5,0),text,0.016666668f*distance/2,offset));
+                    tags.add(new Tag(player.position().add(0,player.getBbHeight()+0.5,0),text,LegacyVisualStyle.tagScale(distance),offset));
                 }
             }
             if(esp&&Hooks.espTarget(entity)) {
@@ -190,7 +211,7 @@ final class LegacyWorldVisuals implements FramePassManager.PassDefinition {
                 if(!(chunk instanceof LevelChunk loaded))continue;
                 for(var be:loaded.getBlockEntities().values()) {
                     var pos=be.getBlockPos();var state=be.getBlockState();
-                    if(chestTracers&&be instanceof ChestBlockEntity)segments.add(new Segment(start,Vec3.atLowerCornerOf(pos),LegacyVisualStyle.CHEST_TRACER,LegacyVisualStyle.TRACER_WIDTH));
+                    if(chestTracers&&be instanceof ChestBlockEntity)segments.add(new Segment(start,Vec3.atLowerCornerOf(pos),LegacyVisualStyle.CHEST_TRACER,LegacyVisualStyle.TRACER_WIDTH,true));
                     if(!storage||merged.contains(pos))continue;
                     int color;
                     if(be instanceof ChestBlockEntity)color=state.is(Blocks.TRAPPED_CHEST)?0xFF0000:0x00FF00;
@@ -219,10 +240,10 @@ final class LegacyWorldVisuals implements FramePassManager.PassDefinition {
         for(int i=0;i<4;i++) {
             double distance=new double[]{5,50,100,20}[i],side=(i-1.5)*distance*0.25;
             var end=camera.add(forward.x*distance+right.x*side,forward.y*distance-1.6,forward.z*distance+right.z*side);
-            lines.add(new Segment(start,end,LegacyVisualStyle.tracerColor(distance,i==3),LegacyVisualStyle.TRACER_WIDTH));
+            lines.add(new Segment(start,end,LegacyVisualStyle.tracerColor(distance,i==3),LegacyVisualStyle.TRACER_WIDTH,true));
             int color=i==0?0xFF0000:i==1?0x00FF00:i==2?0x0000FF:0xFF00FF;
             boxes.add(new Box(new AABB(end.x-0.35,end.y,end.z-0.35,end.x+0.35,end.y+1.9,end.z+0.35),0x26000000|color,null,0));
-            tags.add(new Tag(end.add(0,2.3,0),LegacyVisualStyle.tag("VisualTest"+i,20-i*3,i==3),(float)(distance/120),-14));
+            tags.add(new Tag(end.add(0,2.3,0),LegacyVisualStyle.tag("VisualTest"+i,20-i*3,20-i*4,i==3),LegacyVisualStyle.tagScale((float)distance),-14));
         }
         return new Scene(camera,rotation,List.copyOf(lines),List.copyOf(boxes),List.copyOf(tags));
     }
