@@ -21,20 +21,14 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           path = Path('src/main/java/com/x0xp/xdolf/ClientScreen.java')
           text = path.read_text()
-          old = '''        if (stacked) {
-              String limits = row.integer
-                  ? String.format(Locale.ROOT, "%.0f–%.0f", row.setting.min, row.setting.max)
-                  : String.format(Locale.ROOT, "%.2f–%.2f", row.setting.min, row.setting.max);
-              limits = XdolfFont.trim(limits, (int) (fieldLeft - left - 3));
-              XdolfFont.draw(graphics, limits, left, fieldTop + 0.5f, fade(0x78FFFFFF, alpha));
-          }
-
-          '''
-          if old not in text:
-              raise SystemExit('Expected stacked range-hint block not found')
-          path.write_text(text.replace(old, '', 1))
+          pattern = r'\n\s*if \(stacked\) \{\n\s*String limits = row\.integer.*?\n\s*\}\n\n(\s*float trackLeft = left;)'
+          updated, count = re.subn(pattern, r'\n\1', text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'Expected one stacked range-hint block, removed {count}')
+          path.write_text(updated)
           PY
 
       - name: Commit cleanup and remove one-off workflow
