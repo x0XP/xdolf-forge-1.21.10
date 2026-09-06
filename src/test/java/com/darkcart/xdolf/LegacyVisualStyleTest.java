@@ -16,6 +16,7 @@ public final class LegacyVisualStyleTest {
         equal(0xFF00FF00,LegacyVisualStyle.tracerColor(200,true));
         equal("Player \u00a7a75%",LegacyVisualStyle.tag("Player",15,false));
         equal("\u00a79Friend \u00a7a100%",LegacyVisualStyle.tag("Friend",20,true));
+        equal("Player \u00a7a75% HP",LegacyVisualStyle.tag("Player",15,0,false));
         equal("Player \u00a7a75% HP \u00a7b18 Armor",LegacyVisualStyle.tag("Player",15,18,false));
         equal("\u00a79Friend \u00a7a100% HP \u00a7b20 Armor",LegacyVisualStyle.tag("Friend",20,20,true));
         close(0f,LegacyVisualStyle.tagScale(60));
