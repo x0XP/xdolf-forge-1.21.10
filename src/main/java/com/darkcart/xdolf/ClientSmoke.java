@@ -23,9 +23,6 @@ final class ClientSmoke {
             net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> captureDone=true);
         }
 
-        // Run the command/reconnect stage from the normal client tick path rather than
-        // from Screen.render(). Disconnecting an integrated server while the GUI render
-        // callback is still on the stack can stall the client before the reconnect phase.
         if (phase == 6 && !disconnectIssued && mc.player != null && mc.level != null) {
             CommandSmoke.run(mc);
             disconnectIssued = true;
@@ -43,7 +40,7 @@ final class ClientSmoke {
         } else if (phase == 8 && mc.player != null && mc.level != null && mc.screen==null) {
             ClientRuntime.updateSession(mc);CommandSmoke.assertSelections();
             if(!XRayModule.rendering)throw new IllegalStateException("XRay did not reactivate after join");
-            LegacyCommands.execute(".alloff");
+            Commands.execute(".alloff");
             LogUtils.getLogger().info("XDOLF_RECONNECT_OK: selections survived real disconnect and new world/player connection");
             LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, world rendering, commands, binds, persistence and reconnect passed");
             phase=9;mc.stop();return;
@@ -65,26 +62,25 @@ final class ClientSmoke {
                 for (String name : new String[] {"Fullbright", "NoHurtCam", "Chams", "XRay", "EntityESP", "StorageESP", "Nametags", "Tracers", "Trajectories"}) ClientRuntime.find(name).setEnabled(true);
             }
             if (ticks == 60) mc.player.setXRot(-45);
-            if (ticks == 90) LegacyWorldVisuals.smokeFixture=true;
+            if (ticks == 90) WorldVisuals.smokeFixture=true;
             if (ticks == 180) {
-                LegacyWorldVisuals.assertSmokeRendered();
+                WorldVisuals.assertSmokeRendered();
                 net.minecraft.client.Screenshot.grab(new java.io.File("."), mc.getMainRenderTarget(), message -> worldCaptureDone=true);
             }
             if (ticks >= 200 && worldCaptureDone) {
-                LegacyWorldVisuals.smokeFixture=false;
+                WorldVisuals.smokeFixture=false;
                 for (ClientModule module : ClientRuntime.MODULES) module.setEnabled(false);
                 LogUtils.getLogger().info("XDOLF_SMOKE_WORLD_OK: singleplayer loaded and visual modules ran for 150 ticks");
                 phase = 4; frames = 0; mc.setScreen(new ClientScreen());
             }
         }
     }
+
     static void frame() {
         if (!ACTIVE) return;
         frames++;
         if (phase == 4 && frames == 15) {
             phase = 5;
-            // GUI commands are deferred until after Screen.render; capture the completed
-            // framebuffer on the next tick, not while this screen is still submitting it.
             guiCaptureRequested=true;
             return;
         }
@@ -92,7 +88,6 @@ final class ClientSmoke {
             try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
                 if(files.noneMatch(p->p.toString().endsWith(".png")))throw new IllegalStateException("Screenshot was not saved");
             } catch(java.io.IOException error) { throw new IllegalStateException("Screenshot was not saved",error); }
-            // The next client tick runs the command suite and performs the real disconnect.
             phase=6;
             return;
         }
