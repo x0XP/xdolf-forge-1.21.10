@@ -2,15 +2,42 @@ package com.x0xp.xdolf.mixin;
 
 import com.x0xp.xdolf.XdolfFont;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.util.FormattedCharSequence;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Keeps chat input caret/selection geometry on the same metrics as Xdolf's TTF glyphs. */
+/** Keeps chat input text, caret and selection geometry on the same metrics as Xdolf's TTF. */
 @Mixin(EditBox.class)
 public abstract class EditBoxMixin {
+    @Unique private boolean xdolf$pushedChatOffset;
+
+    @Inject(method="renderWidget",at=@At("HEAD"))
+    private void xdolf$centerChatInput(GuiGraphics graphics,int mouseX,int mouseY,float partialTick,CallbackInfo ci) {
+        xdolf$pushedChatOffset=false;
+        if(!XdolfFont.renderingChat())return;
+
+        EditBox box=(EditBox)(Object)this;
+        int fontHeight=XdolfFont.lineHeight();
+        int vanillaTextY=box.isBordered()?box.getY()+(box.getHeight()-8)/2:box.getY();
+        int centeredTextY=box.getY()+Math.floorDiv(box.getHeight()-fontHeight,2);
+        ChatTextContext.push(centeredTextY-vanillaTextY);
+        xdolf$pushedChatOffset=true;
+    }
+
+    @Inject(method="renderWidget",at=@At("RETURN"))
+    private void xdolf$finishChatInput(GuiGraphics graphics,int mouseX,int mouseY,float partialTick,CallbackInfo ci) {
+        if(xdolf$pushedChatOffset) {
+            ChatTextContext.pop();
+            xdolf$pushedChatOffset=false;
+        }
+    }
+
     @Redirect(
         method="renderWidget",
         at=@At(value="INVOKE",target="Lnet/minecraft/client/gui/Font;width(Lnet/minecraft/util/FormattedCharSequence;)I")
