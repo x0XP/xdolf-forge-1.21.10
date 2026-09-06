@@ -28,7 +28,12 @@ public final class ClientScreen extends Screen {
     private static final List<Panel> PANELS = new ArrayList<>();
     private static final long OPTION_ANIMATION_NS = 135_000_000L;
     private static final float BOOLEAN_ROW_HEIGHT = 12.0f;
+    private static final float BOOLEAN_WRAPPED_ROW_HEIGHT = 21.0f;
     private static final float NUMBER_ROW_HEIGHT = 25.0f;
+    private static final float NUMBER_STACKED_ROW_HEIGHT = 36.0f;
+    private static final float NUMBER_FIELD_WIDTH = 31.0f;
+    private static final float NUMBER_LABEL_COMPACT_WIDTH = 45.0f;
+    private static final float TOGGLE_LABEL_SINGLE_LINE_WIDTH = 76.0f;
     private static boolean loaded;
 
     private Panel dragging;
@@ -254,14 +259,45 @@ public final class ClientScreen extends Screen {
         return mouseX >= x && mouseY >= y && mouseX <= x + width && mouseY <= y + height;
     }
 
+    private static boolean stackedNumber(SettingRow row) {
+        return !row.toggle && XdolfFont.width(row.label) > NUMBER_LABEL_COMPACT_WIDTH;
+    }
+
+    private static boolean wrappedToggle(SettingRow row) {
+        return row.toggle && XdolfFont.width(row.label) > TOGGLE_LABEL_SINGLE_LINE_WIDTH;
+    }
+
     private static float settingRowHeight(SettingRow row) {
-        return row.toggle ? BOOLEAN_ROW_HEIGHT : NUMBER_ROW_HEIGHT;
+        if (row.toggle) return wrappedToggle(row) ? BOOLEAN_WRAPPED_ROW_HEIGHT : BOOLEAN_ROW_HEIGHT;
+        return stackedNumber(row) ? NUMBER_STACKED_ROW_HEIGHT : NUMBER_ROW_HEIGHT;
     }
 
     private static float settingContainerHeight(ClientModule module) {
         float height = 4.0f;
         for (var row : settings(module)) height += settingRowHeight(row);
         return height;
+    }
+
+    private static List<String> wrapLabel(String text, int maxWidth) {
+        if (XdolfFont.width(text) <= maxWidth) return List.of(text);
+        var words = text.split(" ");
+        var lines = new ArrayList<String>(2);
+        var current = new StringBuilder();
+        for (String word : words) {
+            String candidate = current.isEmpty() ? word : current + " " + word;
+            if (!current.isEmpty() && XdolfFont.width(candidate) > maxWidth) {
+                lines.add(current.toString());
+                current.setLength(0);
+                current.append(word);
+                if (lines.size() == 1) continue;
+            } else {
+                if (!current.isEmpty()) current.append(' ');
+                current.append(word);
+            }
+        }
+        if (!current.isEmpty()) lines.add(current.toString());
+        if (lines.size() <= 2) return lines;
+        return List.of(lines.get(0), XdolfFont.trim(String.join(" ", lines.subList(1, lines.size())), maxWidth));
     }
 
     private static void row(GuiGraphics graphics, String name, float x, float y, boolean enabled, boolean hover,
@@ -281,19 +317,36 @@ public final class ClientScreen extends Screen {
         boolean enabled = row.setting.on();
         int color = enabled ? hover ? 0xFF44AAFF : 0xFFFFFFFF : hover ? 0xFF888888 : 0xB8FFFFFF;
         int stateColor = enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0xFF454850;
-        XdolfFont.draw(graphics, row.label, left, y, fade(color, alpha));
-        rect(graphics, right - 2, y + 2, right - 1, y + 10, fade(stateColor, alpha));
+        float rowHeight = settingRowHeight(row);
+        var labelLines = wrapLabel(row.label, (int) (right - left - 8));
+        if (labelLines.size() == 1) {
+            XdolfFont.draw(graphics, labelLines.get(0), left, y, fade(color, alpha));
+        } else {
+            XdolfFont.draw(graphics, labelLines.get(0), left, y, fade(color, alpha));
+            XdolfFont.draw(graphics, labelLines.get(1), left, y + 9, fade(color, alpha));
+        }
+        float center = y + rowHeight / 2.0f;
+        rect(graphics, right - 2, center - 4, right - 1, center + 4, fade(stateColor, alpha));
+    }
+
+    private static float numberFieldTop(SettingRow row, float y) {
+        return y + (stackedNumber(row) ? 10.5f : -0.5f);
+    }
+
+    private static float numberTrackTop(SettingRow row, float y) {
+        return y + (stackedNumber(row) ? 25.0f : 14.0f);
     }
 
     private static void numberRow(GuiGraphics graphics, SettingRow row, float left, float right, float y,
                                   boolean hover, float alpha, ClientScreen screen) {
         boolean editing = screen != null && screen.editing == row.setting;
+        boolean stacked = stackedNumber(row);
         XdolfFont.draw(graphics, row.label, left, y, fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
 
         float fieldRight = right - 3;
-        float fieldLeft = fieldRight - 31;
-        float fieldTop = y - 0.5f;
-        float fieldBottom = y + 10.5f;
+        float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
+        float fieldTop = numberFieldTop(row, y);
+        float fieldBottom = fieldTop + 11.0f;
         int fieldFill = editing ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
         int fieldBorder = editing ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
         rect(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom, fade(fieldFill, alpha));
@@ -303,12 +356,20 @@ public final class ClientScreen extends Screen {
         if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
         value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 4));
         float valueX = fieldRight - 2 - XdolfFont.width(value);
-        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 2, valueX), y, fade(0xFFFFFFFF, alpha));
+        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 2, valueX), fieldTop + 0.5f, fade(0xFFFFFFFF, alpha));
+
+        if (stacked) {
+            String limits = row.integer
+                ? String.format(Locale.ROOT, "%.0f–%.0f", row.setting.min, row.setting.max)
+                : String.format(Locale.ROOT, "%.2f–%.2f", row.setting.min, row.setting.max);
+            limits = XdolfFont.trim(limits, (int) (fieldLeft - left - 3));
+            XdolfFont.draw(graphics, limits, left, fieldTop + 0.5f, fade(0x78FFFFFF, alpha));
+        }
 
         float trackLeft = left;
         float trackRight = right - 3;
-        float trackTop = y + 14;
-        float trackBottom = y + 20;
+        float trackTop = numberTrackTop(row, y);
+        float trackBottom = trackTop + 6;
         double span = row.setting.max - row.setting.min;
         float fraction = span <= 0 ? 0 : (float) ((row.setting.get() - row.setting.min) / span);
         fraction = Math.max(0.0f, Math.min(1.0f, fraction));
@@ -480,7 +541,7 @@ public final class ClientScreen extends Screen {
                             float settingY = moduleY + 2;
                             for (var settingRow : rows) {
                                 if (settingRow.toggle) {
-                                    if (hit(mouseX, mouseY, left + 5, settingY, right - left - 10, 11)) {
+                                    if (hit(mouseX, mouseY, left + 5, settingY, right - left - 10, settingRowHeight(settingRow) - 1)) {
                                         commitEditing();
                                         if (button == 0) {
                                             settingRow.setting.set(settingRow.setting.on() ? 0 : 1);
@@ -492,12 +553,13 @@ public final class ClientScreen extends Screen {
                                     float rowLeft = left + 5;
                                     float rowRight = right - 3;
                                     float fieldRight = rowRight - 3;
-                                    float fieldLeft = fieldRight - 31;
-                                    if (button == 0 && hit(mouseX, mouseY, fieldLeft, settingY - 0.5f, 31, 11)) {
+                                    float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
+                                    float fieldTop = numberFieldTop(settingRow, settingY);
+                                    if (button == 0 && hit(mouseX, mouseY, fieldLeft, fieldTop, NUMBER_FIELD_WIDTH, 11)) {
                                         beginEditing(settingRow.setting);
                                         return true;
                                     }
-                                    float trackTop = settingY + 14;
+                                    float trackTop = numberTrackTop(settingRow, settingY);
                                     if (button == 0 && hit(mouseX, mouseY, rowLeft, trackTop, rowRight - rowLeft - 3, 7)) {
                                         commitEditing();
                                         sliding = settingRow.setting;
@@ -704,7 +766,8 @@ public final class ClientScreen extends Screen {
 
         var playerToggle = settings(killAura).stream().filter(row -> row.setting.name.equals("players")).findFirst().orElseThrow();
         boolean before = playerToggle.setting.on();
-        float settingY = killAuraY + 14 + NUMBER_ROW_HEIGHT;
+        var rangeRow = settings(killAura).stream().filter(row -> row.setting.name.equals("range")).findFirst().orElseThrow();
+        float settingY = killAuraY + 14 + settingRowHeight(rangeRow);
         screen.click(combat.x + 20, settingY + 2, 0);
         if (playerToggle.setting.on() == before) throw new IllegalStateException("Inline toggle failed");
         playerToggle.setting.set(before ? 1 : 0);
@@ -722,6 +785,18 @@ public final class ClientScreen extends Screen {
             throw new IllegalStateException("Numeric module settings were not moved inline");
         }
 
+        var autoLog = combat.modules.stream().filter(module -> module.name.equals("AutoLog")).findFirst().orElseThrow();
+        var health = settings(autoLog).stream().filter(row -> row.setting.name.equals("health")).findFirst().orElseThrow();
+        if (!stackedNumber(health) || settingRowHeight(health) <= NUMBER_ROW_HEIGHT) {
+            throw new IllegalStateException("Long numeric labels are not using stacked layout");
+        }
+
+        var elytraPlus = player.modules.stream().filter(module -> module.name.equals("ElytraPlus")).findFirst().orElseThrow();
+        var takeoff = settings(elytraPlus).stream().filter(row -> row.setting.name.equals("takeoff")).findFirst().orElseThrow();
+        if (!wrappedToggle(takeoff) || settingRowHeight(takeoff) <= BOOLEAN_ROW_HEIGHT) {
+            throw new IllegalStateException("Long toggle labels are not wrapping");
+        }
+
         screen.click(combat.x + 30, killAuraY + 5, 1);
         if (animation.open) throw new IllegalStateException("Inline settings did not begin collapsing");
         animation.finish();
@@ -733,7 +808,7 @@ public final class ClientScreen extends Screen {
         load();
         if (player.x != savedX || !player.open) throw new IllegalStateException("Window state roundtrip failed");
 
-        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, inline toggles/sliders/text inputs, animation, pin/open/drag controls");
+        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, adaptive inline settings, typed values, animation, pin/open/drag controls");
     }
 
     private static void load() {
