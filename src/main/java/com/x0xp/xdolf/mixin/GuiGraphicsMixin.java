@@ -1,5 +1,6 @@
 package com.x0xp.xdolf.mixin;
 
+import com.x0xp.xdolf.ChatTextContext;
 import com.x0xp.xdolf.XdolfFont;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
