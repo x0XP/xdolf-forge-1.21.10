@@ -22,11 +22,11 @@ final class ClientRuntime {
     private static net.minecraft.client.player.LocalPlayer previousPlayer;
 
     static void register() {
-        LegacyWorldVisuals.register();
-        RestoredVisuals.register();
+        WorldVisuals.register();
+        MarkerVisuals.register();
         ClientConfig.load(MODULES);
         SocialState.load();
-        LegacyCommands.load();
+        Commands.load();
         TickEvent.ClientTickEvent.Post.BUS.addListener(ClientRuntime::tick);
         InputEvent.Key.BUS.addListener(ClientRuntime::key);
         MovementInputUpdateEvent.BUS.addListener(event -> {
@@ -47,7 +47,7 @@ final class ClientRuntime {
             ResourceLocation.fromNamespaceAndPath(Xdolf.ID, "hud"), (graphics, delta) -> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player == null || mc.options.hideGui) return;
-                LegacyHud.render(graphics);
+                Hud.render(graphics);
             }));
     }
 
@@ -55,7 +55,7 @@ final class ClientRuntime {
         Minecraft mc = Minecraft.getInstance();
         ClientSmoke.tick(mc);
         updateSession(mc);
-        LegacyCommands.recordDeath(mc);
+        Commands.recordDeath(mc);
         if (mc.player == null || mc.level == null || mc.getConnection() == null) return;
 
         for (ClientModule module : MODULES) {
@@ -65,15 +65,11 @@ final class ClientRuntime {
             boolean visual = module.category.equals("Render") || module.name.equals("Fullbright") || module.name.equals("XRay");
             boolean freecamSuspended = Hooks.enabled("Freecam") && !visual && !module.name.equals("Freecam");
 
-            // Freecam intentionally owns movement/player-side state while enabled. This is the one
-            // case where conflicting modules need their transient state released.
             if (freecamSuspended) {
                 module.reset(mc);
                 continue;
             }
 
-            // Opening inventory/chat/settings is not a module reset. If the game is genuinely paused,
-            // simply hold transient state until ticking resumes instead of making modules appear off.
             if (!visual && mc.isPaused() && !respawnScreen) continue;
 
             try {
@@ -92,23 +88,25 @@ final class ClientRuntime {
         for (var module : MODULES) module.reset(mc);
         previousLevel = mc.level;
         previousPlayer = mc.player;
-        LegacyCommands.worldChanged(mc);
+        Commands.worldChanged(mc);
         if (mc.level != null && mc.player != null)
             for (var module : MODULES) if (module.enabled()) module.activate(mc);
     }
 
     private static void key(InputEvent.Key event) { handleKey(event.getKey(),event.getAction()); }
+
     static void handleKey(int key,int action) {
         Minecraft mc = Minecraft.getInstance();
         if (action != GLFW.GLFW_PRESS || mc.screen != null || mc.player == null || key < 0) return;
         for (ClientModule module : MODULES) if (module.key == key) toggle(module);
         if (key == ClientConfig.guiKey || (ClientConfig.guiKey == GLFW.GLFW_KEY_GRAVE_ACCENT && key == GLFW.GLFW_KEY_RIGHT_SHIFT))
             mc.setScreen(new ClientScreen());
-        else if (key == GLFW.GLFW_KEY_PERIOD) mc.setScreen(new net.minecraft.client.gui.screens.ChatScreen(".",false));
-        LegacyCommands.runMacros(key);
+        else if (key == GLFW.GLFW_KEY_PERIOD)
+            mc.setScreen(new net.minecraft.client.gui.screens.ChatScreen(".",false));
+        Commands.runMacros(key);
     }
 
-    private static boolean chat(ClientChatEvent event) { return LegacyCommands.execute(event.getMessage()); }
+    private static boolean chat(ClientChatEvent event) { return Commands.execute(event.getMessage()); }
 
     static void configure(String[] parts) {
         ClientModule module = parts.length >= 2 ? find(parts[1]) : null;
@@ -120,18 +118,23 @@ final class ClientRuntime {
         var setting = parts.length == 4 ? module.setting(parts[2]) : null;
         if (setting == null) { message("Use .set " + module.name + " to list settings."); return; }
         try {
-            setting.set(Double.parseDouble(parts[3])); ClientConfig.save(MODULES);
+            setting.set(Double.parseDouble(parts[3]));
+            ClientConfig.save(MODULES);
             message(module.name + " " + setting.name + " = " + setting.display());
-        } catch (IllegalArgumentException error) { message("Enter a number between " + setting.min + " and " + setting.max + "."); }
+        } catch (IllegalArgumentException error) {
+            message("Enter a number between " + setting.min + " and " + setting.max + ".");
+        }
     }
 
     static ClientModule find(String name) {
-        return MODULES.stream().filter(module -> module.name.replace(" ", "").equalsIgnoreCase(name.replace(" ", "")) || ClientScreen.label(module).equalsIgnoreCase(name)).findFirst().orElse(null);
+        return MODULES.stream().filter(module -> module.name.replace(" ", "").equalsIgnoreCase(name.replace(" ", ""))
+            || ClientScreen.label(module).equalsIgnoreCase(name)).findFirst().orElse(null);
     }
 
     static void toggle(ClientModule module) {
         if (!module.enabled() && List.of("Flight", "ElytraFly", "ElytraPlus").contains(module.name)) {
-            for (var other : MODULES) if (other != module && List.of("Flight", "ElytraFly", "ElytraPlus").contains(other.name)) other.setEnabled(false);
+            for (var other : MODULES)
+                if (other != module && List.of("Flight", "ElytraFly", "ElytraPlus").contains(other.name)) other.setEnabled(false);
         }
         module.setEnabled(!module.enabled());
         message(module.name + (module.enabled() ? " enabled" : " disabled"));
@@ -139,6 +142,6 @@ final class ClientRuntime {
 
     static void message(String text) {
         var player = Minecraft.getInstance().player;
-        if (player != null) player.displayClientMessage(LegacyChat.prefixed(text), false);
+        if (player != null) player.displayClientMessage(ChatFormatter.prefixed(text), false);
     }
 }
