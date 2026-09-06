@@ -20,12 +20,12 @@ public final class Hooks {
     }
 
     /**
-     * Opening inventory/chat/settings must not temporarily deactivate modules. A true game pause
-     * still suspends active movement logic, while render state and enabled selections are retained.
+     * A module remains active while inventory, chat and other client screens are open. Freecam still
+     * owns player movement while selected, so other movement hooks are suspended until it is disabled.
+     * Tick-driven gameplay modules independently avoid advancing during a true paused game.
      */
     public static boolean active(String name) {
-        Minecraft mc = Minecraft.getInstance();
-        return enabled(name) && (name.equals("Freecam") || !enabled("Freecam")) && !mc.isPaused();
+        return enabled(name) && (name.equals("Freecam") || !enabled("Freecam"));
     }
 
     public static double setting(String module, String name, double fallback) {
@@ -33,18 +33,24 @@ public final class Hooks {
         if (value == null || value.setting(name) == null) return fallback;
         return value.setting(name).get();
     }
+
     public static boolean espTarget(Entity entity) {
         var mc = Minecraft.getInstance();
         if (entity == mc.player) return false;
-        boolean boss=entity.getType()==net.minecraft.world.entity.EntityType.WITHER||entity.getType()==net.minecraft.world.entity.EntityType.ENDER_DRAGON;
+        boolean boss = entity.getType() == net.minecraft.world.entity.EntityType.WITHER
+            || entity.getType() == net.minecraft.world.entity.EntityType.ENDER_DRAGON;
         String option = entity instanceof net.minecraft.world.entity.player.Player ? "players"
             : entity instanceof net.minecraft.world.entity.monster.Monster || boss ? "monsters"
             : entity instanceof net.minecraft.world.entity.Mob ? "passive"
-            : !(entity instanceof net.minecraft.world.entity.projectile.Projectile) && entity.getType().getCategory()==net.minecraft.world.entity.MobCategory.MISC ? "items" : null;
-        return option != null && setting("EntityESP",option,1) != 0;
+            : !(entity instanceof net.minecraft.world.entity.projectile.Projectile)
+                && entity.getType().getCategory() == net.minecraft.world.entity.MobCategory.MISC ? "items" : null;
+        return option != null && setting("EntityESP", option, 1) != 0;
     }
+
     public static boolean highlight(Entity entity) {
-        return entity instanceof LivingEntity && entity != Minecraft.getInstance().player
-            && entity.isAlive() && !entity.isInvisible() && entity.distanceToSqr(Minecraft.getInstance().player) <= 128 * 128;
+        var mc = Minecraft.getInstance();
+        if (!(entity instanceof LivingEntity) || entity == mc.player || !entity.isAlive() || entity.isInvisible()) return false;
+        var camera = mc.gameRenderer.getMainCamera();
+        return camera != null && entity.position().distanceToSqr(camera.getPosition()) <= 128 * 128;
     }
 }
