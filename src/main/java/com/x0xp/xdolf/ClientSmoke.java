@@ -83,7 +83,7 @@ final class ClientSmoke {
             mc.options.guiScale().set(1);
             org.lwjgl.glfw.GLFW.glfwSetWindowSize(org.lwjgl.glfw.GLFW.glfwGetCurrentContext(),640,360);
             mc.gui.getChat().addMessage(Component.literal("[Xdolf] Low-resolution TTF smoke test: lorem ipsum 0123456789"));
-            mc.setScreen(new ChatScreen("lorem ipsum"));
+            mc.setScreen(new ChatScreen("lorem ipsum",false));
             phase=6;
             frames=0;
             return;
