@@ -1,6 +1,7 @@
 package com.x0xp.xdolf;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -21,7 +22,7 @@ import javax.imageio.ImageIO;
 
 /** Xdolf's Roboto/AWT font renderer used by the GUI, HUD, chat and world labels. */
 public final class XdolfFont {
-    private static final int SIZE = 2048;
+    private static final int ATLAS_WIDTH = 2048;
     private static final int BASE_FONT_SIZE = 9;
     private static final int MAX_RASTER_SCALE = 4;
     private static final int GLYPH_COUNT = 2048;
@@ -33,11 +34,13 @@ public final class XdolfFont {
     };
     private static FontAtlas activeAtlas;
     private static int chatDepth;
+    private static int smokeRasterScale;
 
     private XdolfFont() {}
 
     private static final class FontAtlas {
         final int scale;
+        final int textureHeight;
         final int glyphHeight;
         final int cellPadding;
         final int visibleTop;
@@ -48,9 +51,10 @@ public final class XdolfFont {
         final ResourceLocation texture;
         final RenderType worldText;
 
-        FontAtlas(int scale,int glyphHeight,int cellPadding,int visibleTop,int visibleBottom,
+        FontAtlas(int scale,int textureHeight,int glyphHeight,int cellPadding,int visibleTop,int visibleBottom,
                   int[] width,int[] x,int[] y,ResourceLocation texture) {
             this.scale=scale;
+            this.textureHeight=textureHeight;
             this.glyphHeight=glyphHeight;
             this.cellPadding=cellPadding;
             this.visibleTop=visibleTop;
@@ -64,10 +68,8 @@ public final class XdolfFont {
     }
 
     /**
-     * Select an atlas rasterised for the current GUI scale. Each scale has its own permanent
-     * texture instead of replacing the texture currently referenced by render commands. This keeps
-     * GUI-scale changes safe in the 1.21 render pipeline and gives roughly one source texel per
-     * framebuffer pixel at scales 1-4.
+     * Select an atlas rasterised for the current GUI scale. Each scale keeps its own texture, so
+     * switching GUI scale never replaces a texture that queued render commands may still reference.
      */
     private static FontAtlas atlas() {
         int desiredScale=currentRasterScale();
@@ -83,13 +85,22 @@ public final class XdolfFont {
     }
 
     private static int currentRasterScale() {
+        if(Boolean.getBoolean("xdolf.smokeTest")&&smokeRasterScale>0)return smokeRasterScale;
         Minecraft minecraft=Minecraft.getInstance();
         if(minecraft==null||minecraft.getWindow()==null)return 1;
         int scale=(int)Math.round(minecraft.getWindow().getGuiScale());
         return Math.max(1,Math.min(MAX_RASTER_SCALE,scale));
     }
 
+    /** CI-only override that exercises another raster scale without mutating Minecraft's live GUI. */
+    static void smokeRasterScale(int scale) {
+        if(!Boolean.getBoolean("xdolf.smokeTest"))return;
+        smokeRasterScale=scale>=1&&scale<=MAX_RASTER_SCALE?scale:0;
+        activeAtlas=null;
+    }
+
     private static FontAtlas buildAtlas(int scale) {
+        long started=System.nanoTime();
         try {
             int fontSize=BASE_FONT_SIZE*scale;
             int cellPadding=Math.max(2,2*scale);
@@ -98,24 +109,36 @@ public final class XdolfFont {
             int extraHeight=Math.max(1,Math.round(0.75f*scale));
             int[] width=new int[GLYPH_COUNT],xPos=new int[GLYPH_COUNT],yPos=new int[GLYPH_COUNT];
 
-            var imageBuffer=new BufferedImage(SIZE,SIZE,BufferedImage.TYPE_INT_ARGB);
+            // Measure/layout first so each raster scale only allocates the texture height it uses.
+            var measuringImage=new BufferedImage(1,1,BufferedImage.TYPE_INT_ARGB);
+            var measuringGraphics=measuringImage.createGraphics();
+            measuringGraphics.setFont(new java.awt.Font("Roboto",java.awt.Font.PLAIN,fontSize));
+            measuringGraphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            measuringGraphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
+            var metrics=measuringGraphics.getFontMetrics();
+            int glyphHeight=metrics.getHeight()+extraHeight;
+            int x=0,y=0;
+            for(int i=0;i<GLYPH_COUNT;i++) {
+                width[i]=Math.max(scale+1,metrics.charWidth((char)i)+cellPadding);
+                if(x+width[i]>=ATLAS_WIDTH) { x=0; y+=glyphHeight; }
+                xPos[i]=x;
+                yPos[i]=y;
+                x+=width[i];
+            }
+            measuringGraphics.dispose();
+
+            int usedHeight=y+glyphHeight;
+            int textureHeight=nextPowerOfTwo(Math.max(32,usedHeight));
+            if(textureHeight>2048)throw new IllegalStateException("Xdolf TTF atlas overflow at GUI scale "+scale);
+
+            var imageBuffer=new BufferedImage(ATLAS_WIDTH,textureHeight,BufferedImage.TYPE_INT_ARGB);
             var graphics=imageBuffer.createGraphics();
             graphics.setFont(new java.awt.Font("Roboto",java.awt.Font.PLAIN,fontSize));
             graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
             graphics.setColor(Color.WHITE);
-            var metrics=graphics.getFontMetrics();
-            int glyphHeight=metrics.getHeight()+extraHeight;
-            int x=0,y=0;
-            for(int i=0;i<GLYPH_COUNT;i++) {
-                width[i]=Math.max(scale+1,metrics.charWidth((char)i)+cellPadding);
-                if(x+width[i]>=SIZE) { x=0; y+=glyphHeight; }
-                if(y+glyphHeight>=SIZE)throw new IllegalStateException("Xdolf TTF atlas overflow at GUI scale "+scale);
-                xPos[i]=x;
-                yPos[i]=y;
-                graphics.drawString(String.valueOf((char)i),x+leftPadding,y+topPadding+metrics.getAscent());
-                x+=width[i];
-            }
+            for(int i=0;i<GLYPH_COUNT;i++)
+                graphics.drawString(String.valueOf((char)i),xPos[i]+leftPadding,yPos[i]+topPadding+metrics.getAscent());
             graphics.dispose();
 
             int[] visible=measureVisibleAsciiBounds(imageBuffer,width,xPos,yPos,glyphHeight);
@@ -126,7 +149,12 @@ public final class XdolfFont {
             dynamicTexture.setFilter(false,false);
             ResourceLocation texture=ResourceLocation.fromNamespaceAndPath("xdolf","client_font_"+scale);
             Minecraft.getInstance().getTextureManager().register(texture,dynamicTexture);
-            return new FontAtlas(scale,glyphHeight,cellPadding,visible[0],visible[1],width,xPos,yPos,texture);
+
+            if(Boolean.getBoolean("xdolf.smokeTest")) {
+                double elapsed=(System.nanoTime()-started)/1_000_000_000.0;
+                LogUtils.getLogger().info("XDOLF_FONT_ATLAS_OK: scale {} {}x{} built in {} ms",scale,ATLAS_WIDTH,textureHeight,Math.round(elapsed*1000.0));
+            }
+            return new FontAtlas(scale,textureHeight,glyphHeight,cellPadding,visible[0],visible[1],width,xPos,yPos,texture);
         } catch(java.io.IOException error) {
             throw new IllegalStateException("Cannot create Xdolf TTF font",error);
         }
@@ -201,8 +229,9 @@ public final class XdolfFont {
                 continue;
             }
             if(c>=atlas.width.length)continue;
-            float u=atlas.x[c]/(float)SIZE,v=atlas.y[c]/(float)SIZE;
-            float right=(atlas.x[c]+atlas.width[c])/(float)SIZE,bottom=(atlas.y[c]+atlas.glyphHeight)/(float)SIZE;
+            float u=atlas.x[c]/(float)ATLAS_WIDTH,v=atlas.y[c]/(float)atlas.textureHeight;
+            float right=(atlas.x[c]+atlas.width[c])/(float)ATLAS_WIDTH;
+            float bottom=(atlas.y[c]+atlas.glyphHeight)/(float)atlas.textureHeight;
             consumer.addVertex(matrix,offset,atlas.glyphHeight,0).setColor(current).setUv(u,bottom).setUv2(240,240);
             consumer.addVertex(matrix,offset+atlas.width[c],atlas.glyphHeight,0).setColor(current).setUv(right,bottom).setUv2(240,240);
             consumer.addVertex(matrix,offset+atlas.width[c],0,0).setColor(current).setUv(right,v).setUv2(240,240);
@@ -277,7 +306,8 @@ public final class XdolfFont {
                 continue;
             }
             if(c>=atlas.width.length)continue;
-            g.blit(RenderPipelines.GUI_TEXTURED,atlas.texture,offset,0,atlas.x[c],atlas.y[c],atlas.width[c],atlas.glyphHeight,SIZE,SIZE,current);
+            g.blit(RenderPipelines.GUI_TEXTURED,atlas.texture,offset,0,atlas.x[c],atlas.y[c],atlas.width[c],atlas.glyphHeight,
+                ATLAS_WIDTH,atlas.textureHeight,current);
             offset+=atlas.width[c]-atlas.cellPadding;
         }
         g.pose().popMatrix();
@@ -288,6 +318,11 @@ public final class XdolfFont {
         double guiScale=Minecraft.getInstance().getWindow().getGuiScale();
         if(guiScale<=0.0)return value;
         return (float)(Math.round(value*guiScale)/guiScale);
+    }
+
+    private static int nextPowerOfTwo(int value) {
+        int highest=Integer.highestOneBit(value);
+        return highest==value?value:highest<<1;
     }
 
     private static int ceilDiv(int value,int divisor) {
