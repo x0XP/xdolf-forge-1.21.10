@@ -13,25 +13,58 @@ import net.minecraftforge.fml.loading.FMLPaths;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 
-/** Xdolf click GUI with draggable windows, inline module options and value sliders. */
+/** Xdolf click GUI with draggable windows, animated inline module options and value sliders. */
 public final class ClientScreen extends Screen {
     private static final List<Panel> PANELS = new ArrayList<>();
+    private static final long OPTION_ANIMATION_NS = 135_000_000L;
     private static boolean loaded;
     private Panel dragging;
     private Slider sliding;
     private double offsetX, offsetY;
 
+    private static final class Expansion {
+        boolean open;
+        float progress;
+        float from;
+        float target;
+        long started;
+
+        float value() {
+            if (progress == target) return progress;
+            float elapsed = Math.min(1.0f, (System.nanoTime() - started) / (float) OPTION_ANIMATION_NS);
+            float eased = 1.0f - (float) Math.pow(1.0f - elapsed, 3.0);
+            progress = from + (target - from) * eased;
+            if (elapsed >= 1.0f) progress = target;
+            return progress;
+        }
+
+        void setOpen(boolean value) {
+            float current = value();
+            open = value;
+            from = current;
+            target = value ? 1.0f : 0.0f;
+            started = System.nanoTime();
+        }
+
+        void finish() {
+            progress = target;
+            from = target;
+        }
+    }
+
     private static final class Panel {
         final String title;
         final List<ClientModule> modules = new ArrayList<>();
         final List<Slider> sliders = new ArrayList<>();
+        final Map<ClientModule, Expansion> expansions = new HashMap<>();
         int x, y;
         boolean open, pinned;
-        ClientModule expanded;
 
         Panel(String title, int y) {
             this.title = title;
@@ -43,12 +76,36 @@ public final class ClientScreen extends Screen {
             return title.equals("Info") || title.equals("Radar");
         }
 
+        Expansion expansion(ClientModule module) {
+            return expansions.computeIfAbsent(module, ignored -> new Expansion());
+        }
+
+        void toggleExpansion(ClientModule module) {
+            Expansion selected = expansion(module);
+            boolean opening = !selected.open;
+            if (opening) {
+                for (var entry : expansions.entrySet()) {
+                    if (entry.getKey() != module && entry.getValue().open) entry.getValue().setOpen(false);
+                }
+            }
+            selected.setOpen(opening);
+        }
+
+        float animatedOptionsHeight(ClientModule module) {
+            var expansion = expansions.get(module);
+            if (expansion == null) return 0.0f;
+            int count = options(module).size();
+            if (count == 0) return 0.0f;
+            return optionContainerHeight(count) * expansion.value();
+        }
+
         float height() {
             if (text()) return open ? lines(this).size() * 10 + 16 : 14;
             if (!open) return 13;
             if (!modules.isEmpty()) {
-                int rows = modules.size() + (expanded == null ? 0 : options(expanded).size());
-                return 13 + rows * 12 + 0.5f;
+                float height = 13 + modules.size() * 12 + 0.5f;
+                for (var module : modules) height += animatedOptionsHeight(module);
+                return height;
             }
             return 13 + sliders.size() * 19 + (sliders.isEmpty() ? 0.5f : 3);
         }
@@ -159,50 +216,96 @@ public final class ClientScreen extends Screen {
         rect(graphics, right, y, right + 0.5f, bottom + 0.5f, 0xFF000000);
     }
 
+    private static int fade(int color, float alpha) {
+        int originalAlpha = color >>> 24;
+        int fadedAlpha = Math.max(0, Math.min(255, Math.round(originalAlpha * alpha)));
+        return (color & 0x00FFFFFF) | fadedAlpha << 24;
+    }
+
     private static boolean hit(double mouseX, double mouseY, double x, double y, double width, double height) {
         return mouseX >= x && mouseY >= y && mouseX <= x + width && mouseY <= y + height;
     }
 
-    private static void row(GuiGraphics graphics, String name, int x, int y, boolean enabled, boolean hover, boolean configurable, boolean expanded) {
+    private static float optionContainerHeight(int optionCount) {
+        return optionCount * 12.0f + 4.0f;
+    }
+
+    private static void row(GuiGraphics graphics, String name, float x, float y, boolean enabled, boolean hover,
+                            boolean configurable, boolean expanded) {
         int color = enabled ? hover ? 0xFF44AAFF : 0xFFFFFFFF : hover ? 0xFF888888 : 0x99FFFFFF;
-        rect(graphics, x + 95, y, x + 96, y + 12, enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0x0033363D);
-        XdolfFont.draw(graphics, name, x + 48 - XdolfFont.width(name) / 2, y, color);
+        rect(graphics, x + 95, y, x + 96, y + 12,
+            enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0x0033363D);
+        XdolfFont.draw(graphics, name, x + 48 - XdolfFont.width(name) / 2.0f, y, color);
         if (configurable) {
             XdolfFont.draw(graphics, expanded ? "-" : "+", x + 90, y,
                 enabled && hover ? 0xFF44AAFF : hover ? 0xFF888888 : 0xFFFFFFFF);
         }
     }
 
-    private static void optionRow(GuiGraphics graphics, Option option, int x, int y, boolean hover) {
+    private static void optionRow(GuiGraphics graphics, Option option, float x, float y, float right,
+                                  boolean hover, float alpha) {
         boolean enabled = option.setting.on();
-        int color = enabled ? hover ? 0xFF44AAFF : 0xFFFFFFFF : hover ? 0xFF888888 : 0x99FFFFFF;
-        rect(graphics, x + 89, y, x + 90, y + 12,
-            enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0x0033363D);
-        XdolfFont.draw(graphics, "> " + option.label, x, y, color);
+        int color = enabled ? hover ? 0xFF44AAFF : 0xFFFFFFFF : hover ? 0xFF888888 : 0xB8FFFFFF;
+        int stateColor = enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0xFF454850;
+        XdolfFont.draw(graphics, option.label, x, y, fade(color, alpha));
+        rect(graphics, right - 2, y + 2, right - 1, y + 10, fade(stateColor, alpha));
+    }
+
+    private static void optionContainer(GuiGraphics graphics, Panel panel, ClientModule module, List<Option> moduleOptions,
+                                        float top, float progress, int mouseX, int mouseY) {
+        if (progress <= 0.001f) return;
+        float left = panel.x + 5;
+        float right = panel.x + 95;
+        float fullHeight = optionContainerHeight(moduleOptions.size());
+        float visibleHeight = fullHeight * progress;
+        int scissorTop = (int) Math.floor(top);
+        int scissorBottom = (int) Math.ceil(top + visibleHeight);
+        if (scissorBottom <= scissorTop) return;
+
+        graphics.enableScissor((int) Math.floor(left), scissorTop, (int) Math.ceil(right + 0.5f), scissorBottom);
+        border(graphics, left, top, right, top + fullHeight - 0.5f, fade(0xB0181A20, progress));
+        rect(graphics, left + 2, top + 2, left + 2.5f, top + fullHeight - 2,
+            fade(0x665A5F6A, progress));
+
+        float optionY = top + 2;
+        boolean interactive = panel.expansion(module).open && progress >= 0.95f;
+        for (int i = 0; i < moduleOptions.size(); i++) {
+            var option = moduleOptions.get(i);
+            boolean hover = interactive && hit(mouseX, mouseY, left + 5, optionY, right - left - 10, 11);
+            optionRow(graphics, option, left + 5, optionY, right - 3, hover, progress);
+            if (i + 1 < moduleOptions.size()) {
+                rect(graphics, left + 4, optionY + 11.5f, right - 4, optionY + 12,
+                    fade(0x28000000, progress));
+            }
+            optionY += 12;
+        }
+        graphics.disableScissor();
     }
 
     private static void draw(GuiGraphics graphics, Panel panel, int mouseX, int mouseY, boolean controls) {
         border(graphics, panel.x, panel.y, panel.x + 100, panel.y + panel.height(), 0x80000000);
         XdolfFont.draw(graphics, panel.title, panel.x + 3, panel.y + 1, 0xFFFFFFFF);
         if (controls) {
-            border(graphics, panel.x + 79, panel.y + 2, panel.x + 88, panel.y + 11, panel.pinned ? 0xFFFF0000 : 0xFF383B42);
-            border(graphics, panel.x + 89, panel.y + 2, panel.x + 98, panel.y + 11, panel.open ? 0xFFFF0000 : 0xFF383B42);
+            border(graphics, panel.x + 79, panel.y + 2, panel.x + 88, panel.y + 11,
+                panel.pinned ? 0xFFFF0000 : 0xFF383B42);
+            border(graphics, panel.x + 89, panel.y + 2, panel.x + 98, panel.y + 11,
+                panel.open ? 0xFFFF0000 : 0xFF383B42);
         }
         if (!panel.open) return;
 
-        int moduleY = panel.y + 12;
+        float moduleY = panel.y + 12;
         for (var module : panel.modules) {
             var moduleOptions = options(module);
-            boolean expanded = panel.expanded == module && !moduleOptions.isEmpty();
+            var expansion = panel.expansions.get(module);
+            float progress = expansion == null ? 0.0f : expansion.value();
+            boolean expanded = expansion != null && expansion.open;
             row(graphics, label(module), panel.x + 2, moduleY, module.enabled(),
                 hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11), !moduleOptions.isEmpty(), expanded);
             moduleY += 12;
-            if (expanded) {
-                for (var option : moduleOptions) {
-                    optionRow(graphics, option, panel.x + 6, moduleY,
-                        hit(mouseX, mouseY, panel.x + 6, moduleY, 90, 11));
-                    moduleY += 12;
-                }
+
+            if (!moduleOptions.isEmpty() && progress > 0.001f) {
+                optionContainer(graphics, panel, module, moduleOptions, moduleY, progress, mouseX, mouseY);
+                moduleY += optionContainerHeight(moduleOptions.size()) * progress;
             }
         }
 
@@ -290,31 +393,38 @@ public final class ClientScreen extends Screen {
                 offsetX = mouseX - panel.x;
                 offsetY = mouseY - panel.y;
             } else if (panel.open) {
-                int moduleY = panel.y + 12;
+                float moduleY = panel.y + 12;
                 for (var module : panel.modules) {
                     var moduleOptions = options(module);
                     if (hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11)) {
                         if (button == 0) {
                             ClientRuntime.toggle(module);
                         } else if (button == 1 && !moduleOptions.isEmpty()) {
-                            panel.expanded = panel.expanded == module ? null : module;
+                            panel.toggleExpansion(module);
                         }
                         return true;
                     }
                     moduleY += 12;
 
-                    if (panel.expanded == module && !moduleOptions.isEmpty()) {
-                        for (var option : moduleOptions) {
-                            if (hit(mouseX, mouseY, panel.x + 6, moduleY, 90, 11)) {
-                                if (button == 0) {
-                                    var setting = option.setting;
-                                    setting.set(setting.on() ? 0 : 1);
-                                    ClientConfig.save(ClientRuntime.MODULES);
+                    if (!moduleOptions.isEmpty()) {
+                        var expansion = panel.expansions.get(module);
+                        float progress = expansion == null ? 0.0f : expansion.value();
+                        float fullHeight = optionContainerHeight(moduleOptions.size());
+                        if (expansion != null && expansion.open && progress >= 0.95f) {
+                            float optionY = moduleY + 2;
+                            for (var option : moduleOptions) {
+                                if (hit(mouseX, mouseY, panel.x + 10, optionY, 80, 11)) {
+                                    if (button == 0) {
+                                        var setting = option.setting;
+                                        setting.set(setting.on() ? 0 : 1);
+                                        ClientConfig.save(ClientRuntime.MODULES);
+                                    }
+                                    return true;
                                 }
-                                return true;
+                                optionY += 12;
                             }
-                            moduleY += 12;
                         }
+                        moduleY += fullHeight * progress;
                     }
                 }
 
@@ -420,7 +530,7 @@ public final class ClientScreen extends Screen {
         for (var panel : PANELS) {
             panel.open = true;
             panel.pinned = false;
-            panel.expanded = null;
+            panel.expansions.clear();
             switch (panel.title) {
                 case "Values" -> { panel.x = 2; panel.y = 2; }
                 case "Player" -> { panel.x = 106; panel.y = 2; }
@@ -435,18 +545,24 @@ public final class ClientScreen extends Screen {
         var killAura = combat.modules.stream().filter(module -> module.name.equals("KillAura")).findFirst().orElseThrow();
         int killAuraY = combat.y + 12 + combat.modules.indexOf(killAura) * 12;
         screen.click(combat.x + 30, killAuraY + 5, 1);
-        if (combat.expanded != killAura || PANELS.size() != 7) {
-            throw new IllegalStateException("KillAura inline options failed");
+        var animation = combat.expansion(killAura);
+        if (!animation.open || PANELS.size() != 7) {
+            throw new IllegalStateException("KillAura animated inline options failed");
+        }
+        animation.finish();
+        if (combat.height() <= 13 + combat.modules.size() * 12) {
+            throw new IllegalStateException("Inline option container did not expand panel height");
         }
 
         var setting = options(killAura).get(0).setting;
         boolean before = setting.on();
-        screen.click(combat.x + 30, killAuraY + 17, 0);
+        screen.click(combat.x + 30, killAuraY + 19, 0);
         if (setting.on() == before) throw new IllegalStateException("Inline option toggle failed");
         setting.set(before ? 1 : 0);
 
         screen.click(combat.x + 30, killAuraY + 5, 1);
-        if (combat.expanded != null) throw new IllegalStateException("Inline options did not collapse");
+        if (animation.open) throw new IllegalStateException("Inline options did not begin collapsing");
+        animation.finish();
 
         var values = PANELS.stream().filter(panel -> panel.title.equals("Values")).findFirst().orElseThrow();
         if (values.sliders.size() != 13) throw new IllegalStateException("Expected thirteen sliders");
@@ -465,7 +581,7 @@ public final class ClientScreen extends Screen {
         load();
         if (player.x != savedX || !player.open) throw new IllegalStateException("Window state roundtrip failed");
 
-        LogUtils.getLogger().info("XDOLF_GUI_OK: seven windows, restored modules, thirteen sliders, inline options, pin/open/drag controls");
+        LogUtils.getLogger().info("XDOLF_GUI_OK: seven windows, restored modules, thirteen sliders, animated nested options, pin/open/drag controls");
     }
 
     private static void load() {
