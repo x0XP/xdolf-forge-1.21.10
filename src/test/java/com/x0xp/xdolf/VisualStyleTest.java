@@ -20,9 +20,9 @@ public final class VisualStyleTest {
         equal("Player \u00a7a75% HP \u00a7b18 Armor",VisualStyle.tag("Player",15,18,false));
         equal("\u00a79Friend \u00a7a100% HP \u00a7b20 Armor",VisualStyle.tag("Friend",20,20,true));
         close(0f,VisualStyle.tagScale(60));
-        close(1f,VisualStyle.screenTagScale(8));
-        close(0.8090909f,VisualStyle.screenTagScale(50));
-        close(0.68f,VisualStyle.screenTagScale(200));
+        close(0.80f,VisualStyle.screenTagScale(8));
+        close(0.63846153f,VisualStyle.screenTagScale(50));
+        close(0.58f,VisualStyle.screenTagScale(200));
         equal(-14,VisualStyle.tagOffset(100,false));
         equal(-96,VisualStyle.tagOffset(100,true));
         equal(-3,VisualStyle.tagOffset(3.9f,false));
