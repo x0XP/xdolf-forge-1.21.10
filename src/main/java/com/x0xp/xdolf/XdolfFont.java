@@ -26,7 +26,7 @@ public final class XdolfFont {
     private static final char[] FORMAT_CODES = "0123456789abcdef".toCharArray();
     private static final int[] CHAT_RGB = {
         0x000000,0x0000AA,0x00AA00,0x00AAAA,0xAA0000,0xAA00AA,0xFFAA00,0xAAAAAA,
-        0x555555,0x5555FF,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
+        0x555555,0x5555FF,0x55FF55,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
     };
     private static boolean ready;
     private static int glyphHeight;
