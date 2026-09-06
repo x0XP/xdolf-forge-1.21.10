@@ -26,7 +26,7 @@ public final class XdolfFont {
     private static final char[] FORMAT_CODES = "0123456789abcdef".toCharArray();
     private static final int[] CHAT_RGB = {
         0x000000,0x0000AA,0x00AA00,0x00AAAA,0xAA0000,0xAA00AA,0xFFAA00,0xAAAAAA,
-        0x555555,0x5555FF,0x55FF55,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
+        0x555555,0x5555FF,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
     };
     private static boolean ready;
     private static int glyphHeight;
@@ -66,6 +66,12 @@ public final class XdolfFont {
     public static void beginChat() { chatDepth++; }
     public static void endChat() { if (chatDepth > 0) chatDepth--; }
     public static boolean renderingChat() { return chatDepth > 0; }
+
+    /** Native GUI-space height of one Xdolf TTF atlas row. */
+    public static int lineHeight() {
+        init();
+        return Math.max(10, (glyphHeight + 3) / 4);
+    }
 
     private static final net.minecraft.client.renderer.RenderType WORLD_TEXT = net.minecraft.client.renderer.RenderType.text(TEXTURE);
 
