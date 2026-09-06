@@ -25,7 +25,7 @@ final class LogoutSpotModule extends ClientModule {
     private String dimension;
 
     LogoutSpotModule() {
-        super("LogoutSpot", "Render the last known position of players who log out.", "Render");
+        super("LogoutSpot", "Render logout positions, retained player models and optional tracers.", "Render");
         setting("tracers", 1, 0, 1, 1);
     }
 
