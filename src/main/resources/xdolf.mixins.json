@@ -23,6 +23,7 @@
     "CreateWorldScreenAccess",
     "EntityNameTagMixin",
     "ChatComponentMixin",
+    "ChatScreenMixin",
     "GuiGraphicsMixin"
   ],
   "injectors": {
