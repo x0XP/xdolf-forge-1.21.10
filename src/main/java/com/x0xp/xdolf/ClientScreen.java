@@ -857,7 +857,7 @@ public final class ClientScreen extends Screen {
         var playerToggle = settings(killAura).stream().filter(row -> row.setting.name.equals("players")).findFirst().orElseThrow();
         boolean before = playerToggle.setting.on();
         var rangeRow = settings(killAura).stream().filter(row -> row.setting.name.equals("range")).findFirst().orElseThrow();
-        float settingY = killAuraY + 14 + settingRowHeight(rangeRow);
+        float settingY = killAuraY + 14 + KEYBIND_ROW_HEIGHT + settingRowHeight(rangeRow);
         screen.click(combat.x + 20, settingY + 2, 0);
         if (playerToggle.setting.on() == before) throw new IllegalStateException("Inline toggle failed");
         playerToggle.setting.set(before ? 1 : 0);
