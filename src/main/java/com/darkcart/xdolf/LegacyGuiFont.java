@@ -28,6 +28,7 @@ public final class LegacyGuiFont {
     private static boolean ready;
     private static int glyphHeight;
     private static int chatDepth;
+    private static int chatBackgroundWidth;
 
     private LegacyGuiFont() {}
 
@@ -60,8 +61,16 @@ public final class LegacyGuiFont {
 
     /** ChatComponent/ChatScreen bracket their render with these so every chat glyph uses this font. */
     public static void beginChat() { chatDepth++; }
-    public static void endChat() { if (chatDepth > 0) chatDepth--; }
+    public static void beginChat(int requiredBackgroundWidth) {
+        chatBackgroundWidth = Math.max(chatBackgroundWidth, requiredBackgroundWidth);
+        beginChat();
+    }
+    public static void endChat() {
+        if (chatDepth > 0) chatDepth--;
+        if (chatDepth == 0) chatBackgroundWidth = 0;
+    }
     public static boolean renderingChat() { return chatDepth > 0; }
+    public static int chatBackgroundWidth() { return chatBackgroundWidth; }
 
     private static final net.minecraft.client.renderer.RenderType WORLD_TEXT=net.minecraft.client.renderer.RenderType.text(TEXTURE);
     public static void drawWorld(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,org.joml.Matrix4f transform,String text,float x,float y,int color) {
@@ -101,6 +110,7 @@ public final class LegacyGuiFont {
         }
         return width / 4;
     }
+    public static int width(FormattedCharSequence sequence) { return width(toLegacy(sequence)); }
     public static String trim(String text, int max) {
         int end = text.length();
         while (end > 0 && width(text.substring(0, end)) > max) end--;
@@ -116,24 +126,6 @@ public final class LegacyGuiFont {
     }
     public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color) { draw(g,toLegacy(sequence),x,y,color,true); }
     public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color,boolean shadow) { draw(g,toLegacy(sequence),x,y,color,shadow); }
-
-    /**
-     * Chat still wraps, scrolls and positions its cursor with Minecraft's Font metrics. Fit each
-     * TTF draw to the exact width Minecraft allocated so the custom glyphs never drift through the
-     * background, cursor, wrapped line boundary or neighbouring chat element.
-     */
-    public static void drawFitted(GuiGraphics g,String text,float x,float y,int color,boolean shadow,int targetWidth) {
-        int natural=Math.max(1,width(text));
-        float fit=targetWidth>0?targetWidth/(float)natural:1f;
-        g.pose().pushMatrix();
-        g.pose().translate(x,y);
-        g.pose().scale(fit,1f);
-        draw(g,text,0,0,color,shadow);
-        g.pose().popMatrix();
-    }
-    public static void drawFitted(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color,boolean shadow,int targetWidth) {
-        drawFitted(g,toLegacy(sequence),x,y,color,shadow,targetWidth);
-    }
 
     private static void drawLine(GuiGraphics g, String text, float x, float y, int color, boolean shadow) {
         g.pose().pushMatrix(); g.pose().translate(x - 1.5f, y); g.pose().scale(0.25f, 0.25f);
