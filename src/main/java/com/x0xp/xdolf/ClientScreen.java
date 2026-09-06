@@ -30,9 +30,7 @@ public final class ClientScreen extends Screen {
     private static final float BOOLEAN_ROW_HEIGHT = 12.0f;
     private static final float BOOLEAN_WRAPPED_ROW_HEIGHT = 21.0f;
     private static final float NUMBER_ROW_HEIGHT = 25.0f;
-    private static final float NUMBER_STACKED_ROW_HEIGHT = 36.0f;
-    private static final float NUMBER_FIELD_WIDTH = 31.0f;
-    private static final float NUMBER_LABEL_COMPACT_WIDTH = 45.0f;
+    private static final float NUMBER_FIELD_WIDTH = 23.0f;
     private static final float TOGGLE_LABEL_SINGLE_LINE_WIDTH = 76.0f;
     private static boolean loaded;
 
@@ -259,9 +257,6 @@ public final class ClientScreen extends Screen {
         return mouseX >= x && mouseY >= y && mouseX <= x + width && mouseY <= y + height;
     }
 
-    private static boolean stackedNumber(SettingRow row) {
-        return !row.toggle && XdolfFont.width(row.label) > NUMBER_LABEL_COMPACT_WIDTH;
-    }
 
     private static boolean wrappedToggle(SettingRow row) {
         return row.toggle && XdolfFont.width(row.label) > TOGGLE_LABEL_SINGLE_LINE_WIDTH;
@@ -269,7 +264,7 @@ public final class ClientScreen extends Screen {
 
     private static float settingRowHeight(SettingRow row) {
         if (row.toggle) return wrappedToggle(row) ? BOOLEAN_WRAPPED_ROW_HEIGHT : BOOLEAN_ROW_HEIGHT;
-        return stackedNumber(row) ? NUMBER_STACKED_ROW_HEIGHT : NUMBER_ROW_HEIGHT;
+        return NUMBER_ROW_HEIGHT;
     }
 
     private static float settingContainerHeight(ClientModule module) {
@@ -329,24 +324,19 @@ public final class ClientScreen extends Screen {
         rect(graphics, right - 2, center - 4, right - 1, center + 4, fade(stateColor, alpha));
     }
 
-    private static float numberFieldTop(SettingRow row, float y) {
-        return y + (stackedNumber(row) ? 10.5f : -0.5f);
-    }
-
-    private static float numberTrackTop(SettingRow row, float y) {
-        return y + (stackedNumber(row) ? 25.0f : 14.0f);
-    }
 
     private static void numberRow(GuiGraphics graphics, SettingRow row, float left, float right, float y,
                                   boolean hover, float alpha, ClientScreen screen) {
         boolean editing = screen != null && screen.editing == row.setting;
-        boolean stacked = stackedNumber(row);
-        XdolfFont.draw(graphics, row.label, left, y, fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
 
-        float fieldRight = right - 3;
+        float fieldRight = right - 1;
         float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
-        float fieldTop = numberFieldTop(row, y);
-        float fieldBottom = fieldTop + 11.0f;
+        float fieldTop = y;
+        float fieldBottom = y + 10.5f;
+        float labelRight = fieldLeft - 2;
+        String label = XdolfFont.trim(row.label, Math.max(1, (int) (labelRight - left)));
+        XdolfFont.draw(graphics, label, left, y, fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
+
         int fieldFill = editing ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
         int fieldBorder = editing ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
         rect(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom, fade(fieldFill, alpha));
@@ -354,12 +344,13 @@ public final class ClientScreen extends Screen {
 
         String value = editing ? screen.editingText : row.setting.display();
         if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
-        value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 4));
-        float valueX = fieldRight - 2 - XdolfFont.width(value);
-        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 2, valueX), fieldTop + 0.5f, fade(0xFFFFFFFF, alpha));
+        value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 3));
+        float valueX = fieldRight - 1.5f - XdolfFont.width(value);
+        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 1.5f, valueX), y, fade(0xFFFFFFFF, alpha));
+
         float trackLeft = left;
-        float trackRight = right - 3;
-        float trackTop = numberTrackTop(row, y);
+        float trackRight = right - 1;
+        float trackTop = y + 14.0f;
         float trackBottom = trackTop + 6;
         double span = row.setting.max - row.setting.min;
         float fraction = span <= 0 ? 0 : (float) ((row.setting.get() - row.setting.min) / span);
@@ -376,8 +367,8 @@ public final class ClientScreen extends Screen {
         if (progress <= 0.001f) return;
         var rows = settings(module);
         if (rows.isEmpty()) return;
-        float left = panel.x + 5;
-        float right = panel.x + 95;
+        float left = panel.x + 4;
+        float right = panel.x + 96;
         float fullHeight = settingContainerHeight(module);
         float visibleHeight = fullHeight * progress;
         int scissorTop = (int) Math.floor(top);
@@ -394,9 +385,9 @@ public final class ClientScreen extends Screen {
             var settingRow = rows.get(i);
             boolean hover = interactive && hit(mouseX, mouseY, left + 5, y, right - left - 10, settingRowHeight(settingRow) - 1);
             if (settingRow.toggle) {
-                toggleRow(graphics, settingRow, left + 5, right - 3, y, hover, progress);
+                toggleRow(graphics, settingRow, left + 4, right - 2, y, hover, progress);
             } else {
-                numberRow(graphics, settingRow, left + 5, right - 3, y, hover, progress, screen);
+                numberRow(graphics, settingRow, left + 4, right - 2, y, hover, progress, screen);
             }
             y += settingRowHeight(settingRow);
             if (i + 1 < rows.size()) {
@@ -541,21 +532,21 @@ public final class ClientScreen extends Screen {
                                         return true;
                                     }
                                 } else {
-                                    float rowLeft = left + 5;
-                                    float rowRight = right - 3;
-                                    float fieldRight = rowRight - 3;
+                                    float rowLeft = left + 4;
+                                    float rowRight = right - 2;
+                                    float fieldRight = rowRight - 1;
                                     float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
-                                    float fieldTop = numberFieldTop(settingRow, settingY);
+                                    float fieldTop = settingY;
                                     if (button == 0 && hit(mouseX, mouseY, fieldLeft, fieldTop, NUMBER_FIELD_WIDTH, 11)) {
                                         beginEditing(settingRow.setting);
                                         return true;
                                     }
-                                    float trackTop = numberTrackTop(settingRow, settingY);
-                                    if (button == 0 && hit(mouseX, mouseY, rowLeft, trackTop, rowRight - rowLeft - 3, 7)) {
+                                    float trackTop = settingY + 14.0f;
+                                    if (button == 0 && hit(mouseX, mouseY, rowLeft, trackTop, rowRight - rowLeft - 1, 7)) {
                                         commitEditing();
                                         sliding = settingRow.setting;
                                         sliderLeft = rowLeft;
-                                        sliderWidth = rowRight - rowLeft - 3;
+                                        sliderWidth = rowRight - rowLeft - 1;
                                         moveSlider(mouseX);
                                         return true;
                                     }
@@ -778,8 +769,8 @@ public final class ClientScreen extends Screen {
 
         var autoLog = combat.modules.stream().filter(module -> module.name.equals("AutoLog")).findFirst().orElseThrow();
         var health = settings(autoLog).stream().filter(row -> row.setting.name.equals("health")).findFirst().orElseThrow();
-        if (!stackedNumber(health) || settingRowHeight(health) <= NUMBER_ROW_HEIGHT) {
-            throw new IllegalStateException("Long numeric labels are not using stacked layout");
+        if (settingRowHeight(health) != NUMBER_ROW_HEIGHT || NUMBER_FIELD_WIDTH >= 28.0f) {
+            throw new IllegalStateException("Numeric settings must stay inline with compact value fields");
         }
 
         var elytraPlus = player.modules.stream().filter(module -> module.name.equals("ElytraPlus")).findFirst().orElseThrow();
@@ -799,7 +790,7 @@ public final class ClientScreen extends Screen {
         load();
         if (player.x != savedX || !player.open) throw new IllegalStateException("Window state roundtrip failed");
 
-        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, adaptive inline settings, typed values, animation, pin/open/drag controls");
+        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, compact inline settings, typed values, animation, pin/open/drag controls");
     }
 
     private static void load() {
