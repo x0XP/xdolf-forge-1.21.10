@@ -62,11 +62,12 @@ final class Hud {
 
         for(Player player:mc.level.players()) {
             if(player==mc.player||player.deathTime>0)continue;
-            Vec3 world=player.getPosition(partial).add(0,player.getBbHeight()+0.55,0);
+            Vec3 playerPos=player.getPosition(partial);
+            Vec3 world=playerPos.add(0,player.getBbHeight()+0.55,0);
             ScreenPoint point=project(mc,world,cameraPos,forward,screenWidth,screenHeight);
             if(point==null)continue;
 
-            float distance=mc.player.distanceTo(player);
+            float distance=(float)cameraPos.distanceTo(playerPos);
             String text=VisualStyle.tag(player.getName().getString(),player.getHealth(),player.getArmorValue(),SocialState.isFriend(player.getName().getString()));
             drawNametag(g,mc,player,text,point.x,point.y,VisualStyle.screenTagScale(distance));
         }
@@ -82,10 +83,11 @@ final class Hud {
 
         for(var spot:LogoutSpotModule.spots()) {
             if(!dimension.equals(spot.dimension()))continue;
+            Vec3 center=spot.position().add(0.5,1.0,0.5);
             Vec3 world=spot.position().add(0.5,2.45,0.5);
             ScreenPoint point=project(mc,world,cameraPos,forward,screenWidth,screenHeight);
             if(point==null)continue;
-            float distance=(float)mc.player.position().distanceTo(spot.position());
+            float distance=(float)cameraPos.distanceTo(center);
             String text=spot.name()+" \u00a7c[LogoutSpot]";
             drawLabel(g,text,point.x,point.y,VisualStyle.screenTagScale(distance));
         }
