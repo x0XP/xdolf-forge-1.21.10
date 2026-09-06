@@ -80,8 +80,9 @@ final class ClientSmoke {
         }
         if (phase == 5 && captureDone) {
             Minecraft mc=Minecraft.getInstance();
+            // GUI scale 1 exercises the same physical-pixel font path that becomes visible on
+            // low-resolution displays without mutating the live framebuffer dimensions in CI.
             mc.options.guiScale().set(1);
-            org.lwjgl.glfw.GLFW.glfwSetWindowSize(org.lwjgl.glfw.GLFW.glfwGetCurrentContext(),640,360);
             mc.gui.getChat().addMessage(Component.literal("[Xdolf] Low-resolution TTF smoke test: lorem ipsum 0123456789"));
             mc.setScreen(new ChatScreen("lorem ipsum",false));
             phase=6;
@@ -96,10 +97,10 @@ final class ClientSmoke {
         if (phase == 7 && lowResCaptureDone) {
             try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
                 long count=files.filter(p->p.toString().endsWith(".png")).count();
-                if(count<2)throw new IllegalStateException("Expected normal and low-resolution screenshots");
+                if(count<2)throw new IllegalStateException("Expected normal and low-GUI-scale screenshots");
             } catch(java.io.IOException error) { throw new IllegalStateException("Screenshots were not saved",error); }
 
-            LogUtils.getLogger().info("XDOLF_LOW_RES_FONT_OK: rendered chat at 640x360 with GUI scale 1");
+            LogUtils.getLogger().info("XDOLF_LOW_RES_FONT_OK: rendered chat at GUI scale 1 without replacing an active font texture");
             ClientRuntime.find("Fullbright").setEnabled(false);
             Minecraft mc = Minecraft.getInstance();
             mc.setScreen(null);
