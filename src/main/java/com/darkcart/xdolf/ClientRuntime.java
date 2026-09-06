@@ -25,6 +25,7 @@ final class ClientRuntime {
 
     static void register() {
         LegacyWorldVisuals.register();
+        RestoredVisuals.register();
         ClientConfig.load(MODULES);
         SocialState.load();
         LegacyCommands.load();
