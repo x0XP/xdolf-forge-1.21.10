@@ -90,6 +90,7 @@ final class Modules {
         setKey(modules, "Fullbright", GLFW.GLFW_KEY_C);
         setKey(modules, "Freecam", GLFW.GLFW_KEY_B);
         setKey(modules, "XRay", GLFW.GLFW_KEY_X);
+        setKey(modules, "Waypoints", GLFW.GLFW_KEY_EQUAL);
     }
 
     private static void setKey(List<ClientModule> modules, String name, int key) {
