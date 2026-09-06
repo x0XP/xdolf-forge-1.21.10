@@ -4,7 +4,6 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 import net.minecraftforge.client.event.ClientChatEvent;
@@ -16,7 +15,6 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraftforge.event.TickEvent;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
-import java.util.Locale;
 
 final class ClientRuntime {
     static final List<ClientModule> MODULES = Modules.create();
@@ -59,15 +57,25 @@ final class ClientRuntime {
         updateSession(mc);
         LegacyCommands.recordDeath(mc);
         if (mc.player == null || mc.level == null || mc.getConnection() == null) return;
+
         for (ClientModule module : MODULES) {
             if (!module.enabled()) continue;
+
             boolean respawnScreen = module.name.equals("AutoRespawn") && mc.screen instanceof DeathScreen;
             boolean visual = module.category.equals("Render") || module.name.equals("Fullbright") || module.name.equals("XRay");
             boolean freecamSuspended = Hooks.enabled("Freecam") && !visual && !module.name.equals("Freecam");
-            if (freecamSuspended || (!visual && (mc.isPaused() || (mc.screen != null && !respawnScreen)))) {
+
+            // Freecam intentionally owns movement/player-side state while enabled. This is the one
+            // case where conflicting modules need their transient state released.
+            if (freecamSuspended) {
                 module.reset(mc);
                 continue;
             }
+
+            // Opening inventory/chat/settings is not a module reset. If the game is genuinely paused,
+            // simply hold transient state until ticking resumes instead of making modules appear off.
+            if (!visual && mc.isPaused() && !respawnScreen) continue;
+
             try {
                 module.tick(mc);
             } catch (RuntimeException error) {
@@ -81,7 +89,6 @@ final class ClientRuntime {
 
     static void updateSession(Minecraft mc) {
         if (mc.level == previousLevel && mc.player == previousPlayer) return;
-        // Release old player/camera/inventory references, retaining the selection.
         for (var module : MODULES) module.reset(mc);
         previousLevel = mc.level;
         previousPlayer = mc.player;
