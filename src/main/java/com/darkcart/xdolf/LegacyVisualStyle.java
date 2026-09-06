@@ -14,13 +14,20 @@ final class LegacyVisualStyle {
     static String tag(String name,float health,boolean friend) {
         return (friend?"\u00a79":"")+name+" \u00a7a"+(int)(health/20*100)+"%";
     }
-    /** Restored richer in-game tag: health plus the player's current armour points. */
+    /** Rich in-game tag: health plus the player's current armour points. */
     static String tag(String name,float health,int armor,boolean friend) {
         return (friend?"\u00a79":"")+name+" \u00a7a"+(int)(health/20*100)+"% HP \u00a7b"+armor+" Armor";
     }
-    /** The original world scale was distance * 0.016666668 / 2, giving near-constant screen size. */
-    static float tagScale(float distance) {
-        return 0.016666668f*Math.max(distance,4f)/2f;
+    /**
+     * Real player tags are now rendered in GUI/screen space so their size and layering are stable.
+     * Returning zero retires the old world-space copy without disturbing the visual smoke fixture.
+     */
+    static float tagScale(float distance) { return 0f; }
+
+    /** Small, readable screen-space scale: full size nearby, gently smaller at range, never huge. */
+    static float screenTagScale(float distance) {
+        float scale=1f-Math.max(0f,distance-8f)/220f;
+        return Math.max(0.68f,Math.min(1f,scale));
     }
     static int tagOffset(float distance,boolean sneaking) {
         int offset=-(int)distance;
