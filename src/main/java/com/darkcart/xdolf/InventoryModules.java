@@ -56,6 +56,31 @@ final class InventoryModules {
             }
             public void reset(Minecraft mc) { delay = 0; }
         });
+        modules.add(new ClientModule("AutoTotem", "Automatically replace the offhand item with a Totem of Undying.", "Combat") {
+            int delay;
+            public void tick(Minecraft mc) {
+                if (delay > 0) { delay--; return; }
+                if (!available(mc) || mc.player.isUsingItem()) return;
+                if (mc.player.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) return;
+
+                for (int i = 0; i < 36; i++) {
+                    if (!mc.player.getInventory().getItem(i).is(Items.TOTEM_OF_UNDYING)) continue;
+                    int source = menuSlot(i);
+                    if (!mc.player.inventoryMenu.getSlot(source).mayPickup(mc.player)) continue;
+
+                    // Same three-click swap used by the original client: pick the totem up,
+                    // swap it into offhand slot 45, then return the previous offhand item
+                    // to the inventory slot the totem came from. These are normal synced
+                    // container transactions, not a client-only inventory mutation.
+                    click(mc, source);
+                    click(mc, 45);
+                    click(mc, source);
+                    delay = 3;
+                    return;
+                }
+            }
+            public void reset(Minecraft mc) { delay = 0; }
+        });
         modules.add(new ClientModule("AutoEat", "Eat ordinary food; preserve golden apples and avoid harmful food.", "Player") {
             final ModuleSetting hunger = setting("hunger", 7, 0, 19, 1);
             int original = -1, selected = -1;
