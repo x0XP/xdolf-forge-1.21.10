@@ -30,5 +30,10 @@ public final class LegacyVisualStyleTest {
         equal(1.8,LegacyVisualStyle.TRAJECTORY_WIDTH);
         equal(0x80000000,LegacyVisualStyle.BOX_EDGE);
         System.out.println("Legacy visual style golden cases passed");
+        for(var method:net.minecraft.client.gui.components.ComponentRenderUtils.class.getDeclaredMethods())
+            System.out.println("XDOLF_CHAT_API ComponentRenderUtils "+method);
+        for(var method:net.minecraft.client.gui.components.ChatComponent.class.getDeclaredMethods())
+            if(method.getName().contains("Message")||method.getName().contains("message"))
+                System.out.println("XDOLF_CHAT_API ChatComponent "+method);
     }
 }
