@@ -12,7 +12,7 @@ import com.x0xp.xdolf.mixin.CreateWorldScreenAccess;
 /** Explicit opt-in CI test. Normal launches never create a test world. */
 final class ClientSmoke {
     private static final boolean ACTIVE = Boolean.getBoolean("xdolf.smokeTest");
-    private static int phase, frames, ticks;
+    private static int phase, frames, ticks, lowResTicks;
     private static volatile boolean captureDone;
     private static volatile boolean lowResCaptureDone;
     private static volatile boolean worldCaptureDone;
@@ -30,12 +30,26 @@ final class ClientSmoke {
             net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> lowResCaptureDone=true);
         }
 
+        // Once the low-GUI-scale ChatScreen is open, progression must not depend on
+        // ClientScreen.render(). Tick from here so any normal Minecraft screen can be tested.
+        if(phase==6) {
+            if(++lowResTicks>=10) {
+                lowResCaptureRequested=true;
+                phase=7;
+            }
+            return;
+        }
+        if(phase==7&&lowResCaptureDone) {
+            finishLowResTest(mc);
+            return;
+        }
+
         if (phase == 0 && mc.screen != null && (mc.screen instanceof TitleScreen || mc.screen.getClass().getSimpleName().equals("AccessibilityOnboardingScreen"))) {
             phase = 1;
             mc.options.guiScale().set(2);
             org.lwjgl.glfw.GLFW.glfwSetWindowSize(org.lwjgl.glfw.GLFW.glfwGetCurrentContext(), 1280, 800);
             mc.options.renderDistance().set(3);
-            mc.options.simulationDistance().set(3);
+            mc.options.simulationDistance().set(5);
             mc.setScreen(new ClientScreen());
         } else if (phase == 2 && mc.screen instanceof CreateWorldScreen create) {
             create.getUiState().setName("Xdolf automated smoke");
@@ -86,38 +100,7 @@ final class ClientSmoke {
             mc.gui.getChat().addMessage(Component.literal("[Xdolf] Low-resolution TTF smoke test: lorem ipsum 0123456789"));
             mc.setScreen(new ChatScreen("lorem ipsum",false));
             phase=6;
-            frames=0;
-            return;
-        }
-        if(phase==6&&frames==20) {
-            lowResCaptureRequested=true;
-            phase=7;
-            return;
-        }
-        if (phase == 7 && lowResCaptureDone) {
-            try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
-                long count=files.filter(p->p.toString().endsWith(".png")).count();
-                if(count<2)throw new IllegalStateException("Expected normal and low-GUI-scale screenshots");
-            } catch(java.io.IOException error) { throw new IllegalStateException("Screenshots were not saved",error); }
-
-            LogUtils.getLogger().info("XDOLF_LOW_RES_FONT_OK: rendered chat at GUI scale 1 without replacing an active font texture");
-            ClientRuntime.find("Fullbright").setEnabled(false);
-            Minecraft mc = Minecraft.getInstance();
-            mc.setScreen(null);
-            CommandSmoke.run(mc);
-
-            // Exercise the same reset/reactivate lifecycle used when the client receives a new
-            // world/player session, without deadlocking an integrated server inside CI.
-            for(var module:ClientRuntime.MODULES)module.reset(mc);
-            for(var module:ClientRuntime.MODULES)if(module.enabled())module.activate(mc);
-            CommandSmoke.assertSelections();
-            if(!XRayModule.rendering)throw new IllegalStateException("XRay did not reactivate after lifecycle reset");
-            LogUtils.getLogger().info("XDOLF_LIFECYCLE_OK: enabled selections survived reset/reactivation");
-
-            Commands.execute(".alloff");
-            LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, low-resolution TTF, screen-active modules, world rendering, commands, binds, persistence and lifecycle passed");
-            phase=9;
-            mc.stop();
+            lowResTicks=0;
             return;
         }
         if(frames != 5) return;
@@ -127,5 +110,32 @@ final class ClientSmoke {
             phase = 2;
             mc.execute(() -> CreateWorldScreen.openFresh(mc, () -> { throw new IllegalStateException("World creation cancelled"); }));
         }
+    }
+
+    private static void finishLowResTest(Minecraft mc) {
+        try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
+            long count=files.filter(p->p.toString().endsWith(".png")).count();
+            if(count<2)throw new IllegalStateException("Expected normal and low-GUI-scale screenshots");
+        } catch(java.io.IOException error) {
+            throw new IllegalStateException("Screenshots were not saved",error);
+        }
+
+        LogUtils.getLogger().info("XDOLF_LOW_RES_FONT_OK: rendered chat at GUI scale 1 without replacing an active font texture");
+        ClientRuntime.find("Fullbright").setEnabled(false);
+        mc.setScreen(null);
+        CommandSmoke.run(mc);
+
+        // Exercise the same reset/reactivate lifecycle used when the client receives a new
+        // world/player session, without deadlocking an integrated server inside CI.
+        for(var module:ClientRuntime.MODULES)module.reset(mc);
+        for(var module:ClientRuntime.MODULES)if(module.enabled())module.activate(mc);
+        CommandSmoke.assertSelections();
+        if(!XRayModule.rendering)throw new IllegalStateException("XRay did not reactivate after lifecycle reset");
+        LogUtils.getLogger().info("XDOLF_LIFECYCLE_OK: enabled selections survived reset/reactivation");
+
+        Commands.execute(".alloff");
+        LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, low-resolution TTF, screen-active modules, world rendering, commands, binds, persistence and lifecycle passed");
+        phase=9;
+        mc.stop();
     }
 }
