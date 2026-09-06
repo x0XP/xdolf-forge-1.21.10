@@ -7,17 +7,27 @@ import net.minecraft.world.entity.LivingEntity;
 /** Shared client-thread checks for the client-only mixins. */
 public final class Hooks {
     private Hooks() {}
-    public static net.minecraft.world.phys.Vec3 freecamPosition() { return FreecamModule.position; }
+
+    public static net.minecraft.world.phys.Vec3 freecamPosition(float partialTick) {
+        return FreecamModule.cameraPosition(partialTick);
+    }
+
     public static boolean enabled(String name) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || !mc.isSameThread() || mc.player == null || mc.level == null) return false;
         var module = ClientRuntime.find(name);
         return module != null && module.enabled();
     }
+
+    /**
+     * Opening inventory/chat/settings must not temporarily deactivate modules. A true game pause
+     * still suspends active movement logic, while render state and enabled selections are retained.
+     */
     public static boolean active(String name) {
         Minecraft mc = Minecraft.getInstance();
-        return enabled(name) && (name.equals("Freecam") || !enabled("Freecam")) && mc.screen == null && !mc.isPaused();
+        return enabled(name) && (name.equals("Freecam") || !enabled("Freecam")) && !mc.isPaused();
     }
+
     public static double setting(String module, String name, double fallback) {
         var value = ClientRuntime.find(module);
         if (value == null || value.setting(name) == null) return fallback;
