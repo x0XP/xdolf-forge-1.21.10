@@ -4,12 +4,16 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.loading.FMLPaths;
+import org.lwjgl.glfw.GLFW;
+
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,13 +23,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
-/** Xdolf click GUI with draggable windows, animated inline module options and value sliders. */
+/** Xdolf click GUI with animated, inline module settings. */
 public final class ClientScreen extends Screen {
     private static final List<Panel> PANELS = new ArrayList<>();
     private static final long OPTION_ANIMATION_NS = 135_000_000L;
+    private static final float BOOLEAN_ROW_HEIGHT = 12.0f;
+    private static final float NUMBER_ROW_HEIGHT = 25.0f;
     private static boolean loaded;
+
     private Panel dragging;
-    private Slider sliding;
+    private ModuleSetting sliding;
+    private double sliderLeft;
+    private double sliderWidth;
+    private ModuleSetting editing;
+    private String editingText = "";
     private double offsetX, offsetY;
 
     private static final class Expansion {
@@ -61,7 +72,6 @@ public final class ClientScreen extends Screen {
     private static final class Panel {
         final String title;
         final List<ClientModule> modules = new ArrayList<>();
-        final List<Slider> sliders = new ArrayList<>();
         final Map<ClientModule, Expansion> expansions = new HashMap<>();
         int x, y;
         boolean open, pinned;
@@ -91,28 +101,21 @@ public final class ClientScreen extends Screen {
             selected.setOpen(opening);
         }
 
-        float animatedOptionsHeight(ClientModule module) {
+        float animatedSettingsHeight(ClientModule module) {
             var expansion = expansions.get(module);
-            if (expansion == null) return 0.0f;
-            int count = options(module).size();
-            if (count == 0) return 0.0f;
-            return optionContainerHeight(count) * expansion.value();
+            return expansion == null ? 0.0f : settingContainerHeight(module) * expansion.value();
         }
 
         float height() {
             if (text()) return open ? lines(this).size() * 10 + 16 : 14;
             if (!open) return 13;
-            if (!modules.isEmpty()) {
-                float height = 13 + modules.size() * 12 + 0.5f;
-                for (var module : modules) height += animatedOptionsHeight(module);
-                return height;
-            }
-            return 13 + sliders.size() * 19 + (sliders.isEmpty() ? 0.5f : 3);
+            float height = 13 + modules.size() * 12 + 0.5f;
+            for (var module : modules) height += animatedSettingsHeight(module);
+            return height;
         }
     }
 
-    private record Option(String label, ModuleSetting setting) {}
-    private record Slider(String label, ModuleSetting setting, boolean integer) {}
+    private record SettingRow(String label, ModuleSetting setting, boolean toggle, boolean integer) {}
 
     ClientScreen() {
         super(Component.literal("Xdolf"));
@@ -124,23 +127,6 @@ public final class ClientScreen extends Screen {
         loaded = true;
         addModules("Player", 47, "AutoFish Flight Spammer AutoRespawn AutoWalk SafeWalk NoSlowdown HorseJump Sprint NoFall AntiHunger AutoEat Jesus EntitySpeed EntityStep ElytraFly ElytraPlus");
         addModules("Render", 62, "Tracers StorageESP EntityESP NoHurtCam Chams Trajectories Nametags Waypoints LogoutSpot");
-
-        var values = new Panel("Values", 2);
-        PANELS.add(values);
-        slider(values, "Flight Speed", "Flight", "speed", false);
-        slider(values, "ElytraFlight Speed", "ElytraFly", "speed", false);
-        slider(values, "Entity Speed", "EntitySpeed", "speed", false);
-        slider(values, "Entity Step", "EntityStep", "height", true);
-        slider(values, "Aura Range", "KillAura", "range", false);
-        slider(values, "Crystal Speed", "CrystalAura", "speed", true);
-        slider(values, "Crystal Range", "CrystalAura", "range", false);
-        slider(values, "AutoLog Threshold", "AutoLog", "health", true);
-        slider(values, "CrystalLog distance", "CrystalLog", "range", true);
-        slider(values, "AutoEat Threshold", "AutoEat", "hunger", true);
-        slider(values, "Mine Speed", "Speedmine", "progress", false);
-        slider(values, "Auto Cast Delay", "AutoFish", "castdelay", true);
-        slider(values, "Recast Delay", "AutoFish", "recast", true);
-
         PANELS.add(new Panel("Info", 17));
         PANELS.add(new Panel("Radar", 92));
         addModules("Combat", 32, "AntiVelocity KillAura AutoArmor AutoTotem AutoLog CrystalAura Criticals CrystalLog");
@@ -158,23 +144,61 @@ public final class ClientScreen extends Screen {
         PANELS.add(panel);
     }
 
-    private static void slider(Panel panel, String label, String module, String setting, boolean integer) {
-        var value = ClientRuntime.find(module).setting(setting);
-        if (value == null) throw new IllegalStateException("Missing GUI setting: " + module + "." + setting);
-        panel.sliders.add(new Slider(label, value, integer));
+    private static boolean toggleSetting(ModuleSetting setting) {
+        return setting.min == 0.0 && setting.max == 1.0 && setting.step == 1.0;
     }
 
-    private static List<Option> options(ClientModule module) {
-        String[][] names = switch (module.name) {
-            case "KillAura" -> new String[][] {{"Players", "players"}, {"Mobs", "mobs"}, {"Hit Through Walls", "walls"}, {"Can Be Seen", "seen"}};
-            case "Tracers" -> new String[][] {{"Players", "players"}, {"Chests", "chests"}};
-            case "EntityESP" -> new String[][] {{"Players", "players"}, {"Monsters", "monsters"}, {"Passive", "passive"}, {"Items", "items"}, {"Outline", "outline"}};
-            case "LogoutSpot" -> new String[][] {{"Tracers", "tracers"}};
-            case "ElytraPlus" -> new String[][] {{"Instant fly - easy takeoff", "takeoff"}, {"Stop in water", "stopwater"}};
-            default -> new String[0][];
+    private static boolean integerSetting(ModuleSetting setting) {
+        return !toggleSetting(setting)
+            && setting.step >= 1.0
+            && Math.rint(setting.step) == setting.step
+            && Math.rint(setting.min) == setting.min
+            && Math.rint(setting.max) == setting.max;
+    }
+
+    private static String settingLabel(ClientModule module, ModuleSetting setting) {
+        String key = module.name + "." + setting.name;
+        return switch (key) {
+            case "ElytraPlus.takeoff" -> "Instant fly - easy takeoff";
+            case "ElytraPlus.stopwater" -> "Stop in water";
+            case "AutoFish.autocast" -> "Auto Cast";
+            case "AutoFish.castdelay" -> "Auto Cast Delay";
+            case "AutoFish.recast" -> "Recast Delay";
+            case "AutoFish.recaster" -> "Recaster";
+            case "AutoLog.health" -> "Health Threshold";
+            case "CrystalLog.range" -> "Distance";
+            case "AutoEat.hunger" -> "Hunger Threshold";
+            case "EntityStep.height" -> "Step Height";
+            case "KillAura.walls" -> "Hit Through Walls";
+            case "KillAura.seen" -> "Can Be Seen";
+            case "KillAura.mobs" -> "Other Mobs";
+            case "Speedmine.progress" -> "Mine Progress";
+            default -> titleCase(setting.name);
         };
-        var result = new ArrayList<Option>();
-        for (var pair : names) result.add(new Option(pair[0], module.setting(pair[1])));
+    }
+
+    private static String titleCase(String value) {
+        if (value.isBlank()) return value;
+        StringBuilder result = new StringBuilder();
+        boolean upper = true;
+        for (char c : value.toCharArray()) {
+            if (c == '_' || c == '-') {
+                result.append(' ');
+                upper = true;
+            } else {
+                result.append(upper ? Character.toUpperCase(c) : c);
+                upper = false;
+            }
+        }
+        return result.toString();
+    }
+
+    private static List<SettingRow> settings(ClientModule module) {
+        var result = new ArrayList<SettingRow>();
+        for (var setting : module.settings) {
+            result.add(new SettingRow(settingLabel(module, setting), setting,
+                toggleSetting(setting), integerSetting(setting)));
+        }
         return result;
     }
 
@@ -191,14 +215,14 @@ public final class ClientScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0x8F000000);
-        for (var panel : PANELS) draw(graphics, panel, mouseX, mouseY, true);
+        for (var panel : PANELS) draw(graphics, panel, mouseX, mouseY, true, this);
         ClientSmoke.frame();
     }
 
     static void renderPinned(GuiGraphics graphics) {
         setup();
         if (Minecraft.getInstance().screen instanceof ClientScreen) return;
-        for (var panel : PANELS) if (panel.pinned) draw(graphics, panel, -1000, -1000, false);
+        for (var panel : PANELS) if (panel.pinned) draw(graphics, panel, -1000, -1000, false, null);
     }
 
     private static void rect(GuiGraphics graphics, float x, float y, float right, float bottom, int color) {
@@ -208,12 +232,16 @@ public final class ClientScreen extends Screen {
         graphics.pose().popMatrix();
     }
 
+    private static void outline(GuiGraphics graphics, float x, float y, float right, float bottom, int color) {
+        rect(graphics, x, y, right, y + 0.5f, color);
+        rect(graphics, x, bottom - 0.5f, right, bottom, color);
+        rect(graphics, x, y, x + 0.5f, bottom, color);
+        rect(graphics, right - 0.5f, y, right, bottom, color);
+    }
+
     private static void border(GuiGraphics graphics, float x, float y, float right, float bottom, int inside) {
         rect(graphics, x, y, right, bottom, inside);
-        rect(graphics, x, y, right, y + 0.5f, 0xFF000000);
-        rect(graphics, x, bottom, right, bottom + 0.5f, 0xFF000000);
-        rect(graphics, x, y, x + 0.5f, bottom + 0.5f, 0xFF000000);
-        rect(graphics, right, y, right + 0.5f, bottom + 0.5f, 0xFF000000);
+        outline(graphics, x, y, right + 0.5f, bottom + 0.5f, 0xFF000000);
     }
 
     private static int fade(int color, float alpha) {
@@ -226,8 +254,14 @@ public final class ClientScreen extends Screen {
         return mouseX >= x && mouseY >= y && mouseX <= x + width && mouseY <= y + height;
     }
 
-    private static float optionContainerHeight(int optionCount) {
-        return optionCount * 12.0f + 4.0f;
+    private static float settingRowHeight(SettingRow row) {
+        return row.toggle ? BOOLEAN_ROW_HEIGHT : NUMBER_ROW_HEIGHT;
+    }
+
+    private static float settingContainerHeight(ClientModule module) {
+        float height = 4.0f;
+        for (var row : settings(module)) height += settingRowHeight(row);
+        return height;
     }
 
     private static void row(GuiGraphics graphics, String name, float x, float y, boolean enabled, boolean hover,
@@ -242,21 +276,57 @@ public final class ClientScreen extends Screen {
         }
     }
 
-    private static void optionRow(GuiGraphics graphics, Option option, float x, float y, float right,
+    private static void toggleRow(GuiGraphics graphics, SettingRow row, float left, float right, float y,
                                   boolean hover, float alpha) {
-        boolean enabled = option.setting.on();
+        boolean enabled = row.setting.on();
         int color = enabled ? hover ? 0xFF44AAFF : 0xFFFFFFFF : hover ? 0xFF888888 : 0xB8FFFFFF;
         int stateColor = enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0xFF454850;
-        XdolfFont.draw(graphics, option.label, x, y, fade(color, alpha));
+        XdolfFont.draw(graphics, row.label, left, y, fade(color, alpha));
         rect(graphics, right - 2, y + 2, right - 1, y + 10, fade(stateColor, alpha));
     }
 
-    private static void optionContainer(GuiGraphics graphics, Panel panel, ClientModule module, List<Option> moduleOptions,
-                                        float top, float progress, int mouseX, int mouseY) {
+    private static void numberRow(GuiGraphics graphics, SettingRow row, float left, float right, float y,
+                                  boolean hover, float alpha, ClientScreen screen) {
+        boolean editing = screen != null && screen.editing == row.setting;
+        XdolfFont.draw(graphics, row.label, left, y, fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
+
+        float fieldRight = right - 3;
+        float fieldLeft = fieldRight - 31;
+        float fieldTop = y - 0.5f;
+        float fieldBottom = y + 10.5f;
+        int fieldFill = editing ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
+        int fieldBorder = editing ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
+        rect(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom, fade(fieldFill, alpha));
+        outline(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom, fade(fieldBorder, alpha));
+
+        String value = editing ? screen.editingText : row.setting.display();
+        if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
+        value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 4));
+        float valueX = fieldRight - 2 - XdolfFont.width(value);
+        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 2, valueX), y, fade(0xFFFFFFFF, alpha));
+
+        float trackLeft = left;
+        float trackRight = right - 3;
+        float trackTop = y + 14;
+        float trackBottom = y + 20;
+        double span = row.setting.max - row.setting.min;
+        float fraction = span <= 0 ? 0 : (float) ((row.setting.get() - row.setting.min) / span);
+        fraction = Math.max(0.0f, Math.min(1.0f, fraction));
+        border(graphics, trackLeft, trackTop, trackRight, trackBottom, fade(0xFF383B42, alpha));
+        float fillRight = trackLeft + 1 + (trackRight - trackLeft - 2) * fraction;
+        rect(graphics, trackLeft + 1, trackTop + 1, fillRight, trackBottom - 1, fade(0xFFFF0000, alpha));
+        float knob = Math.max(trackLeft + 1, Math.min(trackRight - 2, fillRight - 1));
+        rect(graphics, knob, trackTop, knob + 2, trackBottom, fade(hover ? 0xFF44AAFF : 0xFFFF4C4C, alpha));
+    }
+
+    private static void settingContainer(GuiGraphics graphics, Panel panel, ClientModule module, float top,
+                                         float progress, int mouseX, int mouseY, ClientScreen screen) {
         if (progress <= 0.001f) return;
+        var rows = settings(module);
+        if (rows.isEmpty()) return;
         float left = panel.x + 5;
         float right = panel.x + 95;
-        float fullHeight = optionContainerHeight(moduleOptions.size());
+        float fullHeight = settingContainerHeight(module);
         float visibleHeight = fullHeight * progress;
         int scissorTop = (int) Math.floor(top);
         int scissorBottom = (int) Math.ceil(top + visibleHeight);
@@ -264,25 +334,27 @@ public final class ClientScreen extends Screen {
 
         graphics.enableScissor((int) Math.floor(left), scissorTop, (int) Math.ceil(right + 0.5f), scissorBottom);
         border(graphics, left, top, right, top + fullHeight - 0.5f, fade(0xB0181A20, progress));
-        rect(graphics, left + 2, top + 2, left + 2.5f, top + fullHeight - 2,
-            fade(0x665A5F6A, progress));
+        rect(graphics, left + 2, top + 2, left + 2.5f, top + fullHeight - 2, fade(0x665A5F6A, progress));
 
-        float optionY = top + 2;
-        boolean interactive = panel.expansion(module).open && progress >= 0.95f;
-        for (int i = 0; i < moduleOptions.size(); i++) {
-            var option = moduleOptions.get(i);
-            boolean hover = interactive && hit(mouseX, mouseY, left + 5, optionY, right - left - 10, 11);
-            optionRow(graphics, option, left + 5, optionY, right - 3, hover, progress);
-            if (i + 1 < moduleOptions.size()) {
-                rect(graphics, left + 4, optionY + 11.5f, right - 4, optionY + 12,
-                    fade(0x28000000, progress));
+        float y = top + 2;
+        boolean interactive = panel.expansion(module).open && progress >= 0.95f && screen != null;
+        for (int i = 0; i < rows.size(); i++) {
+            var settingRow = rows.get(i);
+            boolean hover = interactive && hit(mouseX, mouseY, left + 5, y, right - left - 10, settingRowHeight(settingRow) - 1);
+            if (settingRow.toggle) {
+                toggleRow(graphics, settingRow, left + 5, right - 3, y, hover, progress);
+            } else {
+                numberRow(graphics, settingRow, left + 5, right - 3, y, hover, progress, screen);
             }
-            optionY += 12;
+            y += settingRowHeight(settingRow);
+            if (i + 1 < rows.size()) {
+                rect(graphics, left + 4, y - 0.5f, right - 4, y, fade(0x28000000, progress));
+            }
         }
         graphics.disableScissor();
     }
 
-    private static void draw(GuiGraphics graphics, Panel panel, int mouseX, int mouseY, boolean controls) {
+    private static void draw(GuiGraphics graphics, Panel panel, int mouseX, int mouseY, boolean controls, ClientScreen screen) {
         border(graphics, panel.x, panel.y, panel.x + 100, panel.y + panel.height(), 0x80000000);
         XdolfFont.draw(graphics, panel.title, panel.x + 3, panel.y + 1, 0xFFFFFFFF);
         if (controls) {
@@ -295,30 +367,18 @@ public final class ClientScreen extends Screen {
 
         float moduleY = panel.y + 12;
         for (var module : panel.modules) {
-            var moduleOptions = options(module);
+            var moduleSettings = settings(module);
             var expansion = panel.expansions.get(module);
             float progress = expansion == null ? 0.0f : expansion.value();
             boolean expanded = expansion != null && expansion.open;
             row(graphics, label(module), panel.x + 2, moduleY, module.enabled(),
-                hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11), !moduleOptions.isEmpty(), expanded);
+                hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11), !moduleSettings.isEmpty(), expanded);
             moduleY += 12;
 
-            if (!moduleOptions.isEmpty() && progress > 0.001f) {
-                optionContainer(graphics, panel, module, moduleOptions, moduleY, progress, mouseX, mouseY);
-                moduleY += optionContainerHeight(moduleOptions.size()) * progress;
+            if (!moduleSettings.isEmpty() && progress > 0.001f) {
+                settingContainer(graphics, panel, module, moduleY, progress, mouseX, mouseY, screen);
+                moduleY += settingContainerHeight(module) * progress;
             }
-        }
-
-        for (int i = 0; i < panel.sliders.size(); i++) {
-            var slider = panel.sliders.get(i);
-            int y = panel.y + 16 + i * 19;
-            int x = panel.x + 2;
-            String value = String.format(Locale.ROOT, slider.integer ? "%.0f" : "%.2f", slider.setting.get());
-            XdolfFont.draw(graphics, slider.label + ": " + value, x + 1, y - 3, 0xFFFFFFFF);
-            float drag = (float) ((slider.setting.get() - slider.setting.min) / (slider.setting.max - slider.setting.min) * 90);
-            border(graphics, x, y + 9, x + 96, y + 17, 0xFF383B42);
-            border(graphics, x + 1, y + 10, x + 5 + (int) drag, y + 16, 0xFFFF0000);
-            border(graphics, x + 2 + (int) drag, y + 10, x + 5 + (int) drag, y + 16, 0xFFFF4C4C);
         }
 
         if (panel.text()) {
@@ -385,59 +445,77 @@ public final class ClientScreen extends Screen {
             PANELS.add(panel);
 
             if (hit(mouseX, mouseY, panel.x + 89, panel.y + 2, 9, 9)) {
+                commitEditing();
                 panel.open = !panel.open;
             } else if (hit(mouseX, mouseY, panel.x + 79, panel.y + 2, 9, 9)) {
+                commitEditing();
                 panel.pinned = !panel.pinned;
             } else if (hit(mouseX, mouseY, panel.x, panel.y, 79, 11)) {
+                commitEditing();
                 dragging = panel;
                 offsetX = mouseX - panel.x;
                 offsetY = mouseY - panel.y;
             } else if (panel.open) {
                 float moduleY = panel.y + 12;
                 for (var module : panel.modules) {
-                    var moduleOptions = options(module);
+                    var rows = settings(module);
                     if (hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11)) {
+                        commitEditing();
                         if (button == 0) {
                             ClientRuntime.toggle(module);
-                        } else if (button == 1 && !moduleOptions.isEmpty()) {
+                        } else if (button == 1 && !rows.isEmpty()) {
                             panel.toggleExpansion(module);
                         }
                         return true;
                     }
                     moduleY += 12;
 
-                    if (!moduleOptions.isEmpty()) {
+                    if (!rows.isEmpty()) {
                         var expansion = panel.expansions.get(module);
                         float progress = expansion == null ? 0.0f : expansion.value();
-                        float fullHeight = optionContainerHeight(moduleOptions.size());
+                        float fullHeight = settingContainerHeight(module);
                         if (expansion != null && expansion.open && progress >= 0.95f) {
-                            float optionY = moduleY + 2;
-                            for (var option : moduleOptions) {
-                                if (hit(mouseX, mouseY, panel.x + 10, optionY, 80, 11)) {
-                                    if (button == 0) {
-                                        var setting = option.setting;
-                                        setting.set(setting.on() ? 0 : 1);
-                                        ClientConfig.save(ClientRuntime.MODULES);
+                            float left = panel.x + 5;
+                            float right = panel.x + 95;
+                            float settingY = moduleY + 2;
+                            for (var settingRow : rows) {
+                                if (settingRow.toggle) {
+                                    if (hit(mouseX, mouseY, left + 5, settingY, right - left - 10, 11)) {
+                                        commitEditing();
+                                        if (button == 0) {
+                                            settingRow.setting.set(settingRow.setting.on() ? 0 : 1);
+                                            ClientConfig.save(ClientRuntime.MODULES);
+                                        }
+                                        return true;
                                     }
-                                    return true;
+                                } else {
+                                    float rowLeft = left + 5;
+                                    float rowRight = right - 3;
+                                    float fieldRight = rowRight - 3;
+                                    float fieldLeft = fieldRight - 31;
+                                    if (button == 0 && hit(mouseX, mouseY, fieldLeft, settingY - 0.5f, 31, 11)) {
+                                        beginEditing(settingRow.setting);
+                                        return true;
+                                    }
+                                    float trackTop = settingY + 14;
+                                    if (button == 0 && hit(mouseX, mouseY, rowLeft, trackTop, rowRight - rowLeft - 3, 7)) {
+                                        commitEditing();
+                                        sliding = settingRow.setting;
+                                        sliderLeft = rowLeft;
+                                        sliderWidth = rowRight - rowLeft - 3;
+                                        moveSlider(mouseX);
+                                        return true;
+                                    }
                                 }
-                                optionY += 12;
+                                settingY += settingRowHeight(settingRow);
                             }
                         }
                         moduleY += fullHeight * progress;
                     }
                 }
 
-                for (int i = 0; i < panel.sliders.size(); i++) {
-                    if (button == 0 && hit(mouseX, mouseY, panel.x + 2, panel.y + 25 + i * 19, 96, 8)) {
-                        sliding = panel.sliders.get(i);
-                        offsetX = panel.x + 2;
-                        moveSlider(mouseX);
-                        return true;
-                    }
-                }
-
                 if (panel.title.equals("Radar")) {
+                    commitEditing();
                     int row = (int) ((mouseY - panel.y - 13) / 10);
                     var players = radar();
                     if (mouseY >= panel.y + 13 && row >= 0 && row < players.size()) {
@@ -448,7 +526,74 @@ public final class ClientScreen extends Screen {
             }
             return true;
         }
+        commitEditing();
         return false;
+    }
+
+    private void beginEditing(ModuleSetting setting) {
+        if (editing != setting) commitEditing();
+        editing = setting;
+        editingText = "";
+    }
+
+    private void cancelEditing() {
+        editing = null;
+        editingText = "";
+    }
+
+    private void commitEditing() {
+        if (editing == null) return;
+        try {
+            if (!editingText.isBlank() && !editingText.equals("-") && !editingText.equals(".") && !editingText.equals("-.")) {
+                double value = Double.parseDouble(editingText);
+                value = Math.max(editing.min, Math.min(editing.max, value));
+                if (integerSetting(editing)) value = Math.rint(value);
+                editing.set(value);
+                ClientConfig.save(ClientRuntime.MODULES);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Invalid partial input simply reverts to the previous setting value.
+        }
+        cancelEditing();
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (editing == null) return super.keyPressed(event);
+        int key = event.key();
+        if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+            commitEditing();
+            return true;
+        }
+        if (key == GLFW.GLFW_KEY_ESCAPE) {
+            cancelEditing();
+            return true;
+        }
+        if (key == GLFW.GLFW_KEY_BACKSPACE) {
+            if (!editingText.isEmpty()) editingText = editingText.substring(0, editingText.length() - 1);
+            return true;
+        }
+        if (key == GLFW.GLFW_KEY_DELETE) {
+            editingText = "";
+            return true;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        if (editing == null) return super.charTyped(event);
+        int codepoint = event.codepoint();
+        if (!Character.isValidCodePoint(codepoint)) return true;
+        char c = (char) codepoint;
+        if (Character.isDigit(c)) {
+            if (editingText.length() < 14) editingText += c;
+        } else if (c == '.' && !integerSetting(editing) && !editingText.contains(".")) {
+            editingText += editingText.isEmpty() ? "0." : ".";
+        } else if (c == '-' && editing.min < 0 && editingText.isEmpty()) {
+            editingText = "-";
+        }
+        return true;
     }
 
     @Override
@@ -466,24 +611,28 @@ public final class ClientScreen extends Screen {
     }
 
     private void moveSlider(double mouseX) {
-        var setting = sliding.setting;
-        double fraction = Math.max(0, Math.min(1, (mouseX - offsetX) / 90));
-        double value = setting.min + fraction * (setting.max - setting.min);
-        if (sliding.integer) value = Math.floor(value);
-        setting.set(Math.max(setting.min, Math.min(setting.max, value)));
+        if (sliding == null || sliderWidth <= 0) return;
+        double fraction = Math.max(0, Math.min(1, (mouseX - sliderLeft) / sliderWidth));
+        double raw = sliding.min + fraction * (sliding.max - sliding.min);
+        double steps = Math.round((raw - sliding.min) / sliding.step);
+        double value = sliding.min + steps * sliding.step;
+        value = Math.max(sliding.min, Math.min(sliding.max, value));
+        value = Math.round(value * 10000.0) / 10000.0;
+        sliding.set(value);
     }
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         dragging = null;
+        if (sliding != null) ClientConfig.save(ClientRuntime.MODULES);
         sliding = null;
         save();
-        ClientConfig.save(ClientRuntime.MODULES);
         return true;
     }
 
     @Override
     public void removed() {
+        commitEditing();
         dragging = null;
         sliding = null;
         save();
@@ -497,10 +646,11 @@ public final class ClientScreen extends Screen {
 
     static void smokeCheckAndArrange() {
         var screen = (ClientScreen) Minecraft.getInstance().screen;
-        if (PANELS.size() != 7) throw new IllegalStateException("Expected seven GUI windows");
+        if (PANELS.size() != 6) throw new IllegalStateException("Expected six GUI windows after removing Values");
 
         var render = PANELS.stream().filter(panel -> panel.title.equals("Render")).findFirst().orElseThrow();
         var combat = PANELS.stream().filter(panel -> panel.title.equals("Combat")).findFirst().orElseThrow();
+        var world = PANELS.stream().filter(panel -> panel.title.equals("World")).findFirst().orElseThrow();
         if (render.modules.stream().noneMatch(module -> module.name.equals("Waypoints"))
             || render.modules.stream().noneMatch(module -> module.name.equals("LogoutSpot"))
             || combat.modules.stream().noneMatch(module -> module.name.equals("AutoTotem"))) {
@@ -508,9 +658,8 @@ public final class ClientScreen extends Screen {
         }
 
         var logout = render.modules.stream().filter(module -> module.name.equals("LogoutSpot")).findFirst().orElseThrow();
-        var logoutOptions = options(logout);
-        if (logoutOptions.size() != 1 || !logoutOptions.get(0).label.equals("Tracers") || logout.setting("tracers") == null) {
-            throw new IllegalStateException("LogoutSpot tracer option missing from click GUI");
+        if (settings(logout).size() != 1 || !settings(logout).get(0).label.equals("Tracers")) {
+            throw new IllegalStateException("LogoutSpot tracer setting missing from click GUI");
         }
 
         var player = PANELS.stream().filter(panel -> panel.title.equals("Player")).findFirst().orElseThrow();
@@ -532,11 +681,10 @@ public final class ClientScreen extends Screen {
             panel.pinned = false;
             panel.expansions.clear();
             switch (panel.title) {
-                case "Values" -> { panel.x = 2; panel.y = 2; }
-                case "Player" -> { panel.x = 106; panel.y = 2; }
-                case "Render" -> { panel.x = 210; panel.y = 2; }
-                case "Combat" -> { panel.x = 314; panel.y = 2; }
-                case "World" -> { panel.x = 314; panel.y = 105; }
+                case "Player" -> { panel.x = 2; panel.y = 2; }
+                case "Render" -> { panel.x = 106; panel.y = 2; }
+                case "Combat" -> { panel.x = 210; panel.y = 2; }
+                case "World" -> { panel.x = 314; panel.y = 2; }
                 case "Info" -> { panel.x = 418; panel.y = 2; }
                 case "Radar" -> { panel.x = 418; panel.y = 85; }
             }
@@ -546,33 +694,37 @@ public final class ClientScreen extends Screen {
         int killAuraY = combat.y + 12 + combat.modules.indexOf(killAura) * 12;
         screen.click(combat.x + 30, killAuraY + 5, 1);
         var animation = combat.expansion(killAura);
-        if (!animation.open || PANELS.size() != 7) {
-            throw new IllegalStateException("KillAura animated inline options failed");
+        if (!animation.open || PANELS.size() != 6) {
+            throw new IllegalStateException("KillAura animated inline settings failed");
         }
         animation.finish();
         if (combat.height() <= 13 + combat.modules.size() * 12) {
-            throw new IllegalStateException("Inline option container did not expand panel height");
+            throw new IllegalStateException("Inline settings container did not expand panel height");
         }
 
-        var setting = options(killAura).get(0).setting;
-        boolean before = setting.on();
-        screen.click(combat.x + 30, killAuraY + 19, 0);
-        if (setting.on() == before) throw new IllegalStateException("Inline option toggle failed");
-        setting.set(before ? 1 : 0);
+        var playerToggle = settings(killAura).stream().filter(row -> row.setting.name.equals("players")).findFirst().orElseThrow();
+        boolean before = playerToggle.setting.on();
+        float settingY = killAuraY + 14 + NUMBER_ROW_HEIGHT;
+        screen.click(combat.x + 20, settingY + 2, 0);
+        if (playerToggle.setting.on() == before) throw new IllegalStateException("Inline toggle failed");
+        playerToggle.setting.set(before ? 1 : 0);
+
+        var range = killAura.setting("range");
+        double oldRange = range.get();
+        screen.beginEditing(range);
+        screen.editingText = "999";
+        screen.commitEditing();
+        if (range.get() != range.max) throw new IllegalStateException("Typed setting did not clamp to max");
+        range.set(oldRange);
+
+        var timer = world.modules.stream().filter(module -> module.name.equals("Timer")).findFirst().orElseThrow();
+        if (settings(timer).stream().noneMatch(row -> row.setting.name.equals("speed") && !row.toggle)) {
+            throw new IllegalStateException("Numeric module settings were not moved inline");
+        }
 
         screen.click(combat.x + 30, killAuraY + 5, 1);
-        if (animation.open) throw new IllegalStateException("Inline options did not begin collapsing");
+        if (animation.open) throw new IllegalStateException("Inline settings did not begin collapsing");
         animation.finish();
-
-        var values = PANELS.stream().filter(panel -> panel.title.equals("Values")).findFirst().orElseThrow();
-        if (values.sliders.size() != 13) throw new IllegalStateException("Expected thirteen sliders");
-        double old = values.sliders.get(0).setting.get();
-        screen.click(values.x + 48, values.y + 28, 0);
-        if (screen.sliding == null) throw new IllegalStateException("Slider drag failed");
-        screen.moveSlider(values.x + 92);
-        if (values.sliders.get(0).setting.get() == old) throw new IllegalStateException("Slider did not change value");
-        values.sliders.get(0).setting.set(old);
-        screen.sliding = null;
 
         save();
         int savedX = player.x;
@@ -581,7 +733,7 @@ public final class ClientScreen extends Screen {
         load();
         if (player.x != savedX || !player.open) throw new IllegalStateException("Window state roundtrip failed");
 
-        LogUtils.getLogger().info("XDOLF_GUI_OK: seven windows, restored modules, thirteen sliders, animated nested options, pin/open/drag controls");
+        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, inline toggles/sliders/text inputs, animation, pin/open/drag controls");
     }
 
     private static void load() {
