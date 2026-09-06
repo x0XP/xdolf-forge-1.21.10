@@ -120,7 +120,7 @@ final class MarkerVisuals implements FramePassManager.PassDefinition {
         return new Vec3(point.x,point.y,point.z);
     }
 
-    /** Draws the retained final player state at the logout position without re-adding it to the level. */
+    /** Draws the retained final player state at the centre of the logout ESP marker. */
     @SuppressWarnings({"rawtypes","unchecked"})
     private static void submitLogoutModels(Minecraft mc,float partial) {
         if(!Hooks.enabled("LogoutSpot")||mc.level==null||mc.player==null)return;
@@ -140,12 +140,13 @@ final class MarkerVisuals implements FramePassManager.PassDefinition {
             try {
                 EntityRenderer renderer=(EntityRenderer)dispatcher.getRenderer(spot.ghost());
                 EntityRenderState renderState=(EntityRenderState)renderer.createRenderState(spot.ghost(),partial);
-                Vec3 p=spot.position();
-                renderState.x=p.x;renderState.y=p.y;renderState.z=p.z;
-                renderState.distanceToCameraSq=p.distanceToSqr(cameraState.pos);
+                Vec3 marker=spot.position();
+                Vec3 model=marker.add(0.5,0.0,0.5);
+                renderState.x=model.x;renderState.y=model.y;renderState.z=model.z;
+                renderState.distanceToCameraSq=model.distanceToSqr(cameraState.pos);
                 renderState.nameTag=null;
                 renderState.nameTagAttachment=null;
-                dispatcher.submit(renderState,cameraState,p.x-cameraState.pos.x,p.y-cameraState.pos.y,p.z-cameraState.pos.z,pose,collector);
+                dispatcher.submit(renderState,cameraState,model.x-cameraState.pos.x,model.y-cameraState.pos.y,model.z-cameraState.pos.z,pose,collector);
             } catch(RuntimeException ignored) {
                 // The retained player can briefly be between network/render states; keep the marker and retry next frame.
             }
