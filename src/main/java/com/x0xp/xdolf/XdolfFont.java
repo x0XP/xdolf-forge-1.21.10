@@ -22,47 +22,84 @@ import javax.imageio.ImageIO;
 public final class XdolfFont {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("xdolf", "client_font");
     private static final int SIZE = 2048;
+    private static final int BASE_FONT_SIZE = 9;
+    private static final int MAX_RASTER_SCALE = 4;
     private static final int[] WIDTH = new int[2048], X = new int[2048], Y = new int[2048];
     private static final char[] FORMAT_CODES = "0123456789abcdef".toCharArray();
     private static final int[] CHAT_RGB = {
         0x000000,0x0000AA,0x00AA00,0x00AAAA,0xAA0000,0xAA00AA,0xFFAA00,0xAAAAAA,
-        0x555555,0x5555FF,0x55FF55,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
+        0x555555,0x5555FF,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
     };
     private static boolean ready;
+    private static int rasterScale;
     private static int glyphHeight;
+    private static int cellPadding;
     private static int visibleTop;
     private static int visibleBottom;
     private static int chatDepth;
 
     private XdolfFont() {}
 
+    /**
+     * Build the atlas at roughly one source texel per framebuffer pixel. The old renderer always
+     * rasterised Roboto at 36px and then scaled the atlas by 0.25, which only maps cleanly when the
+     * Minecraft GUI scale happens to be 4. At GUI scale 1/2 that made several antialiased source
+     * texels collapse into the same physical pixel and produced the broken/thin text seen at low
+     * resolutions. Rebuilding when GUI scale changes keeps sampling stable without changing the
+     * font's apparent GUI-space size.
+     */
     private static void init() {
-        if (ready) return;
+        int desiredScale=currentRasterScale();
+        if(ready&&rasterScale==desiredScale)return;
+        rebuild(desiredScale);
+    }
+
+    private static int currentRasterScale() {
+        Minecraft minecraft=Minecraft.getInstance();
+        if(minecraft==null||minecraft.getWindow()==null)return 1;
+        int scale=(int)Math.round(minecraft.getWindow().getGuiScale());
+        return Math.max(1,Math.min(MAX_RASTER_SCALE,scale));
+    }
+
+    private static void rebuild(int scale) {
         try {
-            var atlas = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
-            var graphics = atlas.createGraphics();
-            graphics.setFont(new java.awt.Font("Roboto", java.awt.Font.PLAIN, 36));
-            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            rasterScale=scale;
+            int fontSize=BASE_FONT_SIZE*rasterScale;
+            cellPadding=Math.max(2,2*rasterScale);
+            int leftPadding=Math.max(1,Math.round(0.75f*rasterScale));
+            int topPadding=Math.max(0,Math.round(0.25f*rasterScale));
+            int extraHeight=Math.max(1,Math.round(0.75f*rasterScale));
+
+            var atlas=new BufferedImage(SIZE,SIZE,BufferedImage.TYPE_INT_ARGB);
+            var graphics=atlas.createGraphics();
+            graphics.setFont(new java.awt.Font("Roboto",java.awt.Font.PLAIN,fontSize));
+            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
             graphics.setColor(Color.WHITE);
-            var metrics = graphics.getFontMetrics();
-            glyphHeight = metrics.getHeight() + 3;
-            int x = 0, y = 0;
-            for (int i = 0; i < WIDTH.length; i++) {
-                WIDTH[i] = Math.max(7, metrics.charWidth((char)i) + 8);
-                if (x + WIDTH[i] >= SIZE) { x = 0; y += glyphHeight; }
-                X[i] = x; Y[i] = y;
-                graphics.drawString(String.valueOf((char)i), x + 3, y + 1 + metrics.getAscent());
-                x += WIDTH[i];
+            var metrics=graphics.getFontMetrics();
+            glyphHeight=metrics.getHeight()+extraHeight;
+            int x=0,y=0;
+            for(int i=0;i<WIDTH.length;i++) {
+                WIDTH[i]=Math.max(rasterScale+1,metrics.charWidth((char)i)+cellPadding);
+                if(x+WIDTH[i]>=SIZE) { x=0; y+=glyphHeight; }
+                if(y+glyphHeight>=SIZE)throw new IllegalStateException("Xdolf TTF atlas overflow at GUI scale "+rasterScale);
+                X[i]=x;
+                Y[i]=y;
+                graphics.drawString(String.valueOf((char)i),x+leftPadding,y+topPadding+metrics.getAscent());
+                x+=WIDTH[i];
             }
             graphics.dispose();
             measureVisibleAsciiBounds(atlas);
-            var bytes = new ByteArrayOutputStream();
-            ImageIO.write(atlas, "png", bytes);
-            var image = NativeImage.read(new ByteArrayInputStream(bytes.toByteArray()));
-            Minecraft.getInstance().getTextureManager().register(TEXTURE, new DynamicTexture(() -> "Xdolf TTF font", image));
-            ready = true;
-        } catch (java.io.IOException error) {
-            throw new IllegalStateException("Cannot create Xdolf TTF font", error);
+
+            var bytes=new ByteArrayOutputStream();
+            ImageIO.write(atlas,"png",bytes);
+            var image=NativeImage.read(new ByteArrayInputStream(bytes.toByteArray()));
+            var texture=new DynamicTexture(() -> "Xdolf TTF font",image);
+            texture.setFilter(false,false);
+            Minecraft.getInstance().getTextureManager().register(TEXTURE,texture);
+            ready=true;
+        } catch(java.io.IOException error) {
+            throw new IllegalStateException("Cannot create Xdolf TTF font",error);
         }
     }
 
@@ -92,13 +129,13 @@ public final class XdolfFont {
     }
 
     public static void beginChat() { chatDepth++; }
-    public static void endChat() { if (chatDepth > 0) chatDepth--; }
-    public static boolean renderingChat() { return chatDepth > 0; }
+    public static void endChat() { if(chatDepth>0)chatDepth--; }
+    public static boolean renderingChat() { return chatDepth>0; }
 
     /** Native GUI-space height of one Xdolf TTF atlas row. */
     public static int lineHeight() {
         init();
-        return Math.max(10, (glyphHeight + 3) / 4);
+        return Math.max(10,ceilDiv(glyphHeight,rasterScale));
     }
 
     /**
@@ -107,30 +144,32 @@ public final class XdolfFont {
      */
     public static int centeredYOffset(int containerTop,int containerHeight,int vanillaTextY) {
         init();
-        float visibleTopGui=visibleTop*0.25f;
-        float visibleBottomGui=visibleBottom*0.25f+1.0f;
+        float scale=1.0f/rasterScale;
+        float visibleTopGui=visibleTop*scale;
+        float visibleBottomGui=visibleBottom*scale+1.0f;
         float visibleHeightGui=visibleBottomGui-visibleTopGui;
         float desiredVisibleTop=containerTop+(containerHeight-visibleHeightGui)*0.5f;
         float desiredCellTop=desiredVisibleTop-visibleTopGui;
         return Math.round(desiredCellTop-vanillaTextY);
     }
 
-    private static final net.minecraft.client.renderer.RenderType WORLD_TEXT = net.minecraft.client.renderer.RenderType.text(TEXTURE);
+    private static final net.minecraft.client.renderer.RenderType WORLD_TEXT=net.minecraft.client.renderer.RenderType.text(TEXTURE);
 
     public static void drawWorld(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,
                                  org.joml.Matrix4f transform,String text,float x,float y,int color) {
         init();
-        color = opaqueIfNeeded(color);
+        color=opaqueIfNeeded(color);
         worldLine(buffers,transform,text,x+1,y-1,(color&0xFF000000)|0x000D0D0D,true);
         worldLine(buffers,transform,text,x,y,color,false);
     }
 
     private static void worldLine(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,
                                   org.joml.Matrix4f transform,String text,float x,float y,int color,boolean shadow) {
-        var matrix = new org.joml.Matrix4f(transform).translate(x-1.5f,y,shadow?0.001f:0).scale(0.25f,0.25f,1);
-        var consumer = buffers.getBuffer(WORLD_TEXT);
-        int offset = 0, current = color;
-        for (int i=0;i<text.length();i++) {
+        float scale=1.0f/rasterScale;
+        var matrix=new org.joml.Matrix4f(transform).translate(x-1.5f,y,shadow?0.001f:0).scale(scale,scale,1);
+        var consumer=buffers.getBuffer(WORLD_TEXT);
+        int offset=0,current=color;
+        for(int i=0;i<text.length();i++) {
             char c=text.charAt(i);
             if(c=='\u00a7'&&i+1<text.length()) {
                 char formatting=Character.toLowerCase(text.charAt(++i));
@@ -145,7 +184,7 @@ public final class XdolfFont {
             consumer.addVertex(matrix,offset+WIDTH[c],glyphHeight,0).setColor(current).setUv(right,bottom).setUv2(240,240);
             consumer.addVertex(matrix,offset+WIDTH[c],0,0).setColor(current).setUv(right,v).setUv2(240,240);
             consumer.addVertex(matrix,offset,0,0).setColor(current).setUv(u,v).setUv2(240,240);
-            offset+=WIDTH[c]-8;
+            offset+=WIDTH[c]-cellPadding;
         }
     }
 
@@ -155,9 +194,9 @@ public final class XdolfFont {
         for(int i=0;i<text.length();i++) {
             char c=text.charAt(i);
             if(c=='\u00a7'&&i+1<text.length()){i++;continue;}
-            if(c<WIDTH.length)width+=WIDTH[c]-8;
+            if(c<WIDTH.length)width+=WIDTH[c]-cellPadding;
         }
-        return width/4;
+        return Math.round(width/(float)rasterScale);
     }
 
     public static int width(FormattedCharSequence sequence) { return width(toFormattedString(sequence)); }
@@ -198,9 +237,12 @@ public final class XdolfFont {
     public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color,boolean shadow) { draw(g,toFormattedString(sequence),x,y,color,shadow); }
 
     private static void drawLine(GuiGraphics g,String text,float x,float y,int color,boolean shadow) {
+        float scale=1.0f/rasterScale;
+        float snappedX=snapToFramebuffer(x-1.5f);
+        float snappedY=snapToFramebuffer(y);
         g.pose().pushMatrix();
-        g.pose().translate(x-1.5f,y);
-        g.pose().scale(0.25f,0.25f);
+        g.pose().translate(snappedX,snappedY);
+        g.pose().scale(scale,scale);
         int offset=0,current=color;
         for(int i=0;i<text.length();i++) {
             char c=text.charAt(i);
@@ -213,9 +255,20 @@ public final class XdolfFont {
             }
             if(c>=WIDTH.length)continue;
             g.blit(RenderPipelines.GUI_TEXTURED,TEXTURE,offset,0,X[c],Y[c],WIDTH[c],glyphHeight,SIZE,SIZE,current);
-            offset+=WIDTH[c]-8;
+            offset+=WIDTH[c]-cellPadding;
         }
         g.pose().popMatrix();
+    }
+
+    /** Snap GUI-space origins to the physical framebuffer grid before raster submission. */
+    private static float snapToFramebuffer(float value) {
+        double guiScale=Minecraft.getInstance().getWindow().getGuiScale();
+        if(guiScale<=0.0)return value;
+        return (float)(Math.round(value*guiScale)/guiScale);
+    }
+
+    private static int ceilDiv(int value,int divisor) {
+        return (value+divisor-1)/divisor;
     }
 
     private static String toFormattedString(FormattedCharSequence sequence) {
