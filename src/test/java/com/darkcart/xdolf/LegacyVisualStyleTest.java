@@ -1,6 +1,6 @@
 package com.darkcart.xdolf;
 
-/** Golden cases derived from the supplied old source plus the modern screen-space parity layer. */
+/** Golden cases for Xdolf's retained visual behaviour. */
 public final class LegacyVisualStyleTest {
     private static void equal(Object expected,Object actual) {
         if(!expected.equals(actual))throw new AssertionError("Expected "+expected+"; got "+actual);
@@ -29,11 +29,6 @@ public final class LegacyVisualStyleTest {
         equal(1.5,LegacyVisualStyle.TRACER_WIDTH);
         equal(1.8,LegacyVisualStyle.TRAJECTORY_WIDTH);
         equal(0x80000000,LegacyVisualStyle.BOX_EDGE);
-        System.out.println("Legacy visual style golden cases passed");
-        for(var method:net.minecraft.client.gui.components.ComponentRenderUtils.class.getDeclaredMethods())
-            System.out.println("XDOLF_CHAT_API ComponentRenderUtils "+method);
-        for(var method:net.minecraft.client.gui.components.ChatComponent.class.getDeclaredMethods())
-            if(method.getName().contains("Message")||method.getName().contains("message"))
-                System.out.println("XDOLF_CHAT_API ChatComponent "+method);
+        System.out.println("Xdolf visual style golden cases passed");
     }
 }
