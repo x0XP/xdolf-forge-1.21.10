@@ -58,7 +58,7 @@ public final class LegacyGuiFont {
         } catch (java.io.IOException error) { throw new IllegalStateException("Cannot create Xdolf TTF font", error); }
     }
 
-    /** ChatComponent brackets its render with these so vanilla chat layout remains intact. */
+    /** ChatComponent/ChatScreen bracket their render with these so every chat glyph uses this font. */
     public static void beginChat() { chatDepth++; }
     public static void endChat() { if (chatDepth > 0) chatDepth--; }
     public static boolean renderingChat() { return chatDepth > 0; }
@@ -67,18 +67,20 @@ public final class LegacyGuiFont {
     public static void drawWorld(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,org.joml.Matrix4f transform,String text,float x,float y,int color) {
         init();
         color=opaqueIfNeeded(color);
-        worldLine(buffers,transform,text,x+1,y+1,(color&0xFF000000)|0x000D0D0D,true);
+        // World nametag matrices use an inverted GUI Y axis, so -1 is visually down for the shadow.
+        worldLine(buffers,transform,text,x+1,y-1,(color&0xFF000000)|0x000D0D0D,true);
         worldLine(buffers,transform,text,x,y,color,false);
     }
     private static void worldLine(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,org.joml.Matrix4f transform,String text,float x,float y,int color,boolean shadow) {
-        var matrix=new org.joml.Matrix4f(transform).translate(x-1.5f,y,0).scale(0.25f,0.25f,1);
+        var matrix=new org.joml.Matrix4f(transform).translate(x-1.5f,y,shadow?0.001f:0).scale(0.25f,0.25f,1);
         var consumer=buffers.getBuffer(WORLD_TEXT);int offset=0,current=color;
         for(int i=0;i<text.length();i++) {
             char c=text.charAt(i);
             if(c=='\u00a7'&&i+1<text.length()) {
-                int code="0123456789abcdef".indexOf(Character.toLowerCase(text.charAt(++i)));
+                char formatting=Character.toLowerCase(text.charAt(++i));
+                int code="0123456789abcdef".indexOf(formatting);
                 if(!shadow&&code>=0)current=(color&0xFF000000)|LEGACY_RGB[code];
-                else if(!shadow&&text.charAt(i)=='r')current=color;
+                else if(!shadow&&formatting=='r')current=color;
                 continue;
             }
             if(c>=WIDTH.length)continue;
@@ -104,15 +106,35 @@ public final class LegacyGuiFont {
         while (end > 0 && width(text.substring(0, end)) > max) end--;
         return text.substring(0, end);
     }
-    public static void draw(GuiGraphics g, String text, float x, float y, int color) {
+
+    public static void draw(GuiGraphics g,String text,float x,float y,int color) { draw(g,text,x,y,color,true); }
+    public static void draw(GuiGraphics g,String text,float x,float y,int color,boolean shadow) {
         init();
         color=opaqueIfNeeded(color);
-        drawLine(g,text,x+1,y+1,(color&0xFF000000)|0x000D0D0D,true);
+        if(shadow)drawLine(g,text,x+1,y+1,(color&0xFF000000)|0x000D0D0D,true);
         drawLine(g,text,x,y,color,false);
     }
-    public static void draw(GuiGraphics g, FormattedCharSequence sequence, float x, float y, int color) {
-        draw(g,toLegacy(sequence),x,y,color);
+    public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color) { draw(g,toLegacy(sequence),x,y,color,true); }
+    public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color,boolean shadow) { draw(g,toLegacy(sequence),x,y,color,shadow); }
+
+    /**
+     * Chat still wraps, scrolls and positions its cursor with Minecraft's Font metrics. Fit each
+     * TTF draw to the exact width Minecraft allocated so the custom glyphs never drift through the
+     * background, cursor, wrapped line boundary or neighbouring chat element.
+     */
+    public static void drawFitted(GuiGraphics g,String text,float x,float y,int color,boolean shadow,int targetWidth) {
+        int natural=Math.max(1,width(text));
+        float fit=targetWidth>0?targetWidth/(float)natural:1f;
+        g.pose().pushMatrix();
+        g.pose().translate(x,y);
+        g.pose().scale(fit,1f);
+        draw(g,text,0,0,color,shadow);
+        g.pose().popMatrix();
     }
+    public static void drawFitted(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color,boolean shadow,int targetWidth) {
+        drawFitted(g,toLegacy(sequence),x,y,color,shadow,targetWidth);
+    }
+
     private static void drawLine(GuiGraphics g, String text, float x, float y, int color, boolean shadow) {
         g.pose().pushMatrix(); g.pose().translate(x - 1.5f, y); g.pose().scale(0.25f, 0.25f);
         int offset = 0, current = color;
