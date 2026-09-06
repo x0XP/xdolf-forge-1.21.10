@@ -38,7 +38,7 @@ jobs:
 
           sed -i 's/^mod_group_id=com\.darkcart\.xdolf$/mod_group_id=com.x0xp.xdolf/' gradle.properties
 
-          git rm .github/workflows/rename-package.yml
+          git rm -f .github/workflows/rename-package.yml
           git config user.name 'x0XP'
           git config user.email '3501503+x0XP@users.noreply.github.com'
           git add -A
