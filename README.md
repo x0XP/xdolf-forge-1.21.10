@@ -6,7 +6,7 @@ This project ports the original Xdolf behaviour, GUI, commands and visuals to th
 
 Original Xdolf source: https://github.com/x0XP/xdolf
 
-> Development build. Behaviour and visual parity are actively being tested and refined.
+> Development build. Behaviour and visuals are actively being tested and refined.
 
 ## Install
 
@@ -37,7 +37,7 @@ See [COMMANDS.md](COMMANDS.md) for the full command reference.
 
 The active client includes the original-style click GUI and restored gameplay/render modules, including Freecam, Tracers, Nametags, XRay, Waypoints, LogoutSpot and AutoTotem. Modern-only compatibility code is kept internal rather than exposed as separate user-facing features.
 
-See [PORTING.md](PORTING.md) for port status and behavioural differences, and [VISUAL_PARITY.md](VISUAL_PARITY.md) for visual parity notes and validation work.
+See [PORTING.md](PORTING.md) for port status and behavioural differences.
 
 ## Build
 
@@ -67,7 +67,6 @@ Built JARs are written to `build/libs`. GitHub Actions also compiles the project
 - `build.gradle`, `gradle.properties`, `settings.gradle` — build configuration
 - `COMMANDS.md` — command reference
 - `PORTING.md` — port status and compatibility notes
-- `VISUAL_PARITY.md` — visual parity tracking
 - `LICENSE` — project license
 
 ## License and attribution
