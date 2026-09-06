@@ -14,9 +14,10 @@ final class LegacyVisualStyle {
     static String tag(String name,float health,boolean friend) {
         return (friend?"\u00a79":"")+name+" \u00a7a"+(int)(health/20*100)+"%";
     }
-    /** Rich in-game tag: health plus the player's current armour points. */
+    /** Rich in-game tag: HP always; armour is only useful when the player actually has some. */
     static String tag(String name,float health,int armor,boolean friend) {
-        return (friend?"\u00a79":"")+name+" \u00a7a"+(int)(health/20*100)+"% HP \u00a7b"+armor+" Armor";
+        String tag=(friend?"\u00a79":"")+name+" \u00a7a"+(int)(health/20*100)+"% HP";
+        return armor>0?tag+" \u00a7b"+armor+" Armor":tag;
     }
     /**
      * Real player tags are now rendered in GUI/screen space so their size and layering are stable.
