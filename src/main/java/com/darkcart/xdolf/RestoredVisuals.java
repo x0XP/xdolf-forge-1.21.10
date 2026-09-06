@@ -1,6 +1,7 @@
 package com.darkcart.xdolf;
 
 import com.darkcart.xdolf.mixin.GameRendererAccess;
+import com.darkcart.xdolf.mixin.LevelRendererAccess;
 import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -142,7 +143,7 @@ final class RestoredVisuals implements FramePassManager.PassDefinition {
         var cameraState=mc.gameRenderer.getLevelRenderState().cameraRenderState;
         if(cameraState==null)return;
         var dispatcher=mc.getEntityRenderDispatcher();
-        var collector=mc.gameRenderer.getSubmitNodeStorage();
+        var collector=((LevelRendererAccess)mc.levelRenderer).xdolf$getSubmitNodeStorage();
         var pose=new PoseStack();
 
         for(var spot:LogoutSpotModule.spots()) {
