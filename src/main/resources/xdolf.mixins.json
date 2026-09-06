@@ -21,6 +21,7 @@
     "LivingRendererMixin",
     "BlockRenderMixin",
     "SectionCompilerMixin",
+    "SectionOcclusionGraphMixin",
     "CreateWorldScreenAccess",
     "EntityNameTagMixin",
     "ChatComponentMixin",
