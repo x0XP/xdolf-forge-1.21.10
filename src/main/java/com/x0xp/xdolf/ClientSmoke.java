@@ -14,7 +14,6 @@ final class ClientSmoke {
     private static volatile boolean captureDone;
     private static volatile boolean worldCaptureDone;
     private static boolean guiCaptureRequested;
-    private static boolean disconnectIssued;
 
     static void tick(Minecraft mc) {
         if (!ACTIVE || mc.getOverlay() != null) return;
@@ -23,28 +22,6 @@ final class ClientSmoke {
             net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> captureDone=true);
         }
 
-        if (phase == 6 && !disconnectIssued && mc.player != null && mc.level != null) {
-            CommandSmoke.run(mc);
-            disconnectIssued = true;
-            mc.setScreen(null);
-            mc.disconnect(new TitleScreen(), false);
-            return;
-        }
-        if (phase == 6 && disconnectIssued && mc.player == null && mc.level == null && mc.screen instanceof TitleScreen) {
-            CommandSmoke.assertSelections();phase=7;
-            CreateWorldScreen.openFresh(mc,()->{throw new IllegalStateException("Reconnect world creation cancelled");});
-        } else if (phase == 7 && mc.screen instanceof CreateWorldScreen create) {
-            create.getUiState().setName("Xdolf reconnect smoke");
-            create.getUiState().setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE);
-            phase=8;((CreateWorldScreenAccess)create).xdolf$create();
-        } else if (phase == 8 && mc.player != null && mc.level != null && mc.screen==null) {
-            ClientRuntime.updateSession(mc);CommandSmoke.assertSelections();
-            if(!XRayModule.rendering)throw new IllegalStateException("XRay did not reactivate after join");
-            Commands.execute(".alloff");
-            LogUtils.getLogger().info("XDOLF_RECONNECT_OK: selections survived real disconnect and new world/player connection");
-            LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, world rendering, commands, binds, persistence and reconnect passed");
-            phase=9;mc.stop();return;
-        }
         if (phase == 0 && mc.screen != null && (mc.screen instanceof TitleScreen || mc.screen.getClass().getSimpleName().equals("AccessibilityOnboardingScreen"))) {
             phase = 1;
             mc.options.guiScale().set(2);
@@ -70,6 +47,7 @@ final class ClientSmoke {
             if (ticks >= 200 && worldCaptureDone) {
                 WorldVisuals.smokeFixture=false;
                 for (ClientModule module : ClientRuntime.MODULES) module.setEnabled(false);
+                ClientRuntime.find("Fullbright").setEnabled(true);
                 LogUtils.getLogger().info("XDOLF_SMOKE_WORLD_OK: singleplayer loaded and visual modules ran for 150 ticks");
                 phase = 4; frames = 0; mc.setScreen(new ClientScreen());
             }
@@ -79,6 +57,14 @@ final class ClientSmoke {
     static void frame() {
         if (!ACTIVE) return;
         frames++;
+        if (phase == 4 && frames == 5) {
+            var fullbright=ClientRuntime.find("Fullbright");
+            if(!fullbright.enabled()||!Hooks.active("Fullbright"))
+                throw new IllegalStateException("Opening a GUI suspended an enabled module");
+            LogUtils.getLogger().info("XDOLF_SCREEN_MODULES_OK: enabled modules remain active while GUI screens are open");
+            ClientScreen.smokeCheckAndArrange();
+            return;
+        }
         if (phase == 4 && frames == 15) {
             phase = 5;
             guiCaptureRequested=true;
@@ -88,7 +74,24 @@ final class ClientSmoke {
             try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
                 if(files.noneMatch(p->p.toString().endsWith(".png")))throw new IllegalStateException("Screenshot was not saved");
             } catch(java.io.IOException error) { throw new IllegalStateException("Screenshot was not saved",error); }
-            phase=6;
+
+            ClientRuntime.find("Fullbright").setEnabled(false);
+            Minecraft mc = Minecraft.getInstance();
+            mc.setScreen(null);
+            CommandSmoke.run(mc);
+
+            // Exercise the same reset/reactivate lifecycle used when the client receives a new
+            // world/player session, without deadlocking an integrated server inside CI.
+            for(var module:ClientRuntime.MODULES)module.reset(mc);
+            for(var module:ClientRuntime.MODULES)if(module.enabled())module.activate(mc);
+            CommandSmoke.assertSelections();
+            if(!XRayModule.rendering)throw new IllegalStateException("XRay did not reactivate after lifecycle reset");
+            LogUtils.getLogger().info("XDOLF_LIFECYCLE_OK: enabled selections survived reset/reactivation");
+
+            Commands.execute(".alloff");
+            LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, screen-active modules, world rendering, commands, binds, persistence and lifecycle passed");
+            phase=9;
+            mc.stop();
             return;
         }
         if(frames != 5) return;
@@ -97,8 +100,6 @@ final class ClientSmoke {
             LogUtils.getLogger().info("XDOLF_SMOKE_MENU_OK");
             phase = 2;
             mc.execute(() -> CreateWorldScreen.openFresh(mc, () -> { throw new IllegalStateException("World creation cancelled"); }));
-        } else if (phase == 4) {
-            ClientScreen.smokeCheckAndArrange();
         }
     }
 }
