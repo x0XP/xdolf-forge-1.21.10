@@ -32,9 +32,9 @@ public final class ClientScreen extends Screen {
     private static final float BOOLEAN_ROW_HEIGHT = 12.0f;
     private static final float BOOLEAN_WRAPPED_ROW_HEIGHT = 21.0f;
     private static final float NUMBER_ROW_HEIGHT = 25.0f;
-    private static final float NUMBER_FIELD_WIDTH = 23.0f;
+    private static final float NUMBER_FIELD_WIDTH = 19.0f;
     private static final float KEYBIND_ROW_HEIGHT = 14.0f;
-    private static final float KEYBIND_FIELD_WIDTH = 48.0f;
+    private static final float KEYBIND_FIELD_WIDTH = 34.0f;
     private static final float CATEGORY_MAX_BODY_HEIGHT = 205.0f;
     private static final long SCROLL_ANIMATION_NS = 120_000_000L;
     private static final float TOGGLE_LABEL_SINGLE_LINE_WIDTH = 76.0f;
@@ -266,6 +266,8 @@ public final class ClientScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0x8F000000);
         for (var panel : PANELS) draw(graphics, panel, mouseX, mouseY, true, this);
+        // HUD notifications are normally below Screen rendering; redraw them here so the click GUI never dims them.
+        NotificationCards.render(graphics);
         ClientSmoke.frame();
     }
 
@@ -323,8 +325,8 @@ public final class ClientScreen extends Screen {
 
         float fieldRight = right - 1;
         float fieldLeft = fieldRight - KEYBIND_FIELD_WIDTH;
-        float fieldTop = y;
-        float fieldBottom = y + 11.0f;
+        float fieldTop = y + 0.5f;
+        float fieldBottom = y + 10.5f;
         int fieldFill = listening ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
         int fieldBorder = pending ? 0xFFFFB347 : existingConflict ? 0xFFFF5D6C
             : listening ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
@@ -375,11 +377,11 @@ public final class ClientScreen extends Screen {
 
         float fieldRight = right - 1;
         float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
-        float fieldTop = y;
+        float fieldTop = y + 0.5f;
         float fieldBottom = y + 10.5f;
         float labelRight = fieldLeft - 2;
         String label = XdolfFont.trim(row.label, Math.max(1, (int) (labelRight - left)));
-        XdolfFont.draw(graphics, label, left, y, fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
+        XdolfFont.draw(graphics, label, left, y + 1, fade(hover ? 0xFFFFFFFF : 0xD8FFFFFF, alpha));
 
         int fieldFill = editing ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
         int fieldBorder = editing ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
@@ -390,7 +392,7 @@ public final class ClientScreen extends Screen {
         if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
         value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 3));
         float valueX = fieldRight - 1.5f - XdolfFont.width(value);
-        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 1.5f, valueX), y, fade(0xFFFFFFFF, alpha));
+        XdolfFont.draw(graphics, value, Math.max(fieldLeft + 1.5f, valueX), y + 1, fade(0xFFFFFFFF, alpha));
 
         float trackLeft = left;
         float trackRight = right - 1;

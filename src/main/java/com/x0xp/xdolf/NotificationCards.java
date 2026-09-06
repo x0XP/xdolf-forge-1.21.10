@@ -104,7 +104,8 @@ final class NotificationCards {
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
 
-        rect(graphics, 0, 0, CARD_WIDTH, CARD_HEIGHT, fade(0xE014171D, alpha));
+        // Match the click GUI panels exactly: translucent black rather than a separate opaque HUD theme.
+        rect(graphics, 0, 0, CARD_WIDTH, CARD_HEIGHT, fade(0x80000000, alpha));
         outline(graphics, 0, 0, CARD_WIDTH, CARD_HEIGHT, fade(0xF0000000, alpha));
         rect(graphics, 1, 1, 3.5f, CARD_HEIGHT - 1, fade(card.accent, alpha));
 
