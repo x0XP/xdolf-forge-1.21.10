@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import org.lwjgl.glfw.GLFW;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -74,6 +75,24 @@ final class Modules {
         NetworkModules.addTo(modules);
         modules.add(new FreecamModule());
         modules.add(new XRayModule());
+        restoreOriginalDefaultKeys(modules);
         return List.copyOf(modules);
+    }
+
+    /** Original 1.12.2 defaults translated from LWJGL 2 key names to GLFW codes. */
+    private static void restoreOriginalDefaultKeys(List<ClientModule> modules) {
+        setKey(modules, "Flight", GLFW.GLFW_KEY_V);
+        setKey(modules, "SafeWalk", GLFW.GLFW_KEY_F4);
+        setKey(modules, "Jesus", GLFW.GLFW_KEY_J);
+        setKey(modules, "AntiVelocity", GLFW.GLFW_KEY_L);
+        setKey(modules, "KillAura", GLFW.GLFW_KEY_R);
+        setKey(modules, "Trajectories", GLFW.GLFW_KEY_F6);
+        setKey(modules, "Fullbright", GLFW.GLFW_KEY_C);
+        setKey(modules, "Freecam", GLFW.GLFW_KEY_B);
+        setKey(modules, "XRay", GLFW.GLFW_KEY_X);
+    }
+
+    private static void setKey(List<ClientModule> modules, String name, int key) {
+        modules.stream().filter(module -> module.name.equals(name)).findFirst().orElseThrow().key = key;
     }
 }
