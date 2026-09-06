@@ -15,6 +15,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Uses the Xdolf font while retaining Minecraft's chat history, scrolling and fade behaviour. */
@@ -23,32 +25,47 @@ public abstract class ChatComponentMixin {
     @Shadow @Final private List<GuiMessage.Line> trimmedMessages;
     @Shadow private int chatScrollbarPos;
     @Shadow public abstract int getLinesPerPage();
-    @Unique private int xdolf$visibleTextWidth;
+
+    @Unique private List<Integer> xdolf$visibleLineWidths=List.of();
+    @Unique private int xdolf$backgroundLine;
 
     @Inject(method="render",at=@At("HEAD"))
     private void xdolf$beginTtfChat(GuiGraphics graphics,int tickCount,int mouseX,int mouseY,boolean focused,CallbackInfo ci) {
         XdolfFont.beginChat();
         int first=Math.max(0,chatScrollbarPos);
         int last=Math.min(trimmedMessages.size(),first+Math.max(0,getLinesPerPage()));
-        int widest=0;
-        for(int i=first;i<last;i++)widest=Math.max(widest,XdolfFont.width(trimmedMessages.get(i).content()));
-        xdolf$visibleTextWidth=widest;
+        var widths=new ArrayList<Integer>(Math.max(0,last-first));
+        for(int i=first;i<last;i++) {
+            GuiMessage.Line line=trimmedMessages.get(i);
+            if(focused||tickCount-line.addedTime()<200)widths.add(XdolfFont.width(line.content()));
+        }
+        xdolf$visibleLineWidths=List.copyOf(widths);
+        xdolf$backgroundLine=0;
     }
 
     @Inject(method="render",at=@At("RETURN"))
     private void xdolf$endTtfChat(GuiGraphics graphics,int tickCount,int mouseX,int mouseY,boolean focused,CallbackInfo ci) {
         XdolfFont.endChat();
-        xdolf$visibleTextWidth=0;
+        xdolf$visibleLineWidths=List.of();
+        xdolf$backgroundLine=0;
     }
 
     /**
-     * Vanilla fills each message row to the configured maximum chat width. With Xdolf's narrower
-     * TTF advances that leaves a large empty rectangle. Only the actual message-row fill starts at
-     * x=-4 and extends right of zero; tag indicators, queue UI and scrollbar use different bounds.
+     * Xdolf's TTF glyphs are taller than vanilla's nine-pixel font. Give chat rows enough vertical
+     * space for the glyph and its shadow instead of shrinking the font to fit a vanilla-height row.
      */
+    @Inject(method="getLineHeight",at=@At("RETURN"),cancellable=true)
+    private void xdolf$ttfLineHeight(CallbackInfoReturnable<Integer> cir) {
+        cir.setReturnValue(Math.max(cir.getReturnValue(),13));
+    }
+
+    /** Fit each individual message background to the line being rendered, not the widest line on screen. */
     @Redirect(method="render",at=@At(value="INVOKE",target="Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"))
     private void xdolf$fitMessageBackground(GuiGraphics graphics,int left,int top,int right,int bottom,int color) {
-        if(left==-4&&right>0&&xdolf$visibleTextWidth>0)right=Math.min(right,xdolf$visibleTextWidth+8);
+        if(left==-4&&right>0&&xdolf$backgroundLine<xdolf$visibleLineWidths.size()) {
+            int textWidth=xdolf$visibleLineWidths.get(xdolf$backgroundLine++);
+            right=Math.min(right,textWidth+5);
+        }
         graphics.fill(left,top,right,bottom,color);
     }
 
