@@ -2,9 +2,11 @@ package com.x0xp.xdolf;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.network.chat.Component;
 import com.x0xp.xdolf.mixin.CreateWorldScreenAccess;
 
 /** Explicit opt-in CI test. Normal launches never create a test world. */
@@ -12,14 +14,20 @@ final class ClientSmoke {
     private static final boolean ACTIVE = Boolean.getBoolean("xdolf.smokeTest");
     private static int phase, frames, ticks;
     private static volatile boolean captureDone;
+    private static volatile boolean lowResCaptureDone;
     private static volatile boolean worldCaptureDone;
     private static boolean guiCaptureRequested;
+    private static boolean lowResCaptureRequested;
 
     static void tick(Minecraft mc) {
         if (!ACTIVE || mc.getOverlay() != null) return;
         if(guiCaptureRequested) {
             guiCaptureRequested=false;
             net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> captureDone=true);
+        }
+        if(lowResCaptureRequested) {
+            lowResCaptureRequested=false;
+            net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> lowResCaptureDone=true);
         }
 
         if (phase == 0 && mc.screen != null && (mc.screen instanceof TitleScreen || mc.screen.getClass().getSimpleName().equals("AccessibilityOnboardingScreen"))) {
@@ -71,10 +79,27 @@ final class ClientSmoke {
             return;
         }
         if (phase == 5 && captureDone) {
+            Minecraft mc=Minecraft.getInstance();
+            mc.options.guiScale().set(1);
+            org.lwjgl.glfw.GLFW.glfwSetWindowSize(org.lwjgl.glfw.GLFW.glfwGetCurrentContext(),640,360);
+            mc.gui.getChat().addMessage(Component.literal("[Xdolf] Low-resolution TTF smoke test: lorem ipsum 0123456789"));
+            mc.setScreen(new ChatScreen("lorem ipsum"));
+            phase=6;
+            frames=0;
+            return;
+        }
+        if(phase==6&&frames==20) {
+            lowResCaptureRequested=true;
+            phase=7;
+            return;
+        }
+        if (phase == 7 && lowResCaptureDone) {
             try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
-                if(files.noneMatch(p->p.toString().endsWith(".png")))throw new IllegalStateException("Screenshot was not saved");
-            } catch(java.io.IOException error) { throw new IllegalStateException("Screenshot was not saved",error); }
+                long count=files.filter(p->p.toString().endsWith(".png")).count();
+                if(count<2)throw new IllegalStateException("Expected normal and low-resolution screenshots");
+            } catch(java.io.IOException error) { throw new IllegalStateException("Screenshots were not saved",error); }
 
+            LogUtils.getLogger().info("XDOLF_LOW_RES_FONT_OK: rendered chat at 640x360 with GUI scale 1");
             ClientRuntime.find("Fullbright").setEnabled(false);
             Minecraft mc = Minecraft.getInstance();
             mc.setScreen(null);
@@ -89,7 +114,7 @@ final class ClientSmoke {
             LogUtils.getLogger().info("XDOLF_LIFECYCLE_OK: enabled selections survived reset/reactivation");
 
             Commands.execute(".alloff");
-            LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, screen-active modules, world rendering, commands, binds, persistence and lifecycle passed");
+            LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, low-resolution TTF, screen-active modules, world rendering, commands, binds, persistence and lifecycle passed");
             phase=9;
             mc.stop();
             return;
