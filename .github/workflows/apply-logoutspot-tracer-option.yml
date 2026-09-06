@@ -1,0 +1,60 @@
+name: Apply LogoutSpot tracer option
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-logoutspot-tracer-option.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add LogoutSpot tracer option
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected text not found in {path}: {old!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          replace(
+              'src/main/java/com/x0xp/xdolf/LogoutSpotModule.java',
+              '        super("LogoutSpot", "Render the last known position of players who log out.", "Render");\n',
+              '        super("LogoutSpot", "Render the last known position of players who log out.", "Render");\n        setting("tracers", 1, 0, 1, 1);\n'
+          )
+
+          replace(
+              'src/main/java/com/x0xp/xdolf/ClientScreen.java',
+              '            case "EntityESP" -> new String[][] {{"Players", "players"}, {"Monsters", "monsters"}, {"Passive", "passive"}, {"Items", "items"}, {"Outline", "outline"}};\n            case "ElytraPlus" ->',
+              '            case "EntityESP" -> new String[][] {{"Players", "players"}, {"Monsters", "monsters"}, {"Passive", "passive"}, {"Items", "items"}, {"Outline", "outline"}};\n            case "LogoutSpot" -> new String[][] {{"Tracers", "tracers"}};\n            case "ElytraPlus" ->'
+          )
+
+          replace(
+              'src/main/java/com/x0xp/xdolf/MarkerVisuals.java',
+              '                boxes.add(new Box(new AABB(p.x,p.y,p.z,p.x+1.0,p.y+2.0,p.z+1.0),0x2FFF0000,0xFFFF0000));\n                lines.add(new Segment(start,p.add(0.5,1.0,0.5),0xFFFF0000,1.5,true));\n',
+              '                boxes.add(new Box(new AABB(p.x,p.y,p.z,p.x+1.0,p.y+2.0,p.z+1.0),0x2FFF0000,0xFFFF0000));\n                if(Hooks.setting("LogoutSpot","tracers",1)!=0)\n                    lines.add(new Segment(start,p.add(0.5,1.0,0.5),0xFFFF0000,1.5,true));\n'
+          )
+
+          replace(
+              'src/main/java/com/x0xp/xdolf/ClientScreen.java',
+              '        if(render.modules.stream().noneMatch(m->m.name.equals("Waypoints")) || render.modules.stream().noneMatch(m->m.name.equals("LogoutSpot"))\n            || combat.modules.stream().noneMatch(m->m.name.equals("AutoTotem")))\n            throw new IllegalStateException("Restored modules missing from click GUI");\n',
+              '        if(render.modules.stream().noneMatch(m->m.name.equals("Waypoints")) || render.modules.stream().noneMatch(m->m.name.equals("LogoutSpot"))\n            || combat.modules.stream().noneMatch(m->m.name.equals("AutoTotem")))\n            throw new IllegalStateException("Restored modules missing from click GUI");\n        var logout=render.modules.stream().filter(m->m.name.equals("LogoutSpot")).findFirst().orElseThrow();\n        var logoutOptions=options(logout);\n        if(logoutOptions.size()!=1 || !logoutOptions.get(0).label.equals("Tracers") || logout.setting("tracers")==null)\n            throw new IllegalStateException("LogoutSpot tracer option missing from click GUI");\n'
+          )
+      - name: Commit change and remove helper workflow
+        run: |
+          git config user.name "x0XP"
+          git config user.email "3501503+x0XP@users.noreply.github.com"
+          git rm -f .github/workflows/apply-logoutspot-tracer-option.yml
+          git add src/main/java/com/x0xp/xdolf/LogoutSpotModule.java src/main/java/com/x0xp/xdolf/ClientScreen.java src/main/java/com/x0xp/xdolf/MarkerVisuals.java
+          git commit -m "Add LogoutSpot tracer option"
+          git push
