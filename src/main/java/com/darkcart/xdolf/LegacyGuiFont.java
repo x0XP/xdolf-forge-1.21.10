@@ -2,17 +2,20 @@ package com.darkcart.xdolf;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.ComponentRenderUtils;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import java.awt.Color;
-import java.awt.Font;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 import javax.imageio.ImageIO;
 
 /** Original XFont's AWT/TTF font, glyph padding, quarter scale, advance and shadow. */
@@ -23,12 +26,11 @@ public final class LegacyGuiFont {
     private static final char[] LEGACY_CODES = "0123456789abcdef".toCharArray();
     private static final int[] LEGACY_RGB = {
         0x000000,0x0000AA,0x00AA00,0x00AAAA,0xAA0000,0xAA00AA,0xFFAA00,0xAAAAAA,
-        0x555555,0x5555FF,0x55FF55,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
+        0x555555,0x5555FF,0x55FF55,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
     };
     private static boolean ready;
     private static int glyphHeight;
     private static int chatDepth;
-    private static int chatBackgroundWidth;
 
     private LegacyGuiFont() {}
 
@@ -37,7 +39,7 @@ public final class LegacyGuiFont {
         try {
             var atlas = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
             var graphics = atlas.createGraphics();
-            graphics.setFont(new Font("Roboto", Font.PLAIN, 36));
+            graphics.setFont(new java.awt.Font("Roboto", java.awt.Font.PLAIN, 36));
             graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             graphics.setColor(Color.WHITE);
             var metrics = graphics.getFontMetrics();
@@ -61,16 +63,8 @@ public final class LegacyGuiFont {
 
     /** ChatComponent/ChatScreen bracket their render with these so every chat glyph uses this font. */
     public static void beginChat() { chatDepth++; }
-    public static void beginChat(int requiredBackgroundWidth) {
-        chatBackgroundWidth = Math.max(chatBackgroundWidth, requiredBackgroundWidth);
-        beginChat();
-    }
-    public static void endChat() {
-        if (chatDepth > 0) chatDepth--;
-        if (chatDepth == 0) chatBackgroundWidth = 0;
-    }
+    public static void endChat() { if (chatDepth > 0) chatDepth--; }
     public static boolean renderingChat() { return chatDepth > 0; }
-    public static int chatBackgroundWidth() { return chatBackgroundWidth; }
 
     private static final net.minecraft.client.renderer.RenderType WORLD_TEXT=net.minecraft.client.renderer.RenderType.text(TEXTURE);
     public static void drawWorld(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,org.joml.Matrix4f transform,String text,float x,float y,int color) {
@@ -115,6 +109,30 @@ public final class LegacyGuiFont {
         int end = text.length();
         while (end > 0 && width(text.substring(0, end)) > max) end--;
         return text.substring(0, end);
+    }
+
+    /**
+     * Preserve the natural TTF glyph size, but let vanilla produce the styled chat lines. We ask
+     * vanilla to wrap at a slightly narrower logical width until every resulting line fits the
+     * real configured chat width when measured with Xdolf's TTF advances. This fixes the box/text
+     * mismatch without horizontally squeezing the font or making the chat background enormous.
+     */
+    public static List<FormattedCharSequence> wrapChat(Component component,int visualWidth,Font vanillaFont) {
+        if(visualWidth<=1)return ComponentRenderUtils.wrapComponents(component,Math.max(1,visualWidth),vanillaFont);
+        int low=1,high=visualWidth,best=1;
+        List<FormattedCharSequence> bestLines=ComponentRenderUtils.wrapComponents(component,best,vanillaFont);
+        while(low<=high) {
+            int candidate=(low+high)>>>1;
+            List<FormattedCharSequence> lines=ComponentRenderUtils.wrapComponents(component,candidate,vanillaFont);
+            boolean fits=true;
+            for(var line:lines)if(width(line)>visualWidth){fits=false;break;}
+            if(fits) {
+                best=candidate;
+                bestLines=lines;
+                low=candidate+1;
+            } else high=candidate-1;
+        }
+        return bestLines;
     }
 
     public static void draw(GuiGraphics g,String text,float x,float y,int color) { draw(g,text,x,y,color,true); }
