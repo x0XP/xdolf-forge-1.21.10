@@ -357,15 +357,6 @@ public final class ClientScreen extends Screen {
         value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 4));
         float valueX = fieldRight - 2 - XdolfFont.width(value);
         XdolfFont.draw(graphics, value, Math.max(fieldLeft + 2, valueX), fieldTop + 0.5f, fade(0xFFFFFFFF, alpha));
-
-        if (stacked) {
-            String limits = row.integer
-                ? String.format(Locale.ROOT, "%.0f–%.0f", row.setting.min, row.setting.max)
-                : String.format(Locale.ROOT, "%.2f–%.2f", row.setting.min, row.setting.max);
-            limits = XdolfFont.trim(limits, (int) (fieldLeft - left - 3));
-            XdolfFont.draw(graphics, limits, left, fieldTop + 0.5f, fade(0x78FFFFFF, alpha));
-        }
-
         float trackLeft = left;
         float trackRight = right - 3;
         float trackTop = numberTrackTop(row, y);
