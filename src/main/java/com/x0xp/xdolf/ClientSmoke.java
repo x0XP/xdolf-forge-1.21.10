@@ -30,7 +30,7 @@ final class ClientSmoke {
             net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> lowResCaptureDone=true);
         }
 
-        // Once the low-GUI-scale ChatScreen is open, progression must not depend on
+        // Once the low-raster ChatScreen is open, progression must not depend on
         // ClientScreen.render(). Tick from here so any normal Minecraft screen can be tested.
         if(phase==6) {
             if(++lowResTicks>=10) {
@@ -94,9 +94,10 @@ final class ClientSmoke {
         }
         if (phase == 5 && captureDone) {
             Minecraft mc=Minecraft.getInstance();
-            // GUI scale 1 exercises the same physical-pixel font path that becomes visible on
-            // low-resolution displays without mutating the live framebuffer dimensions in CI.
-            mc.options.guiScale().set(1);
+            // Exercise the scale-1 font atlas directly. Mutating Minecraft's live GUI-scale option
+            // from inside the render loop can stall the framebuffer in CI and is not representative
+            // of starting the game normally at a low GUI scale.
+            XdolfFont.smokeRasterScale(1);
             mc.gui.getChat().addMessage(Component.literal("[Xdolf] Low-resolution TTF smoke test: lorem ipsum 0123456789"));
             mc.setScreen(new ChatScreen("lorem ipsum",false));
             phase=6;
@@ -115,12 +116,13 @@ final class ClientSmoke {
     private static void finishLowResTest(Minecraft mc) {
         try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
             long count=files.filter(p->p.toString().endsWith(".png")).count();
-            if(count<2)throw new IllegalStateException("Expected normal and low-GUI-scale screenshots");
+            if(count<3)throw new IllegalStateException("Expected world, GUI and low-raster chat screenshots");
         } catch(java.io.IOException error) {
             throw new IllegalStateException("Screenshots were not saved",error);
         }
 
-        LogUtils.getLogger().info("XDOLF_LOW_RES_FONT_OK: rendered chat at GUI scale 1 without replacing an active font texture");
+        LogUtils.getLogger().info("XDOLF_LOW_RES_FONT_OK: rendered chat with the GUI-scale-1 TTF atlas");
+        XdolfFont.smokeRasterScale(0);
         ClientRuntime.find("Fullbright").setEnabled(false);
         mc.setScreen(null);
         CommandSmoke.run(mc);
