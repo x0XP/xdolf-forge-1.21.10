@@ -44,7 +44,7 @@ public final class ClientScreen extends Screen {
         loaded = true;
         // Construction/z-order and coordinates are taken from XdolfGuiClick and Window*.java.
         addModules("Player", 47, "AutoFish Flight Spammer AutoRespawn AutoWalk SafeWalk NoSlowdown HorseJump Sprint NoFall AntiHunger AutoEat Jesus EntitySpeed EntityStep ElytraFly ElytraPlus");
-        addModules("Render", 62, "Tracers StorageESP EntityESP NoHurtCam Chams Trajectories Nametags");
+        addModules("Render", 62, "Tracers StorageESP EntityESP NoHurtCam Chams Trajectories Nametags Waypoints LogoutSpot");
         var values = new Panel("Values", 2); PANELS.add(values);
         slider(values, "Flight Speed", "Flight", "speed", false);
         slider(values, "ElytraFlight Speed", "ElytraFly", "speed", false);
@@ -60,13 +60,17 @@ public final class ClientScreen extends Screen {
         slider(values, "Auto Cast Delay", "AutoFish", "castdelay", true);
         slider(values, "Recast Delay", "AutoFish", "recast", true);
         PANELS.add(new Panel("Info", 17)); PANELS.add(new Panel("Radar", 92));
-        addModules("Combat", 32, "AntiVelocity KillAura AutoArmor AutoLog CrystalAura Criticals CrystalLog");
+        addModules("Combat", 32, "AntiVelocity KillAura AutoArmor AutoTotem AutoLog CrystalAura Criticals CrystalLog");
         addModules("World", 77, "Fullbright Timer XRay FastPlace Freecam Speedmine");
         load();
     }
     private static void addModules(String title, int y, String names) {
         var panel = new Panel(title, y);
-        for (String name : names.split(" ")) panel.modules.add(ClientRuntime.find(name));
+        for (String name : names.split(" ")) {
+            var module = ClientRuntime.find(name);
+            if (module == null) throw new IllegalStateException("Missing GUI module: " + name);
+            panel.modules.add(module);
+        }
         PANELS.add(panel);
     }
     private static void slider(Panel panel, String label, String module, String setting, boolean integer) {
@@ -220,6 +224,11 @@ public final class ClientScreen extends Screen {
     static void smokeCheckAndArrange() {
         var screen = (ClientScreen)Minecraft.getInstance().screen;
         if(PANELS.size()!=7) throw new IllegalStateException("Expected seven legacy windows");
+        var render=PANELS.stream().filter(p->p.title.equals("Render")).findFirst().orElseThrow();
+        var combat=PANELS.stream().filter(p->p.title.equals("Combat")).findFirst().orElseThrow();
+        if(render.modules.stream().noneMatch(m->m.name.equals("Waypoints")) || render.modules.stream().noneMatch(m->m.name.equals("LogoutSpot"))
+            || combat.modules.stream().noneMatch(m->m.name.equals("AutoTotem")))
+            throw new IllegalStateException("Restored modules missing from click GUI");
         var player=PANELS.stream().filter(p->p.title.equals("Player")).findFirst().orElseThrow();
         screen.click(player.x+94,player.y+6,0);
         if(!player.open) throw new IllegalStateException("Open control failed");
@@ -243,7 +252,6 @@ public final class ClientScreen extends Screen {
                 case "Radar" -> {p.x=418;p.y=85;}
             }
         }
-        var combat=PANELS.stream().filter(p->p.title.equals("Combat")).findFirst().orElseThrow();
         screen.click(combat.x+30,combat.y+12+12+5,1);
         var options=PANELS.get(PANELS.size()-1);
         if(!options.temporary||options.options.size()!=4)throw new IllegalStateException("Original KillAura options failed");
@@ -262,7 +270,7 @@ public final class ClientScreen extends Screen {
         values.sliders.get(0).setting.set(old);screen.sliding=null;
         save();int savedX=player.x;player.x+=100;player.open=false;load();
         if(player.x!=savedX||!player.open)throw new IllegalStateException("Window state roundtrip failed");
-        LogUtils.getLogger().info("XDOLF_GUI_OK: seven windows, thirteen sliders, pin/open/drag/options controls");
+        LogUtils.getLogger().info("XDOLF_GUI_OK: seven windows, restored modules, thirteen sliders, pin/open/drag/options controls");
     }
     private static void load() {
         var file=FMLPaths.CONFIGDIR.get().resolve("xdolf-gui.properties");
