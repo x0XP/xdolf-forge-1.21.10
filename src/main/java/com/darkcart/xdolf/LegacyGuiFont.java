@@ -7,7 +7,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ComponentRenderUtils;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import java.awt.Color;
@@ -56,12 +56,11 @@ public final class LegacyGuiFont {
             var bytes = new ByteArrayOutputStream();
             ImageIO.write(atlas, "png", bytes);
             var image = NativeImage.read(new ByteArrayInputStream(bytes.toByteArray()));
-            Minecraft.getInstance().getTextureManager().register(TEXTURE, new DynamicTexture(() -> "Xdolf legacy TTF font", image));
+            Minecraft.getInstance().getTextureManager().register(TEXTURE, new DynamicTexture(() -> "Xdolf TTF font", image));
             ready = true;
         } catch (java.io.IOException error) { throw new IllegalStateException("Cannot create Xdolf TTF font", error); }
     }
 
-    /** ChatComponent/ChatScreen bracket their render with these so every chat glyph uses this font. */
     public static void beginChat() { chatDepth++; }
     public static void endChat() { if (chatDepth > 0) chatDepth--; }
     public static boolean renderingChat() { return chatDepth > 0; }
@@ -70,7 +69,6 @@ public final class LegacyGuiFont {
     public static void drawWorld(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,org.joml.Matrix4f transform,String text,float x,float y,int color) {
         init();
         color=opaqueIfNeeded(color);
-        // World nametag matrices use an inverted GUI Y axis, so -1 is visually down for the shadow.
         worldLine(buffers,transform,text,x+1,y-1,(color&0xFF000000)|0x000D0D0D,true);
         worldLine(buffers,transform,text,x,y,color,false);
     }
@@ -111,19 +109,13 @@ public final class LegacyGuiFont {
         return text.substring(0, end);
     }
 
-    /**
-     * Preserve the natural TTF glyph size, but let vanilla produce the styled chat lines. We ask
-     * vanilla to wrap at a slightly narrower logical width until every resulting line fits the
-     * real configured chat width when measured with Xdolf's TTF advances. This fixes the box/text
-     * mismatch without horizontally squeezing the font or making the chat background enormous.
-     */
-    public static List<FormattedCharSequence> wrapChat(Component component,int visualWidth,Font vanillaFont) {
-        if(visualWidth<=1)return ComponentRenderUtils.wrapComponents(component,Math.max(1,visualWidth),vanillaFont);
+    public static List<FormattedCharSequence> wrapChat(FormattedText text,int visualWidth,Font vanillaFont) {
+        if(visualWidth<=1)return ComponentRenderUtils.wrapComponents(text,Math.max(1,visualWidth),vanillaFont);
         int low=1,high=visualWidth,best=1;
-        List<FormattedCharSequence> bestLines=ComponentRenderUtils.wrapComponents(component,best,vanillaFont);
+        List<FormattedCharSequence> bestLines=ComponentRenderUtils.wrapComponents(text,best,vanillaFont);
         while(low<=high) {
             int candidate=(low+high)>>>1;
-            List<FormattedCharSequence> lines=ComponentRenderUtils.wrapComponents(component,candidate,vanillaFont);
+            List<FormattedCharSequence> lines=ComponentRenderUtils.wrapComponents(text,candidate,vanillaFont);
             boolean fits=true;
             for(var line:lines)if(width(line)>visualWidth){fits=false;break;}
             if(fits) {
