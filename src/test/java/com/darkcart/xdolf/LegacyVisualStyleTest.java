@@ -1,6 +1,6 @@
 package com.darkcart.xdolf;
 
-/** Golden cases derived from the supplied old source; runnable without Minecraft. */
+/** Golden cases derived from the supplied old source plus the modern screen-space parity layer. */
 public final class LegacyVisualStyleTest {
     private static void equal(Object expected,Object actual) {
         if(!expected.equals(actual))throw new AssertionError("Expected "+expected+"; got "+actual);
@@ -18,8 +18,10 @@ public final class LegacyVisualStyleTest {
         equal("\u00a79Friend \u00a7a100%",LegacyVisualStyle.tag("Friend",20,true));
         equal("Player \u00a7a75% HP \u00a7b18 Armor",LegacyVisualStyle.tag("Player",15,18,false));
         equal("\u00a79Friend \u00a7a100% HP \u00a7b20 Armor",LegacyVisualStyle.tag("Friend",20,20,true));
-        close(0.5f,LegacyVisualStyle.tagScale(60));
-        close(0.033333336f,LegacyVisualStyle.tagScale(2));
+        close(0f,LegacyVisualStyle.tagScale(60));
+        close(1f,LegacyVisualStyle.screenTagScale(8));
+        close(0.8090909f,LegacyVisualStyle.screenTagScale(50));
+        close(0.68f,LegacyVisualStyle.screenTagScale(200));
         equal(-14,LegacyVisualStyle.tagOffset(100,false));
         equal(-96,LegacyVisualStyle.tagOffset(100,true));
         equal(-3,LegacyVisualStyle.tagOffset(3.9f,false));
