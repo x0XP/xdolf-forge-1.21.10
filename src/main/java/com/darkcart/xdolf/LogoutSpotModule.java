@@ -13,11 +13,12 @@ import java.util.UUID;
  * Tracks the last world position of players that genuinely leave the tab list.
  *
  * <p>Players merely leaving entity render distance remain in the connection's player
- * list, so they are not incorrectly recorded as logout spots. Spots are removed when
- * the same UUID comes back online and are cleared on world/server changes.</p>
+ * list, so they are not incorrectly recorded as logout spots. The final client-side
+ * Player object is retained while a spot exists; this preserves the skin, equipment,
+ * pose and rotations needed to draw the logout model exactly where it disappeared.</p>
  */
 final class LogoutSpotModule extends ClientModule {
-    record Spot(UUID id, String name, String dimension, Vec3 position) {}
+    record Spot(UUID id, String name, String dimension, Vec3 position, Player ghost) {}
 
     private static final Map<UUID, Spot> LOGOUT_SPOTS = new LinkedHashMap<>();
     private final Map<UUID, Spot> lastSeen = new HashMap<>();
@@ -51,7 +52,7 @@ final class LogoutSpotModule extends ClientModule {
             if (player == mc.player) continue;
             UUID id = player.getUUID();
             visible.add(id);
-            lastSeen.put(id, new Spot(id, player.getName().getString(), currentDimension, player.position()));
+            lastSeen.put(id, new Spot(id, player.getName().getString(), currentDimension, player.position(), player));
         }
 
         var iterator = lastSeen.entrySet().iterator();
