@@ -23,6 +23,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.x0xp.xdolf.UiDraw.*;
+
 /** Xdolf click GUI with animated, inline module settings. */
 public final class ClientScreen extends Screen {
     private static final List<Panel> PANELS = new ArrayList<>();
@@ -32,7 +34,9 @@ public final class ClientScreen extends Screen {
     private static final float NUMBER_ROW_HEIGHT = 25.0f;
     private static final float NUMBER_FIELD_WIDTH = 23.0f;
     private static final float KEYBIND_ROW_HEIGHT = 14.0f;
-    private static final float KEYBIND_FIELD_WIDTH = 42.0f;
+    private static final float KEYBIND_FIELD_WIDTH = 48.0f;
+    private static final float CATEGORY_MAX_BODY_HEIGHT = 205.0f;
+    private static final long SCROLL_ANIMATION_NS = 120_000_000L;
     private static final float TOGGLE_LABEL_SINGLE_LINE_WIDTH = 76.0f;
     private static boolean loaded;
 
@@ -43,6 +47,8 @@ public final class ClientScreen extends Screen {
     private ModuleSetting editing;
     private String editingText = "";
     private ClientModule binding;
+    private int pendingBindingKey = -1;
+    private List<ClientModule> pendingBindingConflicts = List.of();
     private double offsetX, offsetY;
 
     private static final class Expansion {
@@ -81,6 +87,8 @@ public final class ClientScreen extends Screen {
         final Map<ClientModule, Expansion> expansions = new HashMap<>();
         int x, y;
         boolean open, pinned;
+        float scroll, scrollFrom, scrollTarget;
+        long scrollStarted;
 
         Panel(String title, int y) {
             this.title = title;
@@ -118,6 +126,42 @@ public final class ClientScreen extends Screen {
             float height = 13 + modules.size() * 12 + 0.5f;
             for (var module : modules) height += animatedSettingsHeight(module);
             return height;
+        }
+
+        float displayHeight(int screenHeight) {
+            if (text() || !open) return height();
+            float availableBody = Math.max(48.0f, Math.min(CATEGORY_MAX_BODY_HEIGHT, screenHeight - y - 21.0f));
+            return 13.0f + Math.min(height() - 13.0f, availableBody);
+        }
+
+        float maxScroll(int screenHeight) {
+            return Math.max(0.0f, height() - displayHeight(screenHeight));
+        }
+
+        float scrollValue(int screenHeight) {
+            float max = maxScroll(screenHeight);
+            if (max <= 0.01f) {
+                scroll = scrollFrom = scrollTarget = 0.0f;
+                return 0.0f;
+            }
+            scrollTarget = Math.max(0.0f, Math.min(max, scrollTarget));
+            if (scroll == scrollTarget) return scroll;
+            float elapsed = Math.min(1.0f, (System.nanoTime() - scrollStarted) / (float) SCROLL_ANIMATION_NS);
+            scroll = scrollFrom + (scrollTarget - scrollFrom) * easeOutCubic(elapsed);
+            if (elapsed >= 1.0f) scroll = scrollTarget;
+            return Math.max(0.0f, Math.min(max, scroll));
+        }
+
+        void scrollBy(float amount, int screenHeight) {
+            float current = scrollValue(screenHeight);
+            scrollFrom = current;
+            scrollTarget = Math.max(0.0f, Math.min(maxScroll(screenHeight), scrollTarget + amount));
+            scrollStarted = System.nanoTime();
+        }
+
+        void finishScroll(int screenHeight) {
+            scroll = scrollTarget = Math.max(0.0f, Math.min(maxScroll(screenHeight), scrollTarget));
+            scrollFrom = scroll;
         }
     }
 
@@ -231,35 +275,6 @@ public final class ClientScreen extends Screen {
         for (var panel : PANELS) if (panel.pinned) draw(graphics, panel, -1000, -1000, false, null);
     }
 
-    private static void rect(GuiGraphics graphics, float x, float y, float right, float bottom, int color) {
-        graphics.pose().pushMatrix();
-        graphics.pose().scale(0.5f, 0.5f);
-        graphics.fill(Math.round(x * 2), Math.round(y * 2), Math.round(right * 2), Math.round(bottom * 2), color);
-        graphics.pose().popMatrix();
-    }
-
-    private static void outline(GuiGraphics graphics, float x, float y, float right, float bottom, int color) {
-        rect(graphics, x, y, right, y + 0.5f, color);
-        rect(graphics, x, bottom - 0.5f, right, bottom, color);
-        rect(graphics, x, y, x + 0.5f, bottom, color);
-        rect(graphics, right - 0.5f, y, right, bottom, color);
-    }
-
-    private static void border(GuiGraphics graphics, float x, float y, float right, float bottom, int inside) {
-        rect(graphics, x, y, right, bottom, inside);
-        outline(graphics, x, y, right + 0.5f, bottom + 0.5f, 0xFF000000);
-    }
-
-    private static int fade(int color, float alpha) {
-        int originalAlpha = color >>> 24;
-        int fadedAlpha = Math.max(0, Math.min(255, Math.round(originalAlpha * alpha)));
-        return (color & 0x00FFFFFF) | fadedAlpha << 24;
-    }
-
-    private static boolean hit(double mouseX, double mouseY, double x, double y, double width, double height) {
-        return mouseX >= x && mouseY >= y && mouseX <= x + width && mouseY <= y + height;
-    }
-
 
     private static boolean wrappedToggle(SettingRow row) {
         return row.toggle && XdolfFont.width(row.label) > TOGGLE_LABEL_SINGLE_LINE_WIDTH;
@@ -298,32 +313,12 @@ public final class ClientScreen extends Screen {
         return List.of(lines.get(0), XdolfFont.trim(String.join(" ", lines.subList(1, lines.size())), maxWidth));
     }
 
-    private static String keyDisplay(int key) {
-        String name = KeyNames.name(key);
-        return switch (name) {
-            case "NONE" -> "None";
-            case "LEFT_SHIFT" -> "LShift";
-            case "RIGHT_SHIFT" -> "RShift";
-            case "LEFT_CONTROL" -> "LCtrl";
-            case "RIGHT_CONTROL" -> "RCtrl";
-            case "LEFT_ALT" -> "LAlt";
-            case "RIGHT_ALT" -> "RAlt";
-            case "LEFT_SUPER" -> "LSuper";
-            case "RIGHT_SUPER" -> "RSuper";
-            case "GRAVE_ACCENT" -> "Grave";
-            case "PAGE_UP" -> "PgUp";
-            case "PAGE_DOWN" -> "PgDn";
-            case "CAPS_LOCK" -> "Caps";
-            case "SCROLL_LOCK" -> "Scroll";
-            case "PRINT_SCREEN" -> "PrtSc";
-            default -> name.replace('_', ' ');
-        };
-    }
-
     private static void keybindRow(GuiGraphics graphics, ClientModule module, float left, float right, float y,
                                    boolean hover, float alpha, ClientScreen screen) {
         boolean listening = screen != null && screen.binding == module;
-        int labelColor = hover || listening ? 0xFFFFFFFF : 0xD8FFFFFF;
+        boolean pending = listening && screen.pendingBindingKey >= 0 && !screen.pendingBindingConflicts.isEmpty();
+        boolean existingConflict = !listening && module.key >= 0 && !Keybinds.conflicts(module, module.key).isEmpty();
+        int labelColor = pending ? 0xFFFFC66D : hover || listening ? 0xFFFFFFFF : 0xD8FFFFFF;
         XdolfFont.draw(graphics, "Keybind", left, y + 1, fade(labelColor, alpha));
 
         float fieldRight = right - 1;
@@ -331,15 +326,17 @@ public final class ClientScreen extends Screen {
         float fieldTop = y;
         float fieldBottom = y + 11.0f;
         int fieldFill = listening ? 0xE01B2029 : hover ? 0xD0191D24 : 0xC0101318;
-        int fieldBorder = listening ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
+        int fieldBorder = pending ? 0xFFFFB347 : existingConflict ? 0xFFFF5D6C
+            : listening ? 0xFF44AAFF : hover ? 0xFF7B828F : 0xFF4D535D;
         rect(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom, fade(fieldFill, alpha));
         outline(graphics, fieldLeft, fieldTop, fieldRight, fieldBottom, fade(fieldBorder, alpha));
 
-        String value = listening ? "Press..." : keyDisplay(module.key);
+        String value = pending ? Keybinds.display(screen.pendingBindingKey) + " !"
+            : listening ? "Press..." : Keybinds.display(module.key) + (existingConflict ? " !" : "");
         value = XdolfFont.trim(value, Math.max(1, (int) (KEYBIND_FIELD_WIDTH - 4)));
         float valueX = fieldLeft + (KEYBIND_FIELD_WIDTH - XdolfFont.width(value)) / 2.0f;
         XdolfFont.draw(graphics, value, valueX, y + 1,
-            fade(listening ? 0xFF44AAFF : 0xFFFFFFFF, alpha));
+            fade(pending ? 0xFFFFC66D : listening ? 0xFF44AAFF : 0xFFFFFFFF, alpha));
     }
 
     private static void row(GuiGraphics graphics, String name, float x, float y, boolean enabled, boolean hover,
@@ -453,7 +450,8 @@ public final class ClientScreen extends Screen {
     }
 
     private static void draw(GuiGraphics graphics, Panel panel, int mouseX, int mouseY, boolean controls, ClientScreen screen) {
-        border(graphics, panel.x, panel.y, panel.x + 100, panel.y + panel.height(), 0x80000000);
+        float displayHeight = panel.displayHeight(graphics.guiHeight());
+        border(graphics, panel.x, panel.y, panel.x + 100, panel.y + displayHeight, 0x80000000);
         XdolfFont.draw(graphics, panel.title, panel.x + 3, panel.y + 1, 0xFFFFFFFF);
         if (controls) {
             border(graphics, panel.x + 79, panel.y + 2, panel.x + 88, panel.y + 11,
@@ -463,27 +461,50 @@ public final class ClientScreen extends Screen {
         }
         if (!panel.open) return;
 
-        float moduleY = panel.y + 12;
-        for (var module : panel.modules) {
-            var moduleSettings = settings(module);
-            var expansion = panel.expansions.get(module);
-            float progress = expansion == null ? 0.0f : expansion.value();
-            boolean expanded = expansion != null && expansion.open;
-            row(graphics, label(module), panel.x + 2, moduleY, module.enabled(),
-                hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11), true, expanded);
-            moduleY += 12;
-
-            if (progress > 0.001f) {
-                settingContainer(graphics, panel, module, moduleY, progress, mouseX, mouseY, screen);
-                moduleY += settingContainerHeight(module) * progress;
-            }
-        }
-
         if (panel.text()) {
             var textLines = lines(panel);
             for (int i = 0; i < textLines.size(); i++) {
                 XdolfFont.draw(graphics, XdolfFont.trim(textLines.get(i), 97), panel.x + 3, panel.y + 13 + i * 10, 0xFFFFFFFF);
             }
+            return;
+        }
+
+        float bodyTop = panel.y + 12.0f;
+        float bodyBottom = panel.y + displayHeight - 0.5f;
+        if (bodyBottom <= bodyTop) return;
+        float scroll = panel.scrollValue(graphics.guiHeight());
+        boolean mouseInBody = mouseY >= bodyTop && mouseY <= bodyBottom;
+        int bodyMouseY = mouseInBody ? mouseY : -10000;
+
+        graphics.enableScissor(panel.x, (int) Math.floor(bodyTop), panel.x + 100, (int) Math.ceil(bodyBottom));
+        float moduleY = bodyTop - scroll;
+        for (var module : panel.modules) {
+            var expansion = panel.expansions.get(module);
+            float progress = expansion == null ? 0.0f : expansion.value();
+            boolean expanded = expansion != null && expansion.open;
+            row(graphics, label(module), panel.x + 2, moduleY, module.enabled(),
+                mouseInBody && hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11), true, expanded);
+            moduleY += 12;
+
+            if (progress > 0.001f) {
+                settingContainer(graphics, panel, module, moduleY, progress, mouseX, bodyMouseY, screen);
+                moduleY += settingContainerHeight(module) * progress;
+            }
+        }
+        graphics.disableScissor();
+
+        float maxScroll = panel.maxScroll(graphics.guiHeight());
+        if (maxScroll > 0.5f) {
+            float trackTop = bodyTop + 2;
+            float trackBottom = bodyBottom - 2;
+            float trackHeight = Math.max(1, trackBottom - trackTop);
+            float bodyContent = Math.max(1, panel.height() - 13.0f);
+            float visibleBody = Math.max(1, displayHeight - 13.0f);
+            float thumbHeight = Math.max(16.0f, trackHeight * Math.min(1.0f, visibleBody / bodyContent));
+            float travel = Math.max(0, trackHeight - thumbHeight);
+            float thumbY = trackTop + travel * (scroll / maxScroll);
+            rect(graphics, panel.x + 97.0f, trackTop, panel.x + 98.0f, trackBottom, 0x553A3D44);
+            rect(graphics, panel.x + 96.5f, thumbY, panel.x + 98.5f, thumbY + thumbHeight, 0xCC7B828F);
         }
     }
 
@@ -536,10 +557,11 @@ public final class ClientScreen extends Screen {
     }
 
     private boolean click(double mouseX, double mouseY, int button) {
-        if (binding != null) binding = null;
+        if (binding != null) cancelBinding();
         for (int index = PANELS.size() - 1; index >= 0; index--) {
             var panel = PANELS.get(index);
-            if (!hit(mouseX, mouseY, panel.x, panel.y, 100, panel.height())) continue;
+            float displayHeight = panel.displayHeight(height);
+            if (!hit(mouseX, mouseY, panel.x, panel.y, 100, displayHeight)) continue;
             PANELS.remove(index);
             PANELS.add(panel);
 
@@ -554,83 +576,75 @@ public final class ClientScreen extends Screen {
                 dragging = panel;
                 offsetX = mouseX - panel.x;
                 offsetY = mouseY - panel.y;
-            } else if (panel.open) {
-                float moduleY = panel.y + 12;
+            } else if (panel.open && !panel.text() && mouseY >= panel.y + 12) {
+                float moduleY = panel.y + 12 - panel.scrollValue(height);
                 for (var module : panel.modules) {
                     var rows = settings(module);
                     if (hit(mouseX, mouseY, panel.x + 2, moduleY, 96, 11)) {
                         commitEditing();
-                        if (button == 0) {
-                            ClientRuntime.toggle(module);
-                        } else if (button == 1) {
-                            panel.toggleExpansion(module);
-                        }
+                        if (button == 0) ClientRuntime.toggle(module);
+                        else if (button == 1) panel.toggleExpansion(module);
                         return true;
                     }
                     moduleY += 12;
 
-                    {
-                        var expansion = panel.expansions.get(module);
-                        float progress = expansion == null ? 0.0f : expansion.value();
-                        float fullHeight = settingContainerHeight(module);
-                        if (expansion != null && expansion.open && progress >= 0.95f) {
-                            float left = panel.x + 4;
-                            float right = panel.x + 96;
-                            float settingY = moduleY + 2;
-                            float rowLeft = left + 4;
-                            float rowRight = right - 2;
-                            float keyFieldRight = rowRight - 1;
-                            float keyFieldLeft = keyFieldRight - KEYBIND_FIELD_WIDTH;
-                            if (button == 0 && hit(mouseX, mouseY, keyFieldLeft, settingY, KEYBIND_FIELD_WIDTH, 11)) {
-                                commitEditing();
-                                beginBinding(module);
-                                return true;
-                            }
-                            settingY += KEYBIND_ROW_HEIGHT;
-
-                            for (var settingRow : rows) {
-                                if (settingRow.toggle) {
-                                    if (hit(mouseX, mouseY, left + 5, settingY, right - left - 10, settingRowHeight(settingRow) - 1)) {
-                                        commitEditing();
-                                        if (button == 0) {
-                                            settingRow.setting.set(settingRow.setting.on() ? 0 : 1);
-                                            ClientConfig.save(ClientRuntime.MODULES);
-                                        }
-                                        return true;
-                                    }
-                                } else {
-                                    float fieldRight = rowRight - 1;
-                                    float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
-                                    float fieldTop = settingY;
-                                    if (button == 0 && hit(mouseX, mouseY, fieldLeft, fieldTop, NUMBER_FIELD_WIDTH, 11)) {
-                                        beginEditing(settingRow.setting);
-                                        return true;
-                                    }
-                                    float trackTop = settingY + 14.0f;
-                                    if (button == 0 && hit(mouseX, mouseY, rowLeft, trackTop, rowRight - rowLeft - 1, 7)) {
-                                        commitEditing();
-                                        sliding = settingRow.setting;
-                                        sliderLeft = rowLeft;
-                                        sliderWidth = rowRight - rowLeft - 1;
-                                        moveSlider(mouseX);
-                                        return true;
-                                    }
-                                }
-                                settingY += settingRowHeight(settingRow);
-                            }
+                    var expansion = panel.expansions.get(module);
+                    float progress = expansion == null ? 0.0f : expansion.value();
+                    float fullHeight = settingContainerHeight(module);
+                    if (expansion != null && expansion.open && progress >= 0.95f) {
+                        float left = panel.x + 4;
+                        float right = panel.x + 96;
+                        float settingY = moduleY + 2;
+                        float rowLeft = left + 4;
+                        float rowRight = right - 2;
+                        float keyFieldRight = rowRight - 1;
+                        float keyFieldLeft = keyFieldRight - KEYBIND_FIELD_WIDTH;
+                        if (button == 0 && hit(mouseX, mouseY, keyFieldLeft, settingY, KEYBIND_FIELD_WIDTH, 11)) {
+                            commitEditing();
+                            beginBinding(module);
+                            return true;
                         }
-                        moduleY += fullHeight * progress;
-                    }
-                }
+                        settingY += KEYBIND_ROW_HEIGHT;
 
-                if (panel.title.equals("Radar")) {
-                    commitEditing();
-                    int row = (int) ((mouseY - panel.y - 13) / 10);
-                    var players = radar();
-                    if (mouseY >= panel.y + 13 && row >= 0 && row < players.size()) {
-                        String name = players.get(row).getName().getString();
-                        SocialState.command(new String[] {"friend", SocialState.isFriend(name) ? "remove" : "add", name});
+                        for (var settingRow : rows) {
+                            if (settingRow.toggle) {
+                                if (hit(mouseX, mouseY, left + 5, settingY, right - left - 10, settingRowHeight(settingRow) - 1)) {
+                                    commitEditing();
+                                    if (button == 0) {
+                                        settingRow.setting.set(settingRow.setting.on() ? 0 : 1);
+                                        ClientConfig.save(ClientRuntime.MODULES);
+                                    }
+                                    return true;
+                                }
+                            } else {
+                                float fieldRight = rowRight - 1;
+                                float fieldLeft = fieldRight - NUMBER_FIELD_WIDTH;
+                                if (button == 0 && hit(mouseX, mouseY, fieldLeft, settingY, NUMBER_FIELD_WIDTH, 11)) {
+                                    beginEditing(settingRow.setting);
+                                    return true;
+                                }
+                                float trackTop = settingY + 14.0f;
+                                if (button == 0 && hit(mouseX, mouseY, rowLeft, trackTop, rowRight - rowLeft - 1, 7)) {
+                                    commitEditing();
+                                    sliding = settingRow.setting;
+                                    sliderLeft = rowLeft;
+                                    sliderWidth = rowRight - rowLeft - 1;
+                                    moveSlider(mouseX);
+                                    return true;
+                                }
+                            }
+                            settingY += settingRowHeight(settingRow);
+                        }
                     }
+                    moduleY += fullHeight * progress;
+                }
+            } else if (panel.open && panel.title.equals("Radar")) {
+                commitEditing();
+                int row = (int) ((mouseY - panel.y - 13) / 10);
+                var players = radar();
+                if (mouseY >= panel.y + 13 && row >= 0 && row < players.size()) {
+                    String name = players.get(row).getName().getString();
+                    SocialState.command(new String[] {"friend", SocialState.isFriend(name) ? "remove" : "add", name});
                 }
             }
             return true;
@@ -639,18 +653,43 @@ public final class ClientScreen extends Screen {
         return false;
     }
 
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        for (int index = PANELS.size() - 1; index >= 0; index--) {
+            var panel = PANELS.get(index);
+            if (!panel.open || panel.text() || panel.maxScroll(height) <= 0.5f) continue;
+            float displayHeight = panel.displayHeight(height);
+            if (!hit(mouseX, mouseY, panel.x, panel.y + 12, 100, displayHeight - 12)) continue;
+            panel.scrollBy((float) (-scrollY * 32.0), height);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
     private void beginBinding(ClientModule module) {
         binding = module;
+        pendingBindingKey = -1;
+        pendingBindingConflicts = List.of();
     }
 
     private void assignBinding(ClientModule module, int key) {
         module.key = key;
-        binding = null;
+        cancelBinding();
         ClientConfig.save(ClientRuntime.MODULES);
+    }
+
+    private void replaceBinding(ClientModule module, int key) {
+        String oldOwners = Keybinds.conflictNames(module, key);
+        Keybinds.replaceConflicts(module, key);
+        cancelBinding();
+        ClientConfig.save(ClientRuntime.MODULES);
+        NotificationCards.warning("Keybind moved", Keybinds.display(key) + " from " + oldOwners);
     }
 
     private void cancelBinding() {
         binding = null;
+        pendingBindingKey = -1;
+        pendingBindingConflicts = List.of();
     }
 
     private void beginEditing(ModuleSetting setting) {
@@ -694,7 +733,25 @@ public final class ClientScreen extends Screen {
                 return true;
             }
             if (key >= GLFW.GLFW_KEY_SPACE && key <= GLFW.GLFW_KEY_LAST) {
-                assignBinding(target, key);
+                if (Keybinds.guiConflict(key)) {
+                    pendingBindingKey = -1;
+                    pendingBindingConflicts = List.of();
+                    NotificationCards.warning("Keybind blocked", Keybinds.display(key) + " opens GUI");
+                    return true;
+                }
+                var conflicts = Keybinds.conflicts(target, key);
+                if (conflicts.isEmpty()) {
+                    assignBinding(target, key);
+                    return true;
+                }
+                if (pendingBindingKey == key && pendingBindingConflicts.equals(conflicts)) {
+                    replaceBinding(target, key);
+                    return true;
+                }
+                pendingBindingKey = key;
+                pendingBindingConflicts = conflicts;
+                NotificationCards.warning("Key conflict",
+                    Keybinds.display(key) + ": " + Keybinds.conflictNames(target, key) + " - press again");
                 return true;
             }
             return true;
@@ -805,13 +862,25 @@ public final class ClientScreen extends Screen {
         var storageEsp = render.modules.stream().filter(module -> module.name.equals("StorageESP")).findFirst().orElseThrow();
         if (!settings(storageEsp).isEmpty()) throw new IllegalStateException("StorageESP smoke fixture unexpectedly has ordinary settings");
         int originalStorageKey = storageEsp.key;
+        var tracers = render.modules.stream().filter(module -> module.name.equals("Tracers")).findFirst().orElseThrow();
+        int originalTracerKey = tracers.key;
+        storageEsp.key = GLFW.GLFW_KEY_F8;
+        tracers.key = GLFW.GLFW_KEY_F8;
+        if (Keybinds.conflicts(storageEsp, GLFW.GLFW_KEY_F8).size() != 1 || !Keybinds.guiConflict(ClientConfig.guiKey)) {
+            throw new IllegalStateException("Keybind conflict detection failed");
+        }
+        Keybinds.replaceConflicts(storageEsp, GLFW.GLFW_KEY_F8);
+        if (tracers.key != -1 || storageEsp.key != GLFW.GLFW_KEY_F8) {
+            throw new IllegalStateException("Exclusive keybind replacement failed");
+        }
         screen.beginBinding(storageEsp);
         if (screen.binding != storageEsp) throw new IllegalStateException("Keybind capture did not start");
-        screen.assignBinding(storageEsp, GLFW.GLFW_KEY_F8);
-        if (storageEsp.key != GLFW.GLFW_KEY_F8 || screen.binding != null) {
-            throw new IllegalStateException("Keybind capture did not assign F8");
+        screen.assignBinding(storageEsp, GLFW.GLFW_KEY_F9);
+        if (storageEsp.key != GLFW.GLFW_KEY_F9 || screen.binding != null) {
+            throw new IllegalStateException("Keybind capture did not assign F9");
         }
         storageEsp.key = originalStorageKey;
+        tracers.key = originalTracerKey;
         ClientConfig.save(ClientRuntime.MODULES);
 
         var player = PANELS.stream().filter(panel -> panel.title.equals("Player")).findFirst().orElseThrow();
@@ -832,6 +901,7 @@ public final class ClientScreen extends Screen {
             panel.open = true;
             panel.pinned = false;
             panel.expansions.clear();
+            panel.scroll = panel.scrollFrom = panel.scrollTarget = 0.0f;
             switch (panel.title) {
                 case "Player" -> { panel.x = 2; panel.y = 2; }
                 case "Render" -> { panel.x = 106; panel.y = 2; }
@@ -841,6 +911,20 @@ public final class ClientScreen extends Screen {
                 case "Radar" -> { panel.x = 418; panel.y = 85; }
             }
         }
+
+        var autoFish = player.modules.stream().filter(module -> module.name.equals("AutoFish")).findFirst().orElseThrow();
+        var autoFishExpansion = player.expansion(autoFish);
+        autoFishExpansion.setOpen(true);
+        autoFishExpansion.finish();
+        if (player.maxScroll(screen.height) <= 0.5f || player.displayHeight(screen.height) >= player.height()) {
+            throw new IllegalStateException("Category panel did not become scrollable");
+        }
+        player.scrollBy(40.0f, screen.height);
+        player.finishScroll(screen.height);
+        if (player.scroll <= 0.0f) throw new IllegalStateException("Category panel scroll did not advance");
+        autoFishExpansion.setOpen(false);
+        autoFishExpansion.finish();
+        player.scroll = player.scrollFrom = player.scrollTarget = 0.0f;
 
         var killAura = combat.modules.stream().filter(module -> module.name.equals("KillAura")).findFirst().orElseThrow();
         int killAuraY = combat.y + 12 + combat.modules.indexOf(killAura) * 12;
@@ -898,7 +982,7 @@ public final class ClientScreen extends Screen {
         load();
         if (player.x != savedX || !player.open) throw new IllegalStateException("Window state roundtrip failed");
 
-        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, inline keybind capture, compact settings, typed values, animation, pin/open/drag controls");
+        LogUtils.getLogger().info("XDOLF_GUI_OK: six windows, smooth category scrolling, keybind conflicts, compact settings, typed values, animation, pin/open/drag controls");
     }
 
     private static void load() {

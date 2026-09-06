@@ -1,23 +1,23 @@
 package com.x0xp.xdolf;
 
 import net.minecraft.client.gui.GuiGraphics;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/** Animated centre-left HUD notifications used for module enable/disable feedback. */
+import static com.x0xp.xdolf.UiDraw.*;
+
+/** Animated centre-left HUD cards for module state and short client notices. */
 final class NotificationCards {
     private static final int MAX_VISIBLE = 3;
     private static final float LEFT = 7.0f;
-    private static final float CARD_HEIGHT = 20.0f;
-    private static final float CARD_GAP = 3.0f;
-    private static final int MIN_WIDTH = 78;
-    private static final int MAX_WIDTH = 132;
+    private static final float CARD_WIDTH = 142.0f;
+    private static final float CARD_HEIGHT = 22.0f;
+    private static final float CARD_GAP = 4.0f;
 
-    private static final long ENTER_NS = 180_000_000L;
-    private static final long MOVE_NS = 160_000_000L;
-    private static final long HOLD_NS = 2_650_000_000L;
-    private static final long FADE_NS = 340_000_000L;
+    private static final long ENTER_NS = 170_000_000L;
+    private static final long MOVE_NS = 150_000_000L;
+    private static final long HOLD_NS = 2_700_000_000L;
+    private static final long FADE_NS = 320_000_000L;
 
     private static final List<Card> ACTIVE = new ArrayList<>();
     private static final List<Card> EXITING = new ArrayList<>();
@@ -25,25 +25,31 @@ final class NotificationCards {
     private NotificationCards() {}
 
     static void module(ClientModule module, boolean enabled) {
+        show(ClientScreen.label(module), enabled ? "Enabled" : "Disabled",
+            enabled ? 0xFF35D07F : 0xFFFF4D5E,
+            enabled ? 0xFF72E8A6 : 0xFFFF7B88);
+    }
+
+    static void warning(String title, String detail) {
+        show(title, detail, 0xFFFFB347, 0xFFFFC66D);
+    }
+
+    private static void show(String title, String detail, int accent, int detailColor) {
         long now = System.nanoTime();
         expire(now);
-
         for (Card card : ACTIVE) card.moveTo(card.targetSlot + 1.0f, now);
-
         if (ACTIVE.size() >= MAX_VISIBLE) {
             Card oldest = ACTIVE.remove(ACTIVE.size() - 1);
             oldest.startExit(now, true);
             EXITING.add(oldest);
         }
-
-        String moduleName = ClientScreen.label(module);
-        ACTIVE.add(0, new Card(moduleName, enabled, now));
+        ACTIVE.add(0, new Card(title, detail, accent, detailColor, now));
+        reflow(now);
     }
 
     static void render(GuiGraphics graphics) {
         long now = System.nanoTime();
         expire(now);
-
         int screenHeight = graphics.guiHeight();
         for (int i = EXITING.size() - 1; i >= 0; i--) {
             Card card = EXITING.get(i);
@@ -56,9 +62,7 @@ final class NotificationCards {
         for (int i = ACTIVE.size() - 1; i >= 0; i--) draw(graphics, ACTIVE.get(i), screenHeight, now);
     }
 
-    static int visibleCount() {
-        return ACTIVE.size();
-    }
+    static int visibleCount() { return ACTIVE.size(); }
 
     static void clear() {
         ACTIVE.clear();
@@ -66,91 +70,67 @@ final class NotificationCards {
     }
 
     private static void expire(long now) {
+        boolean changed = false;
         for (int i = ACTIVE.size() - 1; i >= 0; i--) {
             Card card = ACTIVE.get(i);
             if (now - card.created < ENTER_NS + HOLD_NS) continue;
             ACTIVE.remove(i);
             card.startExit(now, false);
             EXITING.add(card);
+            changed = true;
         }
+        if (changed) reflow(now);
+    }
+
+    private static void reflow(long now) {
+        for (int i = 0; i < ACTIVE.size(); i++) ACTIVE.get(i).moveTo(i, now);
     }
 
     private static void draw(GuiGraphics graphics, Card card, int screenHeight, long now) {
         float enter = clamp01((now - card.created) / (float) ENTER_NS);
-        float enterEase = easeOutCubic(enter);
         float alpha = enter;
-
+        float exit = 0.0f;
         if (card.exiting) {
-            float exit = clamp01((now - card.exitStarted) / (float) FADE_NS);
+            exit = clamp01((now - card.exitStarted) / (float) FADE_NS);
             alpha *= 1.0f - easeInCubic(exit);
         }
         if (alpha <= 0.01f) return;
 
         float slot = card.slot(now);
         float y = screenHeight / 2.0f - CARD_HEIGHT / 2.0f + slot * (CARD_HEIGHT + CARD_GAP);
-
-        int textWidth = XdolfFont.width(card.moduleName) + 4 + XdolfFont.width(card.enabled ? "enabled" : "disabled");
-        int width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, textWidth + 16));
-        float hiddenX = -width - 5.0f;
-        float x = hiddenX + (LEFT - hiddenX) * enterEase;
-        if (card.exiting) {
-            float exit = clamp01((now - card.exitStarted) / (float) FADE_NS);
-            x -= 7.0f * easeInCubic(exit);
-        }
+        float hiddenX = -CARD_WIDTH - 6.0f;
+        float x = hiddenX + (LEFT - hiddenX) * easeOutCubic(enter) - 10.0f * easeInCubic(exit);
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
 
-        fill(graphics, 0, 0, width, CARD_HEIGHT, fade(0xD914171D, alpha));
-        outline(graphics, 0, 0, width, CARD_HEIGHT, fade(0xF0000000, alpha));
-        fill(graphics, 1, 1, 3, CARD_HEIGHT - 1,
-            fade(card.enabled ? 0xFF35D07F : 0xFFFF4D5E, alpha));
+        rect(graphics, 0, 0, CARD_WIDTH, CARD_HEIGHT, fade(0xE014171D, alpha));
+        outline(graphics, 0, 0, CARD_WIDTH, CARD_HEIGHT, fade(0xF0000000, alpha));
+        rect(graphics, 1, 1, 3.5f, CARD_HEIGHT - 1, fade(card.accent, alpha));
 
-        String state = card.enabled ? "enabled" : "disabled";
-        int stateWidth = XdolfFont.width(state);
-        int availableName = width - 12 - stateWidth;
-        String name = XdolfFont.trim(card.moduleName, Math.max(8, availableName));
+        int detailWidth = Math.min(63, XdolfFont.width(card.detail));
+        String detail = XdolfFont.trim(card.detail, detailWidth);
+        detailWidth = XdolfFont.width(detail);
+        int titleAvailable = Math.max(24, Math.round(CARD_WIDTH) - detailWidth - 18);
+        String title = XdolfFont.trim(card.title, titleAvailable);
 
-        XdolfFont.draw(graphics, name, 7, 5, fade(0xFFFFFFFF, alpha));
-        XdolfFont.draw(graphics, state, width - stateWidth - 5, 5,
-            fade(card.enabled ? 0xFF72E8A6 : 0xFFFF7B88, alpha));
+        XdolfFont.draw(graphics, title, 8, 6, fade(0xFFFFFFFF, alpha));
+        XdolfFont.draw(graphics, detail, CARD_WIDTH - detailWidth - 6, 6, fade(card.detailColor, alpha));
 
+        if (!card.exiting) {
+            float held = clamp01((now - card.created - ENTER_NS) / (float) HOLD_NS);
+            float remaining = 1.0f - held;
+            rect(graphics, 4, CARD_HEIGHT - 1.5f, 4 + (CARD_WIDTH - 8) * remaining, CARD_HEIGHT - 1,
+                fade(card.accent, alpha * 0.65f));
+        }
         graphics.pose().popMatrix();
     }
 
-    private static void fill(GuiGraphics graphics, float left, float top, float right, float bottom, int color) {
-        graphics.fill(Math.round(left), Math.round(top), Math.round(right), Math.round(bottom), color);
-    }
-
-    private static void outline(GuiGraphics graphics, float left, float top, float right, float bottom, int color) {
-        fill(graphics, left, top, right, top + 1, color);
-        fill(graphics, left, bottom - 1, right, bottom, color);
-        fill(graphics, left, top, left + 1, bottom, color);
-        fill(graphics, right - 1, top, right, bottom, color);
-    }
-
-    private static int fade(int color, float alpha) {
-        int originalAlpha = color >>> 24;
-        int fadedAlpha = Math.max(0, Math.min(255, Math.round(originalAlpha * alpha)));
-        return (color & 0x00FFFFFF) | fadedAlpha << 24;
-    }
-
-    private static float clamp01(float value) {
-        return Math.max(0.0f, Math.min(1.0f, value));
-    }
-
-    private static float easeOutCubic(float t) {
-        float inverse = 1.0f - t;
-        return 1.0f - inverse * inverse * inverse;
-    }
-
-    private static float easeInCubic(float t) {
-        return t * t * t;
-    }
-
     private static final class Card {
-        final String moduleName;
-        final boolean enabled;
+        final String title;
+        final String detail;
+        final int accent;
+        final int detailColor;
         final long created;
         float fromSlot;
         float targetSlot;
@@ -158,13 +138,13 @@ final class NotificationCards {
         boolean exiting;
         long exitStarted;
 
-        Card(String moduleName, boolean enabled, long created) {
-            this.moduleName = moduleName;
-            this.enabled = enabled;
+        Card(String title, String detail, int accent, int detailColor, long created) {
+            this.title = title;
+            this.detail = detail;
+            this.accent = accent;
+            this.detailColor = detailColor;
             this.created = created;
-            this.fromSlot = 0.0f;
-            this.targetSlot = 0.0f;
-            this.moveStarted = created;
+            moveStarted = created;
         }
 
         float slot(long now) {
@@ -173,6 +153,7 @@ final class NotificationCards {
         }
 
         void moveTo(float target, long now) {
+            if (targetSlot == target && moveStarted != 0) return;
             fromSlot = slot(now);
             targetSlot = target;
             moveStarted = now;
@@ -185,8 +166,6 @@ final class NotificationCards {
             if (pushedOut) moveTo(Math.max(targetSlot, MAX_VISIBLE), now);
         }
 
-        boolean finished(long now) {
-            return exiting && now - exitStarted >= FADE_NS;
-        }
+        boolean finished(long now) { return exiting && now - exitStarted >= FADE_NS; }
     }
 }
