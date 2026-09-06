@@ -14,13 +14,26 @@ final class ClientSmoke {
     private static volatile boolean captureDone;
     private static volatile boolean worldCaptureDone;
     private static boolean guiCaptureRequested;
+    private static boolean disconnectIssued;
+
     static void tick(Minecraft mc) {
         if (!ACTIVE || mc.getOverlay() != null) return;
         if(guiCaptureRequested) {
             guiCaptureRequested=false;
             net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> captureDone=true);
         }
-        if (phase == 6 && mc.player == null && mc.level == null && mc.screen instanceof TitleScreen) {
+
+        // Run the command/reconnect stage from the normal client tick path rather than
+        // from Screen.render(). Disconnecting an integrated server while the GUI render
+        // callback is still on the stack can stall the client before the reconnect phase.
+        if (phase == 6 && !disconnectIssued && mc.player != null && mc.level != null) {
+            CommandSmoke.run(mc);
+            disconnectIssued = true;
+            mc.setScreen(null);
+            mc.disconnect(new TitleScreen(), false);
+            return;
+        }
+        if (phase == 6 && disconnectIssued && mc.player == null && mc.level == null && mc.screen instanceof TitleScreen) {
             CommandSmoke.assertSelections();phase=7;
             CreateWorldScreen.openFresh(mc,()->{throw new IllegalStateException("Reconnect world creation cancelled");});
         } else if (phase == 7 && mc.screen instanceof CreateWorldScreen create) {
@@ -79,9 +92,8 @@ final class ClientSmoke {
             try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
                 if(files.noneMatch(p->p.toString().endsWith(".png")))throw new IllegalStateException("Screenshot was not saved");
             } catch(java.io.IOException error) { throw new IllegalStateException("Screenshot was not saved",error); }
+            // The next client tick runs the command suite and performs the real disconnect.
             phase=6;
-            var client=Minecraft.getInstance();
-            client.execute(()->{CommandSmoke.run(client);client.disconnect(new TitleScreen(),false);});
             return;
         }
         if(frames != 5) return;
