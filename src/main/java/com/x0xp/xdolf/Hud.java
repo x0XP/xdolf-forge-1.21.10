@@ -26,6 +26,7 @@ final class Hud {
 
         if(Hooks.enabled("Nametags"))renderNametags(graphics,mc);
         if(Hooks.enabled("LogoutSpot"))renderLogoutSpotTags(graphics,mc);
+        NotificationCards.render(graphics);
 
         if(mc.screen instanceof ChatScreen||mc.getDebugOverlay().showDebugScreen())return;
         int width=graphics.guiWidth(),height=graphics.guiHeight();
