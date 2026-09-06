@@ -1,0 +1,63 @@
+name: Build Xdolf Forge 1.21.10
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: xdolf-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile and package
+        run: bash gradlew clean build --console=plain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xdolf-forge-1.21.10-development
+          path: build/libs/*.jar
+          if-no-files-found: error
+      - name: Inspect target API signatures
+        if: always()
+        run: bash gradlew writeApiSignatures --console=plain
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: xdolf-api-signatures
+          path: build/diagnostics/api-signatures.txt
+          if-no-files-found: warn
+      - name: Test client, original GUI controls and world
+        run: |
+          mkdir -p build/diagnostics
+          set +e
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 300s bash gradlew runClient -PxdolfSmokeTest --console=plain > build/diagnostics/client-smoke.log 2>&1
+          smoke_status=$?
+          set -e
+          tail -n 60 build/diagnostics/client-smoke.log
+          test "$smoke_status" -eq 0
+          grep -q 'XDOLF_SMOKE_OK' build/diagnostics/client-smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: xdolf-client-smoke-log
+          path: build/diagnostics/client-smoke.log
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: xdolf-gui-screenshot
+          path: run/screenshots/*.png
+          if-no-files-found: warn

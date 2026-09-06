@@ -1,0 +1,29 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.darkcart.xdolf.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "GameRendererMixin",
+    "LivingEntityMixin",
+    "MinecraftMixin",
+    "LocalPlayerMixin",
+    "PlayerMixin",
+    "BlockMixin",
+    "GameModeMixin",
+    "GameRendererAccess",
+    "PacketListenerMixin",
+    "ConnectionMixin",
+    "LiquidBlockMixin",
+    "CameraMixin",
+    "ClientInputAccess",
+    "LivingRendererMixin",
+    "BlockRenderMixin",
+    "SectionCompilerMixin",
+    "CreateWorldScreenAccess",
+    "EntityNameTagMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
