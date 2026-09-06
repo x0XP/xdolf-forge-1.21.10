@@ -7,15 +7,28 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 
-/** XDolfOverlay layout: no replacement watermark; right-aligned names and potion rows. */
+/** XDolfOverlay layout plus the stable screen-space player nametag renderer. */
 final class LegacyHud {
     static boolean showModules=true,showPotions=true;
     static void render(GuiGraphics graphics) {
         var mc=Minecraft.getInstance();
-        if(mc.player==null||mc.options.hideGui||mc.screen instanceof ChatScreen||mc.getDebugOverlay().showDebugScreen())return;
+        if(mc.player==null||mc.level==null||mc.options.hideGui)return;
+
+        // Player tags are intentionally rendered in GUI space. Vanilla's world projection gives us
+        // smooth interpolation/FOV handling while avoiding the giant distance scaling and z-fighting
+        // that the 1.12 GL transform produced when copied directly into the 1.21 frame graph.
+        if(Hooks.enabled("Nametags"))renderNametags(graphics,mc);
+
+        if(mc.screen instanceof ChatScreen||mc.getDebugOverlay().showDebugScreen())return;
         int width=graphics.guiWidth(),height=graphics.guiHeight();
         if(showModules) {
             var enabled=ClientRuntime.MODULES.stream().filter(m->m.enabled()&&!m.name.equals("Fullbright"))
@@ -38,6 +51,78 @@ final class LegacyHud {
         }
         ClientScreen.renderPinned(graphics);
     }
+
+    private static void renderNametags(GuiGraphics g,Minecraft mc) {
+        var camera=mc.gameRenderer.getMainCamera();
+        float partial=camera.getPartialTickTime();
+        Vec3 cameraPos=camera.getPosition();
+        var look=camera.getLookVector();
+        Vec3 forward=new Vec3(look.x,look.y,look.z);
+        int screenWidth=g.guiWidth(),screenHeight=g.guiHeight();
+
+        for(Player player:mc.level.players()) {
+            if(player==mc.player||player.deathTime>0)continue;
+            Vec3 world=player.getPosition(partial).add(0,player.getBbHeight()+0.55,0);
+            Vec3 relative=world.subtract(cameraPos);
+            if(relative.dot(forward)<=0.01)continue;
+
+            Vec3 projected=mc.gameRenderer.projectPointToScreen(world);
+            if(projected.z<-1.0||projected.z>1.0)continue;
+            float x=(float)((projected.x+1.0)*0.5*screenWidth);
+            float y=(float)((1.0-projected.y)*0.5*screenHeight);
+            if(x<-128||x>screenWidth+128||y<-64||y>screenHeight+64)continue;
+
+            float distance=mc.player.distanceTo(player);
+            String text=LegacyVisualStyle.tag(player.getName().getString(),player.getHealth(),player.getArmorValue(),SocialState.isFriend(player.getName().getString()));
+            drawNametag(g,mc,player,text,x,y,LegacyVisualStyle.screenTagScale(distance));
+        }
+    }
+
+    private static void drawNametag(GuiGraphics g,Minecraft mc,Player player,String text,float screenX,float screenY,float scale) {
+        List<ItemStack> items=tagItems(player);
+        int textWidth=LegacyGuiFont.width(text);
+        int left=-textWidth/2-3,right=textWidth/2+3;
+
+        g.pose().pushMatrix();
+        g.pose().translate(screenX,screenY);
+        g.pose().scale(scale,scale);
+
+        // Background/border first, then TTF shadow/text, then the equipment row. Keeping those
+        // layers deterministic removes the old world-space depth fighting that put shadows above text.
+        g.fill(left,-1,right,11,0x88000000);
+        g.fill(left,-1,right,0,0xFF000000);
+        g.fill(left,10,right,11,0xFF000000);
+        g.fill(left,-1,left+1,11,0xFF000000);
+        g.fill(right-1,-1,right,11,0xFF000000);
+        LegacyGuiFont.draw(g,text,-textWidth/2f,0,0xFFFFFFFF);
+
+        if(!items.isEmpty()) {
+            int rowWidth=items.size()*18-2;
+            int start=-rowWidth/2;
+            int itemY=-20;
+            for(int i=0;i<items.size();i++) {
+                ItemStack stack=items.get(i);
+                int itemX=start+i*18;
+                g.renderItem(stack,itemX,itemY);
+                // Vanilla's decoration pass gives tools/armour the familiar small durability bar.
+                g.renderItemDecorations(mc.font,stack,itemX,itemY);
+            }
+        }
+        g.pose().popMatrix();
+    }
+
+    private static List<ItemStack> tagItems(Player player) {
+        var items=new ArrayList<ItemStack>(6);
+        add(items,player.getMainHandItem());
+        add(items,player.getItemBySlot(EquipmentSlot.HEAD));
+        add(items,player.getItemBySlot(EquipmentSlot.CHEST));
+        add(items,player.getItemBySlot(EquipmentSlot.LEGS));
+        add(items,player.getItemBySlot(EquipmentSlot.FEET));
+        add(items,player.getOffhandItem());
+        return items;
+    }
+    private static void add(List<ItemStack> items,ItemStack stack) { if(stack!=null&&!stack.isEmpty())items.add(stack); }
+
     private static void potion(GuiGraphics g,String name,String duration,ResourceLocation effect,int row,int width,int height) {
         g.blitSprite(RenderPipelines.GUI_TEXTURED,ResourceLocation.fromNamespaceAndPath(effect.getNamespace(),"mob_effect/"+effect.getPath()),width-20,height-row*20,18,18);
         LegacyGuiFont.draw(g,name,width-LegacyGuiFont.width(name)-22,height-row*20,0xFFFFFFFF);
