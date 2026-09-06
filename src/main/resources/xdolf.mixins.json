@@ -12,6 +12,7 @@
     "BlockMixin",
     "GameModeMixin",
     "GameRendererAccess",
+    "LevelRendererAccess",
     "PacketListenerMixin",
     "ConnectionMixin",
     "LiquidBlockMixin",
