@@ -50,10 +50,10 @@ public abstract class ChatComponentMixin {
         xdolf$backgroundLine=0;
     }
 
-    /** Xdolf's TTF plus its shadow needs slightly more room than the vanilla nine-pixel row. */
+    /** Use the TTF atlas' actual GUI-space height instead of an arbitrary oversized chat row. */
     @Inject(method="getLineHeight",at=@At("RETURN"),cancellable=true)
     private void xdolf$ttfLineHeight(CallbackInfoReturnable<Integer> cir) {
-        cir.setReturnValue(Math.max(cir.getReturnValue(),14));
+        cir.setReturnValue(Math.max(cir.getReturnValue(),XdolfFont.lineHeight()));
     }
 
     /**
