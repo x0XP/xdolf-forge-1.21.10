@@ -131,6 +131,6 @@ final class ClientRuntime {
 
     static void message(String text) {
         var player = Minecraft.getInstance().player;
-        if (player != null) player.displayClientMessage(Component.literal("[Xdolf] " + text), false);
+        if (player != null) player.displayClientMessage(LegacyChat.prefixed(text), false);
     }
 }
