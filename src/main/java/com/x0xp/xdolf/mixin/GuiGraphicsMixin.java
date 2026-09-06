@@ -14,11 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GuiGraphics.class)
 public abstract class GuiGraphicsMixin {
     /**
-     * Vanilla positions its nine-pixel font lower inside a chat row than Xdolf's taller TTF wants.
-     * Keep the TTF at its native size and move only chat-rendered glyphs up two GUI pixels so the
-     * descenders and one-pixel shadow remain inside the translucent row/input background.
+     * Minecraft's chat row is taller than Xdolf's native TTF line. Keep the font at its original
+     * size and place the glyphs in the visual centre of the translucent chat row/input background.
      */
-    private static final int XDOLF_CHAT_Y_OFFSET=-2;
+    private static final int XDOLF_CHAT_Y_OFFSET=-8;
 
     @Inject(method="drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;IIIZ)V",at=@At("HEAD"),cancellable=true)
     private void xdolf$ttfString(Font font,String text,int x,int y,int color,boolean shadow,CallbackInfo ci) {
