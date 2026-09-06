@@ -22,17 +22,23 @@ final class SocialState {
     }
     static boolean isFriend(String name) { return FRIENDS.contains(name.toLowerCase(Locale.ROOT)); }
     static void command(String[] parts) {
+        if (parts.length==2 && parts[1].equalsIgnoreCase("clear")) {
+            FRIENDS.clear();save();return;
+        }
         if (parts.length == 2 && parts[1].equalsIgnoreCase("list")) {
             ClientRuntime.message("Friends: " + String.join(", ", FRIENDS));
             return;
         }
-        if (parts.length != 3 || !parts[2].matches("[A-Za-z0-9_]{1,16}")) {
-            ClientRuntime.message(".friend add/remove <name> | .friend list"); return;
+        if (parts.length < 3 || !parts[2].matches("[A-Za-z0-9_]{1,16}")) {
+            ClientRuntime.message(".friend add <name> [alias] | .friend del <name> | .friend list/clear"); return;
         }
         String name = parts[2].toLowerCase(Locale.ROOT);
         if (parts[1].equalsIgnoreCase("add")) FRIENDS.add(name);
-        else if (parts[1].equalsIgnoreCase("remove")) FRIENDS.remove(name);
+        else if (parts[1].equalsIgnoreCase("remove") || parts[1].equalsIgnoreCase("del")) FRIENDS.remove(name);
         else { ClientRuntime.message("Use add, remove or list."); return; }
+        save();
+    }
+    private static void save() {
         try {
             Files.createDirectories(FILE.getParent());
             Files.write(FILE, FRIENDS);

@@ -247,6 +247,9 @@ tasks.register('writeApiSignatures') {
                 executable launcher.metadata.installationPath.file('bin/javap').asFile
                 args '-classpath', configurations.compileClasspath.asPath, '-p',
                     'net.minecraft.client.Minecraft',
+                    'net.minecraft.client.sounds.MusicManager',
+                    'net.minecraft.client.gui.screens.ChatScreen',
+                    'net.minecraft.client.sounds.MusicInfo',
                     'net.minecraft.client.player.LocalPlayer',
                     'net.minecraft.client.player.ClientInput',
                     'net.minecraft.client.renderer.LightTexture',

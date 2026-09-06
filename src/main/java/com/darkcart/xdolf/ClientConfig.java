@@ -14,16 +14,19 @@ import java.util.Properties;
 
 final class ClientConfig {
     private static final Path FILE = FMLPaths.CONFIGDIR.get().resolve("xdolf.properties");
+    static int guiKey = org.lwjgl.glfw.GLFW.GLFW_KEY_GRAVE_ACCENT;
 
     static void load(List<ClientModule> modules) {
         if (!Files.isRegularFile(FILE)) return;
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(FILE)) {
             properties.load(reader);
+            guiKey = LegacyKeys.read(properties.getProperty("GUI.key"), guiKey);
             NetworkModules.spamMessage = properties.getProperty("Spammer.message", "");
             if (NetworkModules.spamMessage.length() > 256) NetworkModules.spamMessage = "";
             for (ClientModule module : modules) {
-                // Movement and disconnect modules always start disabled for each launch.
+                module.restoreEnabled(!module.name.equals("Spammer") && !module.name.equals("Freecam")
+                    && Boolean.parseBoolean(properties.getProperty(module.name + ".enabled", "false")));
                 String raw = properties.getProperty(module.name + ".key", "-1");
                 try {
                     int key = Integer.parseInt(raw);
@@ -46,8 +49,11 @@ final class ClientConfig {
 
     static void save(List<ClientModule> modules) {
         Properties properties = new Properties();
+        properties.setProperty("GUI.key", Integer.toString(guiKey));
         properties.setProperty("Spammer.message", NetworkModules.spamMessage);
         for (ClientModule module : modules) {
+            if (!module.name.equals("Spammer") && !module.name.equals("Freecam"))
+                properties.setProperty(module.name + ".enabled", Boolean.toString(module.enabled()));
             properties.setProperty(module.name + ".key", Integer.toString(module.key));
             for (var setting : module.settings)
                 properties.setProperty(module.name + "." + setting.name, Double.toString(setting.get()));
@@ -56,7 +62,7 @@ final class ClientConfig {
         try {
             Files.createDirectories(FILE.getParent());
             try (Writer writer = Files.newBufferedWriter(temporary)) {
-                properties.store(writer, "Xdolf key bindings. Module states are session-only.");
+                properties.store(writer, "Xdolf settings, key bindings and original persistent module states.");
             }
             try {
                 Files.move(temporary, FILE, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

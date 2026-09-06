@@ -21,11 +21,13 @@ import java.util.Locale;
 final class ClientRuntime {
     static final List<ClientModule> MODULES = Modules.create();
     private static ClientLevel previousLevel;
+    private static net.minecraft.client.player.LocalPlayer previousPlayer;
 
     static void register() {
         LegacyWorldVisuals.register();
         ClientConfig.load(MODULES);
         SocialState.load();
+        LegacyCommands.load();
         TickEvent.ClientTickEvent.Post.BUS.addListener(ClientRuntime::tick);
         InputEvent.Key.BUS.addListener(ClientRuntime::key);
         MovementInputUpdateEvent.BUS.addListener(event -> {
@@ -53,13 +55,8 @@ final class ClientRuntime {
     private static void tick(TickEvent.ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         ClientSmoke.tick(mc);
-        if (mc.level != previousLevel) {
-            for (ClientModule module : MODULES) {
-                module.setEnabled(false);
-                module.reset(mc);
-            }
-            previousLevel = mc.level;
-        }
+        updateSession(mc);
+        LegacyCommands.recordDeath(mc);
         if (mc.player == null || mc.level == null || mc.getConnection() == null) return;
         for (ClientModule module : MODULES) {
             if (!module.enabled()) continue;
@@ -81,70 +78,31 @@ final class ClientRuntime {
         }
     }
 
-    private static void key(InputEvent.Key event) {
+    static void updateSession(Minecraft mc) {
+        if (mc.level == previousLevel && mc.player == previousPlayer) return;
+        // Release old player/camera/inventory references, retaining the selection.
+        for (var module : MODULES) module.reset(mc);
+        previousLevel = mc.level;
+        previousPlayer = mc.player;
+        LegacyCommands.worldChanged(mc);
+        if (mc.level != null && mc.player != null)
+            for (var module : MODULES) if (module.enabled()) module.activate(mc);
+    }
+
+    private static void key(InputEvent.Key event) { handleKey(event.getKey(),event.getAction()); }
+    static void handleKey(int key,int action) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getAction() != GLFW.GLFW_PRESS || mc.screen != null || mc.player == null) return;
-        if ((event.getKey() == GLFW.GLFW_KEY_RIGHT_SHIFT || event.getKey() == GLFW.GLFW_KEY_GRAVE_ACCENT)) {
+        if (action != GLFW.GLFW_PRESS || mc.screen != null || mc.player == null || key < 0) return;
+        for (ClientModule module : MODULES) if (module.key == key) toggle(module);
+        if (key == ClientConfig.guiKey || (ClientConfig.guiKey == GLFW.GLFW_KEY_GRAVE_ACCENT && key == GLFW.GLFW_KEY_RIGHT_SHIFT))
             mc.setScreen(new ClientScreen());
-            return;
-        }
-        for (ClientModule module : MODULES) if (module.key == event.getKey()) toggle(module);
+        else if (key == GLFW.GLFW_KEY_PERIOD) mc.setScreen(new net.minecraft.client.gui.screens.ChatScreen(".",false));
+        LegacyCommands.runMacros(key);
     }
 
-    private static boolean chat(ClientChatEvent event) {
-        String text = event.getMessage();
-        if (!text.startsWith(".")) return false;
-        // Local commands must never leak into multiplayer chat, including invalid commands.
-        String[] parts = text.substring(1).trim().split("\\s+");
-        switch (parts[0].toLowerCase(Locale.ROOT)) {
-            case "help" -> message(".gui | .mods | .toggle <module> | .bind <module> <key> | .set <module> <setting> <value> | .friend | .alloff");
-            case "gui" -> Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new ClientScreen()));
-            case "mods", "modlist" -> MODULES.forEach(module -> message(module.name + (module.enabled() ? " ON" : " OFF")));
-            case "alloff" -> {
-                MODULES.forEach(module -> module.setEnabled(false));
-                message("All modules disabled.");
-            }
-            case "toggle", "t" -> {
-                ClientModule module = parts.length == 2 ? find(parts[1]) : null;
-                if (module == null) message("Usage: .toggle <module>; use .mods for available modules.");
-                else toggle(module);
-            }
-            case "bind" -> bind(parts);
-            case "set" -> configure(parts);
-            case "friend" -> SocialState.command(parts);
-            case "hide" -> {
-                if(parts.length!=2)message(".hide mods/potions");
-                else if(parts[1].equalsIgnoreCase("mods"))LegacyHud.showModules=!LegacyHud.showModules;
-                else if(parts[1].equalsIgnoreCase("potions"))LegacyHud.showPotions=!LegacyHud.showPotions;
-                else message(".hide mods/potions");
-            }
-            case "spam" -> {
-                String value = text.length() > 6 ? text.substring(6).trim() : "";
-                if (value.length() > 256) message("Message must be 256 characters or fewer.");
-                else {
-                    NetworkModules.spamMessage = value; ClientConfig.save(MODULES);
-                    message(value.isEmpty() ? "Repeated message cleared." : "Message saved; toggle Spammer to start.");
-                }
-            }
-            default -> message("Unknown local command. Use .help.");
-        }
-        return true;
-    }
+    private static boolean chat(ClientChatEvent event) { return LegacyCommands.execute(event.getMessage()); }
 
-    private static void bind(String[] parts) {
-        ClientModule module = parts.length == 3 ? find(parts[1]) : null;
-        if (module == null) { message("Usage: .bind <module> <A-Z/F1-F12/NONE>"); return; }
-        String value = parts[2].toUpperCase(Locale.ROOT);
-        int key = -1;
-        if (value.matches("[A-Z0-9]")) key = value.charAt(0);
-        else if (value.matches("F([1-9]|1[0-2])")) key = GLFW.GLFW_KEY_F1 + Integer.parseInt(value.substring(1)) - 1;
-        else if (!value.equals("NONE")) { message("Choose A-Z, 0-9, F1-F12, or NONE."); return; }
-        module.key = key;
-        ClientConfig.save(MODULES);
-        message(module.name + " binding: " + value);
-    }
-
-    private static void configure(String[] parts) {
+    static void configure(String[] parts) {
         ClientModule module = parts.length >= 2 ? find(parts[1]) : null;
         if (module == null) { message(".set <module> <setting> <value>"); return; }
         if (parts.length == 2) {
@@ -160,7 +118,7 @@ final class ClientRuntime {
     }
 
     static ClientModule find(String name) {
-        return MODULES.stream().filter(module -> module.name.equalsIgnoreCase(name)).findFirst().orElse(null);
+        return MODULES.stream().filter(module -> module.name.replace(" ", "").equalsIgnoreCase(name.replace(" ", "")) || ClientScreen.label(module).equalsIgnoreCase(name)).findFirst().orElse(null);
     }
 
     static void toggle(ClientModule module) {

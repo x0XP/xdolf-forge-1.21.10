@@ -20,6 +20,8 @@ public abstract class ClientModule {
     }
 
     public final boolean enabled() { return enabled; }
+    /** Restore the user's selection before a world exists; effects start on join. */
+    final void restoreEnabled(boolean value) { enabled = value; }
 
     protected final ModuleSetting setting(String name, double value, double min, double max, double step) {
         var setting = new ModuleSetting(name, value, min, max, step);
@@ -34,8 +36,9 @@ public abstract class ClientModule {
     public final void setEnabled(boolean value) {
         if (enabled == value) return;
         enabled = value;
-        if (value) activate(Minecraft.getInstance());
+        if (value && Minecraft.getInstance().player != null && Minecraft.getInstance().level != null) activate(Minecraft.getInstance());
         else reset(Minecraft.getInstance());
+        ClientConfig.save(ClientRuntime.MODULES);
     }
 
     public abstract void tick(Minecraft mc);

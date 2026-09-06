@@ -4,7 +4,7 @@ import net.minecraft.client.Minecraft;
 import java.util.List;
 
 final class NetworkModules {
-    static String spamMessage = "";
+    static String spamMessage = "test";
     private static ClientModule hook(String name, String description, String category) {
         return new ClientModule(name, description, category) { public void tick(Minecraft mc) {} };
     }
@@ -17,7 +17,6 @@ final class NetworkModules {
             public void tick(Minecraft mc) {}
         });
         modules.add(new ClientModule("Spammer", "Repeat the message set with .spam while enabled.", "Player") {
-            final ModuleSetting seconds = setting("seconds", 10, 3, 300, 1);
             long lastMessage;
             public void tick(Minecraft mc) {
                 if (spamMessage.isBlank()) {
@@ -25,8 +24,11 @@ final class NetworkModules {
                 }
                 long now = System.nanoTime();
                 if (lastMessage == 0) lastMessage = now;
-                if (now - lastMessage >= seconds.get() * 1_000_000_000L) {
-                    lastMessage = now; mc.player.connection.sendChat(spamMessage);
+                if (now - lastMessage >= LegacyCommands.spamDelay * 1_000_000L) {
+                    lastMessage = now;
+                    String suffix=LegacyCommands.spamMode.equals("antispam")?" ["+java.util.UUID.randomUUID().toString().replace("-","").substring(0,16)+"]":"";
+                    String message=spamMessage.substring(0,Math.min(spamMessage.length(),256-suffix.length()))+suffix;
+                    mc.player.connection.sendChat(message);
                 }
             }
             public void reset(Minecraft mc) { lastMessage = 0; }

@@ -20,6 +20,21 @@ final class ClientSmoke {
             guiCaptureRequested=false;
             net.minecraft.client.Screenshot.grab(new java.io.File("."),mc.getMainRenderTarget(),message -> captureDone=true);
         }
+        if (phase == 6 && mc.player == null && mc.level == null && mc.screen instanceof TitleScreen) {
+            CommandSmoke.assertSelections();phase=7;
+            CreateWorldScreen.openFresh(mc,()->{throw new IllegalStateException("Reconnect world creation cancelled");});
+        } else if (phase == 7 && mc.screen instanceof CreateWorldScreen create) {
+            create.getUiState().setName("Xdolf reconnect smoke");
+            create.getUiState().setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE);
+            phase=8;((CreateWorldScreenAccess)create).xdolf$create();
+        } else if (phase == 8 && mc.player != null && mc.level != null && mc.screen==null) {
+            ClientRuntime.updateSession(mc);CommandSmoke.assertSelections();
+            if(!XRayModule.rendering)throw new IllegalStateException("XRay did not reactivate after join");
+            LegacyCommands.execute(".alloff");
+            LogUtils.getLogger().info("XDOLF_RECONNECT_OK: selections survived real disconnect and new world/player connection");
+            LogUtils.getLogger().info("XDOLF_SMOKE_OK: GUI, world rendering, commands, binds, persistence and reconnect passed");
+            phase=9;mc.stop();return;
+        }
         if (phase == 0 && mc.screen != null && (mc.screen instanceof TitleScreen || mc.screen.getClass().getSimpleName().equals("AccessibilityOnboardingScreen"))) {
             phase = 1;
             mc.options.guiScale().set(2);
@@ -64,8 +79,9 @@ final class ClientSmoke {
             try(var files=java.nio.file.Files.list(java.nio.file.Path.of("screenshots"))) {
                 if(files.noneMatch(p->p.toString().endsWith(".png")))throw new IllegalStateException("Screenshot was not saved");
             } catch(java.io.IOException error) { throw new IllegalStateException("Screenshot was not saved",error); }
-            LogUtils.getLogger().info("XDOLF_SMOKE_OK: original GUI controls and singleplayer world passed");
-            Minecraft.getInstance().stop();
+            phase=6;
+            var client=Minecraft.getInstance();
+            client.execute(()->{CommandSmoke.run(client);client.disconnect(new TitleScreen(),false);});
             return;
         }
         if(frames != 5) return;
