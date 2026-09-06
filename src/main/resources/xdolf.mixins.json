@@ -26,7 +26,8 @@
     "EntityNameTagMixin",
     "ChatComponentMixin",
     "ChatScreenMixin",
-    "GuiGraphicsMixin"
+    "GuiGraphicsMixin",
+    "EditBoxMixin"
   ],
   "injectors": {
     "defaultRequire": 1
