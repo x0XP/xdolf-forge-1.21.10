@@ -30,6 +30,8 @@ public final class XdolfFont {
     };
     private static boolean ready;
     private static int glyphHeight;
+    private static int visibleTop;
+    private static int visibleBottom;
     private static int chatDepth;
 
     private XdolfFont() {}
@@ -53,6 +55,7 @@ public final class XdolfFont {
                 x += WIDTH[i];
             }
             graphics.dispose();
+            measureVisibleAsciiBounds(atlas);
             var bytes = new ByteArrayOutputStream();
             ImageIO.write(atlas, "png", bytes);
             var image = NativeImage.read(new ByteArrayInputStream(bytes.toByteArray()));
@@ -60,6 +63,31 @@ public final class XdolfFont {
             ready = true;
         } catch (java.io.IOException error) {
             throw new IllegalStateException("Cannot create Xdolf TTF font", error);
+        }
+    }
+
+    /** Measure actual non-transparent glyph pixels rather than centring the padded atlas cell. */
+    private static void measureVisibleAsciiBounds(BufferedImage atlas) {
+        int top=glyphHeight;
+        int bottom=0;
+        for(int c=33;c<=126;c++) {
+            int cellX=X[c],cellY=Y[c],cellWidth=WIDTH[c];
+            for(int yy=0;yy<glyphHeight;yy++) {
+                for(int xx=0;xx<cellWidth;xx++) {
+                    if((atlas.getRGB(cellX+xx,cellY+yy)>>>24)!=0) {
+                        top=Math.min(top,yy);
+                        bottom=Math.max(bottom,yy+1);
+                        break;
+                    }
+                }
+            }
+        }
+        if(bottom<=top) {
+            visibleTop=0;
+            visibleBottom=glyphHeight;
+        } else {
+            visibleTop=top;
+            visibleBottom=bottom;
         }
     }
 
@@ -71,6 +99,20 @@ public final class XdolfFont {
     public static int lineHeight() {
         init();
         return Math.max(10, (glyphHeight + 3) / 4);
+    }
+
+    /**
+     * Returns the Y correction required to visually centre Xdolf's actual glyph ink (plus its
+     * one-pixel drop shadow) inside a container whose vanilla text origin is already known.
+     */
+    public static int centeredYOffset(int containerTop,int containerHeight,int vanillaTextY) {
+        init();
+        float visibleTopGui=visibleTop*0.25f;
+        float visibleBottomGui=visibleBottom*0.25f+1.0f;
+        float visibleHeightGui=visibleBottomGui-visibleTopGui;
+        float desiredVisibleTop=containerTop+(containerHeight-visibleHeightGui)*0.5f;
+        float desiredCellTop=desiredVisibleTop-visibleTopGui;
+        return Math.round(desiredCellTop-vanillaTextY);
     }
 
     private static final net.minecraft.client.renderer.RenderType WORLD_TEXT = net.minecraft.client.renderer.RenderType.text(TEXTURE);
