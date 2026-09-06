@@ -5,9 +5,11 @@ import java.util.List;
 
 final class NetworkModules {
     static String spamMessage = "test";
+
     private static ClientModule hook(String name, String description, String category) {
         return new ClientModule(name, description, category) { public void tick(Minecraft mc) {} };
     }
+
     static void addTo(List<ClientModule> modules) {
         modules.add(hook("AntiVelocity", "Ignore player velocity and explosion knockback packets.", "Combat"));
         modules.add(hook("AntiHunger", "Suppress sprint notifications and grounded movement flags; server-dependent.", "Player"));
@@ -20,14 +22,18 @@ final class NetworkModules {
             long lastMessage;
             public void tick(Minecraft mc) {
                 if (spamMessage.isBlank()) {
-                    setEnabled(false); ClientRuntime.message("Set a message first with .spam <message>."); return;
+                    setEnabled(false);
+                    ClientRuntime.message("Set a message first with .spam <message>.");
+                    return;
                 }
                 long now = System.nanoTime();
                 if (lastMessage == 0) lastMessage = now;
-                if (now - lastMessage >= LegacyCommands.spamDelay * 1_000_000L) {
+                if (now - lastMessage >= Commands.spamDelay * 1_000_000L) {
                     lastMessage = now;
-                    String suffix=LegacyCommands.spamMode.equals("antispam")?" ["+java.util.UUID.randomUUID().toString().replace("-","").substring(0,16)+"]":"";
-                    String message=spamMessage.substring(0,Math.min(spamMessage.length(),256-suffix.length()))+suffix;
+                    String suffix = Commands.spamMode.equals("antispam")
+                        ? " [" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16) + "]"
+                        : "";
+                    String message = spamMessage.substring(0, Math.min(spamMessage.length(), 256 - suffix.length())) + suffix;
                     mc.player.connection.sendChat(message);
                 }
             }
