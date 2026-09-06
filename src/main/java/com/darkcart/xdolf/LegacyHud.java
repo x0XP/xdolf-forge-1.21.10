@@ -16,7 +16,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-/** XDolfOverlay layout plus the stable screen-space player nametag renderer. */
+/** XDolfOverlay layout plus stable screen-space player and logout-spot nametags. */
 final class LegacyHud {
     static boolean showModules=true,showPotions=true;
     static void render(GuiGraphics graphics) {
@@ -24,9 +24,9 @@ final class LegacyHud {
         if(mc.player==null||mc.level==null||mc.options.hideGui)return;
 
         // Player tags are intentionally rendered in GUI space. Vanilla's world projection gives us
-        // smooth interpolation/FOV handling while avoiding the giant distance scaling and z-fighting
-        // that the 1.12 GL transform produced when copied directly into the 1.21 frame graph.
+        // smooth interpolation/FOV handling while avoiding giant distance scaling and z-fighting.
         if(Hooks.enabled("Nametags"))renderNametags(graphics,mc);
+        if(Hooks.enabled("LogoutSpot"))renderLogoutSpotTags(graphics,mc);
 
         if(mc.screen instanceof ChatScreen||mc.getDebugOverlay().showDebugScreen())return;
         int width=graphics.guiWidth(),height=graphics.guiHeight();
@@ -63,51 +63,82 @@ final class LegacyHud {
         for(Player player:mc.level.players()) {
             if(player==mc.player||player.deathTime>0)continue;
             Vec3 world=player.getPosition(partial).add(0,player.getBbHeight()+0.55,0);
-            Vec3 relative=world.subtract(cameraPos);
-            if(relative.dot(forward)<=0.01)continue;
-
-            Vec3 projected=mc.gameRenderer.projectPointToScreen(world);
-            if(projected.z<-1.0||projected.z>1.0)continue;
-            float x=(float)((projected.x+1.0)*0.5*screenWidth);
-            float y=(float)((1.0-projected.y)*0.5*screenHeight);
-            if(x<-128||x>screenWidth+128||y<-64||y>screenHeight+64)continue;
+            ScreenPoint point=project(mc,world,cameraPos,forward,screenWidth,screenHeight);
+            if(point==null)continue;
 
             float distance=mc.player.distanceTo(player);
             String text=LegacyVisualStyle.tag(player.getName().getString(),player.getHealth(),player.getArmorValue(),SocialState.isFriend(player.getName().getString()));
-            drawNametag(g,mc,player,text,x,y,LegacyVisualStyle.screenTagScale(distance));
+            drawNametag(g,mc,player,text,point.x,point.y,LegacyVisualStyle.screenTagScale(distance));
         }
     }
 
+    private static void renderLogoutSpotTags(GuiGraphics g,Minecraft mc) {
+        var camera=mc.gameRenderer.getMainCamera();
+        Vec3 cameraPos=camera.getPosition();
+        var look=camera.getLookVector();
+        Vec3 forward=new Vec3(look.x,look.y,look.z);
+        int screenWidth=g.guiWidth(),screenHeight=g.guiHeight();
+        String dimension=mc.level.dimension().location().toString();
+
+        for(var spot:LogoutSpotModule.spots()) {
+            if(!dimension.equals(spot.dimension()))continue;
+            // Above the retained player model / two-block ESP marker.
+            Vec3 world=spot.position().add(0.5,2.45,0.5);
+            ScreenPoint point=project(mc,world,cameraPos,forward,screenWidth,screenHeight);
+            if(point==null)continue;
+            float distance=(float)mc.player.position().distanceTo(spot.position());
+            String text=spot.name()+" \u00a7c[LogoutSpot]";
+            drawLabel(g,text,point.x,point.y,LegacyVisualStyle.screenTagScale(distance));
+        }
+    }
+
+    private record ScreenPoint(float x,float y) {}
+    private static ScreenPoint project(Minecraft mc,Vec3 world,Vec3 cameraPos,Vec3 forward,int screenWidth,int screenHeight) {
+        Vec3 relative=world.subtract(cameraPos);
+        if(relative.dot(forward)<=0.01)return null;
+        Vec3 projected=mc.gameRenderer.projectPointToScreen(world);
+        if(projected.z<-1.0||projected.z>1.0)return null;
+        float x=(float)((projected.x+1.0)*0.5*screenWidth);
+        float y=(float)((1.0-projected.y)*0.5*screenHeight);
+        if(x<-128||x>screenWidth+128||y<-64||y>screenHeight+64)return null;
+        return new ScreenPoint(x,y);
+    }
+
     private static void drawNametag(GuiGraphics g,Minecraft mc,Player player,String text,float screenX,float screenY,float scale) {
+        drawLabel(g,text,screenX,screenY,scale);
+
         List<ItemStack> items=tagItems(player);
+        if(items.isEmpty())return;
+        int rowWidth=items.size()*18-2;
+        int start=-rowWidth/2;
+        int itemY=-20;
+        g.pose().pushMatrix();
+        g.pose().translate(screenX,screenY);
+        g.pose().scale(scale,scale);
+        for(int i=0;i<items.size();i++) {
+            ItemStack stack=items.get(i);
+            int itemX=start+i*18;
+            g.renderItem(stack,itemX,itemY);
+            // Vanilla's decoration pass gives tools/armour the familiar small durability bar.
+            g.renderItemDecorations(mc.font,stack,itemX,itemY);
+        }
+        g.pose().popMatrix();
+    }
+
+    private static void drawLabel(GuiGraphics g,String text,float screenX,float screenY,float scale) {
         int textWidth=LegacyGuiFont.width(text);
         int left=-textWidth/2-3,right=textWidth/2+3;
-
         g.pose().pushMatrix();
         g.pose().translate(screenX,screenY);
         g.pose().scale(scale,scale);
 
-        // Background/border first, then TTF shadow/text, then the equipment row. Keeping those
-        // layers deterministic removes the old world-space depth fighting that put shadows above text.
+        // Deterministic order prevents shadow/background depth fighting.
         g.fill(left,-1,right,11,0x88000000);
         g.fill(left,-1,right,0,0xFF000000);
         g.fill(left,10,right,11,0xFF000000);
         g.fill(left,-1,left+1,11,0xFF000000);
         g.fill(right-1,-1,right,11,0xFF000000);
         LegacyGuiFont.draw(g,text,-textWidth/2f,0,0xFFFFFFFF);
-
-        if(!items.isEmpty()) {
-            int rowWidth=items.size()*18-2;
-            int start=-rowWidth/2;
-            int itemY=-20;
-            for(int i=0;i<items.size();i++) {
-                ItemStack stack=items.get(i);
-                int itemX=start+i*18;
-                g.renderItem(stack,itemX,itemY);
-                // Vanilla's decoration pass gives tools/armour the familiar small durability bar.
-                g.renderItemDecorations(mc.font,stack,itemX,itemY);
-            }
-        }
         g.pose().popMatrix();
     }
 
