@@ -4,7 +4,7 @@ import com.darkcart.xdolf.LegacyGuiFont;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -28,8 +28,8 @@ public abstract class ChatComponentMixin {
     }
 
     @Redirect(method="addMessageToDisplayQueue",at=@At(value="INVOKE",
-        target="Lnet/minecraft/client/gui/components/ComponentRenderUtils;wrapComponents(Lnet/minecraft/network/chat/Component;ILnet/minecraft/client/gui/Font;)Ljava/util/List;"))
-    private List<FormattedCharSequence> xdolf$wrapWithTtfMetrics(Component component,int width,Font font) {
-        return LegacyGuiFont.wrapChat(component,width,font);
+        target="Lnet/minecraft/client/gui/components/ComponentRenderUtils;wrapComponents(Lnet/minecraft/network/chat/FormattedText;ILnet/minecraft/client/gui/Font;)Ljava/util/List;"))
+    private List<FormattedCharSequence> xdolf$wrapWithTtfMetrics(FormattedText text,int width,Font font) {
+        return LegacyGuiFont.wrapChat(text,width,font);
     }
 }
