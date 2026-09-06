@@ -1,5 +1,6 @@
 package com.darkcart.xdolf;
 
+import com.darkcart.xdolf.mixin.GameRendererAccess;
 import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -14,6 +15,8 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.state.LevelRenderState;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.AABB;
@@ -31,13 +34,16 @@ import java.util.OptionalDouble;
 
 /** World-space rendering for modules that existed in the old source but were not active in the initial port. */
 final class RestoredVisuals implements FramePassManager.PassDefinition {
-    private record Segment(Vec3 a, Vec3 b, int color, double width) {}
+    private record Segment(Vec3 a, Vec3 b, int color, double width, boolean stableStart) {
+        Segment(Vec3 a, Vec3 b, int color, double width) { this(a,b,color,width,false); }
+    }
     private record Box(AABB bounds, int fill, int edge) {}
     private record Scene(Vec3 camera, Quaternionf rotation, List<Segment> lines, List<Box> boxes) {
         static Scene empty() { return new Scene(Vec3.ZERO, new Quaternionf(), List.of(), List.of()); }
     }
 
     private Scene scene = Scene.empty();
+    private static long lastGhostSubmitFrame = Long.MIN_VALUE;
 
     private static final RenderPipeline LINE_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
         .withLocation(id("pipeline/restored_lines")).withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
@@ -63,12 +69,17 @@ final class RestoredVisuals implements FramePassManager.PassDefinition {
     public void targets(LevelTargetBundle targets, FramePass pass) {
         targets.main = pass.readsAndWrites(targets.main);
         var mc = Minecraft.getInstance();
-        scene = extract(mc, mc.gameRenderer.getMainCamera().getPartialTickTime());
+        float partial=mc.gameRenderer.getMainCamera().getPartialTickTime();
+        scene = extract(mc, partial);
+        submitLogoutModels(mc, partial);
     }
 
     public void extracts(LevelTargetBundle targets, FramePass pass, DeltaTracker delta) {
         targets.main = pass.readsAndWrites(targets.main);
-        scene = extract(Minecraft.getInstance(), delta.getGameTimeDeltaPartialTick(false));
+        var mc=Minecraft.getInstance();
+        float partial=delta.getGameTimeDeltaPartialTick(false);
+        scene = extract(mc, partial);
+        submitLogoutModels(mc, partial);
     }
 
     @Override
@@ -77,18 +88,83 @@ final class RestoredVisuals implements FramePassManager.PassDefinition {
 
         var pose = new PoseStack();
         pose.mulPose(new Quaternionf(scene.rotation).conjugate());
+
+        // The modern frame graph already contains Minecraft's view-bob transform. Cancel that
+        // transform only for tracer origins; the actual camera/world continues to bob normally.
+        Matrix4f inverseBob=null,inverseView=null;
+        var mc=Minecraft.getInstance();
+        if(mc.options.bobView().get()) {
+            var bob=new PoseStack();
+            ((GameRendererAccess)mc.gameRenderer).xdolf$bobView(bob,mc.gameRenderer.getMainCamera().getPartialTickTime());
+            inverseBob=new Matrix4f(bob.last().pose()).invert();
+            inverseView=new Matrix4f(pose.last().pose()).invert();
+        }
+
         var modelView = RenderSystem.getModelViewStack();
         modelView.pushMatrix();
         modelView.identity();
         try (var storage = new ByteBufferBuilder(32768)) {
             var buffers = MultiBufferSource.immediate(storage);
             for (var box : scene.boxes) drawBox(buffers, pose.last().pose(), box, scene.camera);
-            for (var segment : scene.lines)
-                line(buffers, pose.last().pose(), segment.a.subtract(scene.camera), segment.b.subtract(scene.camera),
-                    segment.color, segment.width);
+            for (var segment : scene.lines) {
+                var a=segment.a.subtract(scene.camera);
+                var b=segment.b.subtract(scene.camera);
+                if(segment.stableStart&&inverseBob!=null)a=unbobbedStart(a,pose.last().pose(),inverseBob,inverseView);
+                line(buffers, pose.last().pose(), a, b, segment.color, segment.width);
+            }
             buffers.endBatch();
         } finally {
             modelView.popMatrix();
+        }
+    }
+
+    private static Vec3 unbobbedStart(Vec3 relative,Matrix4f view,Matrix4f inverseBob,Matrix4f inverseView) {
+        var point=new org.joml.Vector3f((float)relative.x,(float)relative.y,(float)relative.z);
+        view.transformPosition(point);
+        inverseBob.transformPosition(point);
+        inverseView.transformPosition(point);
+        return new Vec3(point.x,point.y,point.z);
+    }
+
+    /**
+     * Submit the retained final Player object to Minecraft's normal player renderer. This preserves
+     * the real skin, slim/wide model choice, armour, held items and final pose instead of drawing a
+     * generic mannequin. The entity is not re-added to the level, so it has no collision/gameplay.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void submitLogoutModels(Minecraft mc,float partial) {
+        if(!Hooks.enabled("LogoutSpot")||mc.level==null||mc.player==null)return;
+        long frame=mc.getFrameTimeNs();
+        if(frame==lastGhostSubmitFrame)return;
+        lastGhostSubmitFrame=frame;
+
+        String dimension=mc.level.dimension().location().toString();
+        var cameraState=mc.gameRenderer.getLevelRenderState().cameraRenderState;
+        if(cameraState==null)return;
+        var dispatcher=mc.getEntityRenderDispatcher();
+        var collector=mc.gameRenderer.getSubmitNodeStorage();
+        var pose=new PoseStack();
+
+        for(var spot:LogoutSpotModule.spots()) {
+            if(!dimension.equals(spot.dimension())||spot.ghost()==null)continue;
+            try {
+                EntityRenderer renderer=(EntityRenderer)dispatcher.getRenderer(spot.ghost());
+                EntityRenderState renderState=(EntityRenderState)renderer.createRenderState(spot.ghost(),partial);
+                Vec3 p=spot.position();
+                renderState.x=p.x;
+                renderState.y=p.y;
+                renderState.z=p.z;
+                renderState.distanceToCameraSq=p.distanceToSqr(cameraState.pos);
+                // Xdolf draws its own explicit "LogoutSpot" tag in screen space.
+                renderState.nameTag=null;
+                renderState.nameTagAttachment=null;
+                dispatcher.submit(renderState,cameraState,
+                    p.x-cameraState.pos.x,p.y-cameraState.pos.y,p.z-cameraState.pos.z,
+                    pose,collector);
+            } catch (RuntimeException ignored) {
+                // A disappearing player can briefly be between network/render states; keep the ESP
+                // marker and retry the retained model on the following frame rather than crash.
+            }
         }
     }
 
@@ -113,7 +189,7 @@ final class RestoredVisuals implements FramePassManager.PassDefinition {
                 boxes.add(new Box(bounds, 0x2F000000 | color, 0x80000000));
                 lines.add(new Segment(start,
                     new Vec3(waypoint.x() + 0.5, waypoint.y() + 0.5, waypoint.z() + 0.5),
-                    0xFF000000 | color, 1.5));
+                    0xFF000000 | color, 1.5,true));
             }
         }
 
@@ -124,7 +200,8 @@ final class RestoredVisuals implements FramePassManager.PassDefinition {
                 // The original helper rendered a one-block-wide, two-block-tall logout marker.
                 boxes.add(new Box(new AABB(p.x, p.y, p.z, p.x + 1.0, p.y + 2.0, p.z + 1.0),
                     0x2FFF0000, 0xFFFF0000));
-                lines.add(new Segment(start, p.add(0.5, 1.0, 0.5), 0xFFFF0000, 1.5));
+                // Match the regular Tracers fix: the origin stays stable while view bobbing remains on.
+                lines.add(new Segment(start, p.add(0.5, 1.0, 0.5), 0xFFFF0000, 1.5,true));
             }
         }
 
