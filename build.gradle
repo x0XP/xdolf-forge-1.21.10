@@ -109,7 +109,7 @@ sourceSets.each {
 tasks.register('visualStyleTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.darkcart.xdolf.VisualStyleTest'
+    mainClass = 'com.x0xp.xdolf.VisualStyleTest'
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 

@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "com.darkcart.xdolf.mixin",
+  "package": "com.x0xp.xdolf.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
     "GameRendererMixin",

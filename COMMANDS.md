@@ -1,6 +1,6 @@
 # Original commands and keybinds — dev.9
 
-Original source: [Xdolf commands](https://github.com/x0XP/xdolf/tree/main/minecraft/com/darkcart/xdolf/commands).
+Original source: [Xdolf commands](https://github.com/x0XP/xdolf/tree/main/minecraft/com/x0xp/xdolf/commands).
 Commands begin with a dot and are handled locally. Unknown dot commands are also consumed locally.
 Press period in the world to open chat with a dot already entered.
 
