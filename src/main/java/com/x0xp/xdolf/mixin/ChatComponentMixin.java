@@ -50,21 +50,23 @@ public abstract class ChatComponentMixin {
         xdolf$backgroundLine=0;
     }
 
-    /**
-     * Xdolf's TTF glyphs are taller than vanilla's nine-pixel font. Give chat rows enough vertical
-     * space for the glyph and its shadow instead of shrinking the font to fit a vanilla-height row.
-     */
+    /** Xdolf's TTF plus its shadow needs slightly more room than the vanilla nine-pixel row. */
     @Inject(method="getLineHeight",at=@At("RETURN"),cancellable=true)
     private void xdolf$ttfLineHeight(CallbackInfoReturnable<Integer> cir) {
-        cir.setReturnValue(Math.max(cir.getReturnValue(),13));
+        cir.setReturnValue(Math.max(cir.getReturnValue(),14));
     }
 
-    /** Fit each individual message background to the line being rendered, not the widest line on screen. */
+    /**
+     * Fit each message background to its own TTF width. Current Minecraft does not guarantee the
+     * old -4 left coordinate for every chat configuration, so identify message-row fills by their
+     * short height and left-edge placement instead of one exact vanilla coordinate.
+     */
     @Redirect(method="render",at=@At(value="INVOKE",target="Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"))
     private void xdolf$fitMessageBackground(GuiGraphics graphics,int left,int top,int right,int bottom,int color) {
-        if(left==-4&&right>0&&xdolf$backgroundLine<xdolf$visibleLineWidths.size()) {
+        int rowHeight=bottom-top;
+        if(left<=0&&right>left&&rowHeight>0&&rowHeight<=18&&xdolf$backgroundLine<xdolf$visibleLineWidths.size()) {
             int textWidth=xdolf$visibleLineWidths.get(xdolf$backgroundLine++);
-            right=Math.min(right,textWidth+5);
+            right=Math.min(right,left+textWidth+9);
         }
         graphics.fill(left,top,right,bottom,color);
     }
