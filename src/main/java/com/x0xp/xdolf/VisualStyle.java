@@ -24,10 +24,14 @@ final class VisualStyle {
     /** Real player tags are rendered in GUI space; the old world-space copy remains disabled. */
     static float tagScale(float distance) { return 0f; }
 
-    /** Full size nearby, gently smaller at range, and clamped so distant names remain readable. */
+    /**
+     * The original world-space nametag grew with distance to cancel perspective shrinkage. In GUI
+     * space that translates to a mostly constant apparent size, with a small reduction at long range
+     * to keep crowded multiplayer scenes readable.
+     */
     static float screenTagScale(float distance) {
-        float scale=1f-Math.max(0f,distance-8f)/220f;
-        return Math.max(0.68f,Math.min(1f,scale));
+        float scale=0.80f-Math.max(0f,distance-8f)/260f;
+        return Math.max(0.58f,Math.min(0.80f,scale));
     }
 
     static int tagOffset(float distance,boolean sneaking) {
