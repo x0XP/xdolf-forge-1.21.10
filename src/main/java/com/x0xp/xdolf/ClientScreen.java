@@ -337,8 +337,8 @@ public final class ClientScreen extends Screen {
             : listening ? "Press..." : Keybinds.display(module.key) + (existingConflict ? " !" : "");
         value = XdolfFont.trim(value, Math.max(1, (int) (KEYBIND_FIELD_WIDTH - 4)));
         float valueX = fieldLeft + (KEYBIND_FIELD_WIDTH - XdolfFont.width(value)) / 2.0f;
-        int valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
-            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop));
+        float valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
+            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop)) + 1.5f;
         XdolfFont.draw(graphics, value, valueX, valueY,
             fade(pending ? 0xFFFFC66D : listening ? 0xFF44AAFF : 0xFFFFFFFF, alpha));
     }
@@ -394,8 +394,8 @@ public final class ClientScreen extends Screen {
         if (editing && (System.currentTimeMillis() / 450L) % 2 == 0) value += "_";
         value = XdolfFont.trim(value, (int) (fieldRight - fieldLeft - 3));
         float valueX = fieldRight - 1.5f - XdolfFont.width(value);
-        int valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
-            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop));
+        float valueY = Math.round(fieldTop) + XdolfFont.centeredYOffset(
+            Math.round(fieldTop), Math.round(fieldBottom - fieldTop), Math.round(fieldTop)) + 1.5f;
         XdolfFont.draw(graphics, value, Math.max(fieldLeft + 1.5f, valueX), valueY, fade(0xFFFFFFFF, alpha));
 
         float trackLeft = left;
