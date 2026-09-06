@@ -15,7 +15,7 @@ final class AnnouncerModule extends ClientModule {
         "Minimum time between announcement messages.", 1800, 250, 120000, 100);
     final BooleanSetting walking = booleanSetting("walking", "Distance walked",
         "Announce horizontal distance travelled on foot.", true);
-    final NumberSetting minimumDistance = numberSetting("minimum_distance", "Minimum distance",
+    final NumberSetting minimumDistance = numberSetting("minimum_distance", "Min. distance",
         "Keep accumulating until at least this many metres have been travelled.", 5, 1, 100, 1);
     final BooleanSetting breaking = booleanSetting("breaking", "Blocks broken",
         "Count mined blocks by type and announce them as one batch.", true);
