@@ -21,7 +21,9 @@
     "BlockRenderMixin",
     "SectionCompilerMixin",
     "CreateWorldScreenAccess",
-    "EntityNameTagMixin"
+    "EntityNameTagMixin",
+    "ChatComponentMixin",
+    "GuiGraphicsMixin"
   ],
   "injectors": {
     "defaultRequire": 1
