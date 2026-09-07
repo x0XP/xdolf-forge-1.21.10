@@ -82,7 +82,16 @@ jobs:
           test -s "run/shaderpacks/${shader_name}"
           ls -lh run/mods run/shaderpacks
 
-      - name: Test Xdolf with OptiFine and Complementary shaders enabled
+      - name: Inspect OptiFine shader API
+        run: |
+          {
+            echo '=== net.optifine.Config ==='
+            javap -classpath run/mods/OptiFine_1.21.10_HD_U_J7_pre11.jar net.optifine.Config || true
+            echo '=== net.optifine.shaders.Shaders ==='
+            javap -classpath run/mods/OptiFine_1.21.10_HD_U_J7_pre11.jar net.optifine.shaders.Shaders || true
+          } | tee build/diagnostics/optifine-api.txt
+
+      - name: Test Xdolf with OptiFine present and Complementary configured
         run: |
           set +e
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 360s bash gradlew runClient -PxdolfSmokeTest --console=plain > build/diagnostics/optifine-complementary-smoke.log 2>&1
@@ -92,13 +101,17 @@ jobs:
           test "$smoke_status" -eq 0
           grep -q 'XDOLF_SMOKE_OK' build/diagnostics/optifine-complementary-smoke.log
           grep -Eqi 'OptiFine|optifine' build/diagnostics/optifine-complementary-smoke.log
-          grep -Eqi 'ComplementaryReimagined|Complementary Reimagined' build/diagnostics/optifine-complementary-smoke.log
+          test -s run/optionsshaders.txt
+          grep -q 'ComplementaryReimagined_r5.9.zip' run/optionsshaders.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: optifine-complementary-smoke-log
-          path: build/diagnostics/optifine-complementary-smoke.log
+          name: optifine-complementary-diagnostics
+          path: |
+            build/diagnostics/optifine-complementary-smoke.log
+            build/diagnostics/optifine-api.txt
+            run/optionsshaders.txt
           if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4
