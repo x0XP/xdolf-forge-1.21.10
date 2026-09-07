@@ -1,9 +1,10 @@
 package com.x0xp.xdolf.module.combat;
 
+import com.x0xp.xdolf.settings.NumberSetting;
+
 import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.settings.*;
 
-import com.x0xp.xdolf.*;
 import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;

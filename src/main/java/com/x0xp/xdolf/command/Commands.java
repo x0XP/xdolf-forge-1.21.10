@@ -1,4 +1,11 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.command;
+
+import com.x0xp.xdolf.chat.ChatFormatter;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.core.OriginalQuotes;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
+import com.x0xp.xdolf.ui.hud.Hud;
 
 import com.x0xp.xdolf.settings.ClientConfig;
 import com.x0xp.xdolf.settings.KeyNames;

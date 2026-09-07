@@ -1,4 +1,11 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.dev;
+
+import com.x0xp.xdolf.command.Commands;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.core.Hooks;
+import com.x0xp.xdolf.render.WorldVisuals;
+import com.x0xp.xdolf.ui.XdolfFont;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
 
 import com.x0xp.xdolf.module.ClientModule;
 
@@ -10,7 +17,7 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.network.chat.Component;
-import com.x0xp.xdolf.mixin.CreateWorldScreenAccess;
+import com.x0xp.xdolf.mixin.accessor.CreateWorldScreenAccess;
 
 /** Explicit opt-in CI test. Normal launches never create a test world. */
 final class ClientSmoke {

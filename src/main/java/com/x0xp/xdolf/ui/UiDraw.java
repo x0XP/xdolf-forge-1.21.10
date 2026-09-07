@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui;
 
 import net.minecraft.client.gui.GuiGraphics;
 

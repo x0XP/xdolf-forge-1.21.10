@@ -1,7 +1,13 @@
 package com.x0xp.xdolf.module;
 
+import com.x0xp.xdolf.settings.BooleanSetting;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.ModuleSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.settings.TextSetting;
+
 import com.x0xp.xdolf.settings.ClientConfig;
-import com.x0xp.xdolf.ClientRuntime;
+import com.x0xp.xdolf.core.ClientRuntime;
 import com.x0xp.xdolf.settings.*;
 
 import net.minecraft.client.Minecraft;

@@ -1,7 +1,7 @@
 package com.x0xp.xdolf.settings;
 
-import com.x0xp.xdolf.ClientRuntime;
-import com.x0xp.xdolf.ClientScreen;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
 import com.x0xp.xdolf.module.ClientModule;
 
 import com.x0xp.xdolf.module.ClientModule;

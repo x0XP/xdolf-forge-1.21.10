@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.chat;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;

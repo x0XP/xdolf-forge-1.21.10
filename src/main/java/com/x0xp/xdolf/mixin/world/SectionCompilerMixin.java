@@ -1,4 +1,4 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.world;
 
 import com.x0xp.xdolf.module.world.XRayModule;
 import net.minecraft.client.renderer.chunk.SectionCompiler;

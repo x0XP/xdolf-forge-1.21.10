@@ -1,4 +1,10 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.clickgui;
+
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.Kind;
+import com.x0xp.xdolf.settings.ModuleSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.ui.XdolfFont;
 
 import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.module.ModuleManager;
@@ -9,7 +15,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.x0xp.xdolf.UiDraw.*;
+import static com.x0xp.xdolf.ui.UiDraw.*;
 
 /** Original-style information card used for module and setting hover descriptions. */
 final class ClickGuiTooltip {

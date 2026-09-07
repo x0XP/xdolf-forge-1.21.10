@@ -1,4 +1,7 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.hud;
+
+import com.x0xp.xdolf.ui.XdolfFont;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
 
 import com.x0xp.xdolf.module.ClientModule;
 
@@ -6,7 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.x0xp.xdolf.UiDraw.*;
+import static com.x0xp.xdolf.ui.UiDraw.*;
 
 /** Animated centre-left HUD cards for module state and short client notices. */
 public final class NotificationCards {

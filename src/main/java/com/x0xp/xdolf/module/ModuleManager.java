@@ -1,7 +1,7 @@
 package com.x0xp.xdolf.module;
 
-import com.x0xp.xdolf.ClientRuntime;
-import com.x0xp.xdolf.NotificationCards;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.ui.hud.NotificationCards;
 
 import net.minecraft.client.Minecraft;
 import java.util.HashSet;

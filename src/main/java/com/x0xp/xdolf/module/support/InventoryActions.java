@@ -1,6 +1,5 @@
 package com.x0xp.xdolf.module.support;
 
-import com.x0xp.xdolf.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;

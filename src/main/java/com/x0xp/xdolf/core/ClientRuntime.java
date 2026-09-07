@@ -1,4 +1,18 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.core;
+
+import com.x0xp.xdolf.chat.ChatFormatter;
+import com.x0xp.xdolf.chat.ChatQueue;
+import com.x0xp.xdolf.command.Commands;
+import com.x0xp.xdolf.dev.ClientSmoke;
+import com.x0xp.xdolf.module.Activity;
+import com.x0xp.xdolf.render.MarkerVisuals;
+import com.x0xp.xdolf.render.WorldVisuals;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
+import com.x0xp.xdolf.ui.hud.Hud;
+import com.x0xp.xdolf.ui.hud.NotificationCards;
 
 import com.x0xp.xdolf.settings.ClientConfig;
 
@@ -17,7 +31,7 @@ import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 import net.minecraftforge.client.event.ClientChatEvent;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
-import com.x0xp.xdolf.mixin.ClientInputAccess;
+import com.x0xp.xdolf.mixin.accessor.ClientInputAccess;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.phys.Vec2;
 import net.minecraftforge.event.TickEvent;

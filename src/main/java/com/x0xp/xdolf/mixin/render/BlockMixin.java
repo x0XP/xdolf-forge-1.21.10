@@ -1,6 +1,6 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.render;
 
-import com.x0xp.xdolf.Hooks;
+import com.x0xp.xdolf.core.Hooks;
 import com.x0xp.xdolf.module.world.XRayModule;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;

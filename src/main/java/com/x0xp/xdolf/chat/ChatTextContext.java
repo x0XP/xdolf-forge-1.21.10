@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.chat;
 
 import java.util.ArrayDeque;
 import java.util.Deque;

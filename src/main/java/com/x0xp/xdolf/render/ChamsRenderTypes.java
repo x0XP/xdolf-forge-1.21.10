@@ -1,4 +1,6 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.render;
+
+import com.x0xp.xdolf.core.Xdolf;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;

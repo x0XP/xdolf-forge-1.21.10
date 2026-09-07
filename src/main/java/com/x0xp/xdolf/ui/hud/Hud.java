@@ -1,4 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.hud;
+
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.core.Hooks;
+import com.x0xp.xdolf.render.VisualStyle;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.UiDraw;
+import com.x0xp.xdolf.ui.XdolfFont;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
 
 import com.x0xp.xdolf.module.ClientModule;
 

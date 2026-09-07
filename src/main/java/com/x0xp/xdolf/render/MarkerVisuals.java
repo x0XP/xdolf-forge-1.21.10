@@ -1,9 +1,13 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.render;
+
+import com.x0xp.xdolf.command.Commands;
+import com.x0xp.xdolf.core.Hooks;
+import com.x0xp.xdolf.core.Xdolf;
 
 import com.x0xp.xdolf.module.render.LogoutSpotModule;
 
-import com.x0xp.xdolf.mixin.GameRendererAccess;
-import com.x0xp.xdolf.mixin.LevelRendererAccess;
+import com.x0xp.xdolf.mixin.accessor.GameRendererAccess;
+import com.x0xp.xdolf.mixin.accessor.LevelRendererAccess;
 import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;

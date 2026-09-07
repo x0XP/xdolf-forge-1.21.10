@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.core;
 
 /** Neutral entries retained from the original praiseore command. */
 final class OriginalQuotes {

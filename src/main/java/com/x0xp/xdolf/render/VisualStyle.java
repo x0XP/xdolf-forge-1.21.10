@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.render;
 
 /** Shared rendering values derived from the original Xdolf client. */
 final class VisualStyle {

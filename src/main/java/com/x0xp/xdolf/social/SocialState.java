@@ -1,4 +1,6 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.social;
+
+import com.x0xp.xdolf.core.ClientRuntime;
 
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.fml.loading.FMLPaths;

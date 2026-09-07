@@ -1,4 +1,16 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.clickgui;
+
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.dev.ClientSmoke;
+import com.x0xp.xdolf.settings.BooleanSetting;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.Kind;
+import com.x0xp.xdolf.settings.ModuleSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.settings.TextSetting;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.XdolfFont;
+import com.x0xp.xdolf.ui.hud.NotificationCards;
 
 import com.x0xp.xdolf.settings.ClientConfig;
 import com.x0xp.xdolf.settings.Keybinds;
@@ -25,7 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-import static com.x0xp.xdolf.UiDraw.*;
+import static com.x0xp.xdolf.ui.UiDraw.*;
 
 /** Xdolf's draggable click GUI. Typed option cards are rendered by {@link ConfigContainer}. */
 public final class ClientScreen extends Screen {

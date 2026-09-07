@@ -1,9 +1,14 @@
 package com.x0xp.xdolf.module.player;
 
+import com.x0xp.xdolf.chat.ChatQueue;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.settings.TextSetting;
+
 import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.settings.*;
 
-import com.x0xp.xdolf.*;
 import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;

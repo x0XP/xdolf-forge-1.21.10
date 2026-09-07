@@ -1,4 +1,4 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.render;
 
 import com.x0xp.xdolf.module.world.XRayModule;
 import com.mojang.blaze3d.vertex.PoseStack;

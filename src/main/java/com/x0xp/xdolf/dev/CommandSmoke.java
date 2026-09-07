@@ -1,4 +1,9 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.dev;
+
+import com.x0xp.xdolf.command.Commands;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
 
 import com.x0xp.xdolf.settings.ClientConfig;
 
