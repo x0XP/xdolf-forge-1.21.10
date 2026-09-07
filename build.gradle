@@ -113,6 +113,50 @@ tasks.register('visualStyleTest', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 
+tasks.register('architectureCheck') {
+    group = 'verification'
+    description = 'Enforces Xdolf source ownership and one-module-per-file rules.'
+
+    doLast {
+        def violations = []
+        def xdolfRoot = file('src/main/java/com/x0xp/xdolf')
+        def moduleRoot = new File(xdolfRoot, 'module')
+
+        fileTree(xdolfRoot).matching { include '**/*.java' }.files.each { source ->
+            if (source.getText('UTF-8').contains('new ClientModule('))
+                violations << "Anonymous ClientModule implementation: ${project.relativePath(source)}"
+        }
+
+        ['movement', 'network', 'inventory'].each { legacyFolder ->
+            if (new File(moduleRoot, legacyFolder).exists())
+                violations << "Legacy technical module folder must not exist: module/${legacyFolder}/"
+        }
+
+        [player: 'Player', combat: 'Combat', render: 'Render', world: 'World'].each { folder, category ->
+            def categoryRoot = new File(moduleRoot, folder)
+            if (!categoryRoot.isDirectory()) {
+                violations << "Missing module category folder: module/${folder}/"
+                return
+            }
+            fileTree(categoryRoot).matching { include '*Module.java' }.files.each { source ->
+                def text = source.getText('UTF-8')
+                if (!text.contains('"' + category + '"'))
+                    violations << "${project.relativePath(source)} does not declare the ${category} category"
+            }
+        }
+
+        def allowedRootFiles = ['ClientModule.java', 'ModuleManager.java'] as Set
+        fileTree(moduleRoot).matching { include '*.java' }.files.each { source ->
+            if (!allowedRootFiles.contains(source.name))
+                violations << "Module root contains non-infrastructure source: ${project.relativePath(source)}"
+        }
+
+        if (!violations.isEmpty())
+            throw new GradleException('Xdolf architecture check failed:\n - ' + violations.join('\n - '))
+    }
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('visualStyleTest')
+    dependsOn tasks.named('architectureCheck')
 }
