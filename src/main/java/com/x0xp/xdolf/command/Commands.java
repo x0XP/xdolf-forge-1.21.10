@@ -30,19 +30,19 @@ import java.nio.file.Files;
 import java.util.*;
 
 /** Xdolf dot-command parser and persistent command data. */
-final class Commands {
-    record Macro(int key,String command) {}
-    record Waypoint(String name,String dimension,int x,int y,int z) {}
+public final class Commands {
+    public record Macro(int key,String command) {}
+    public record Waypoint(String name,String dimension,int x,int y,int z) {}
 
-    static final List<Macro> macros=new ArrayList<>();
-    static final List<Waypoint> waypoints=new ArrayList<>();
-    static boolean showLogo=true;
-    static double deathX,deathY,deathZ;
+    public static final List<Macro> macros=new ArrayList<>();
+    public static final List<Waypoint> waypoints=new ArrayList<>();
+    public static boolean showLogo=true;
+    public static double deathX,deathY,deathZ;
     private static boolean wasDead;
     private static int macroDepth;
     private static final Map<String,String> SYNTAX=new LinkedHashMap<>();
 
-    static {
+    public static {
         String[] values={"help","toggle <name of hack>","timer <speed>","alloff","say <message>","modlist",
             "spam <mode/msg/delay> <args>","rotate <yaw> <pitch>","view <name/off>","bind add <hack> <key>, bind del <key>",
             "friend add <name> [alias], friend del <name>, friend list/clear","impersonate <chat/whisper> <name> <msg>",
@@ -51,7 +51,7 @@ final class Commands {
         for(String syntax:values)SYNTAX.put(syntax.split(" ")[0],syntax);
     }
 
-    static boolean execute(String text) {
+    public static boolean execute(String text) {
         if(!text.startsWith("."))return false;
         String body=text.substring(1).trim();
         String[] p=body.isEmpty()?new String[]{""}:body.split("\\s+");
@@ -200,7 +200,7 @@ final class Commands {
         save();
     }
 
-    static void runMacros(int key) {
+    public static void runMacros(int key) {
         if(macroDepth>0)return;
         macroDepth++;
         try {for(var m:List.copyOf(macros))if(m.key==key)execute(m.command);}
@@ -273,19 +273,19 @@ final class Commands {
         }
     }
 
-    static void recordDeath(Minecraft mc) {
+    public static void recordDeath(Minecraft mc) {
         if(mc.player==null)return;
         boolean dead=mc.player.isDeadOrDying();
         if(dead&&!wasDead){deathX=mc.player.getX();deathY=mc.player.getY();deathZ=mc.player.getZ();}
         wasDead=dead;
     }
 
-    static void worldChanged(Minecraft mc) {
+    public static void worldChanged(Minecraft mc) {
         wasDead=false;
         if(mc.player!=null)mc.setCameraEntity(mc.player);
     }
 
-    static void load() {
+    public static void load() {
         var path=FMLPaths.CONFIGDIR.get().resolve("xdolf-commands.properties");
         if(!Files.isRegularFile(path))return;
         var p=new Properties();
@@ -307,7 +307,7 @@ final class Commands {
         XRayModule.loadSelection(p);
     }
 
-    static void save() {
+    public static void save() {
         var p=new Properties();
         for(int i=0;i<macros.size();i++) {
             var m=macros.get(i);

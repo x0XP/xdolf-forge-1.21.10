@@ -4,7 +4,6 @@ import com.x0xp.xdolf.module.support.InventoryActions;
 
 import com.x0xp.xdolf.module.ClientModule;
 
-import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;

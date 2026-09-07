@@ -20,7 +20,7 @@ import net.minecraft.network.chat.Component;
 import com.x0xp.xdolf.mixin.accessor.CreateWorldScreenAccess;
 
 /** Explicit opt-in CI test. Normal launches never create a test world. */
-final class ClientSmoke {
+public final class ClientSmoke {
     private static final boolean ACTIVE = Boolean.getBoolean("xdolf.smokeTest");
     private static int phase, frames, ticks, lowResTicks;
     private static volatile boolean captureDone;
@@ -29,7 +29,7 @@ final class ClientSmoke {
     private static boolean guiCaptureRequested;
     private static boolean lowResCaptureRequested;
 
-    static void tick(Minecraft mc) {
+    public static void tick(Minecraft mc) {
         if (!ACTIVE || mc.getOverlay() != null) return;
         if(guiCaptureRequested) {
             guiCaptureRequested=false;
@@ -86,7 +86,7 @@ final class ClientSmoke {
         }
     }
 
-    static void frame() {
+    public static void frame() {
         if (!ACTIVE) return;
         frames++;
         if (phase == 4 && frames == 5) {

@@ -4,7 +4,6 @@ import com.x0xp.xdolf.core.ClientRuntime;
 import com.x0xp.xdolf.dev.ClientSmoke;
 import com.x0xp.xdolf.settings.BooleanSetting;
 import com.x0xp.xdolf.settings.ChoiceSetting;
-import com.x0xp.xdolf.settings.Kind;
 import com.x0xp.xdolf.settings.ModuleSetting;
 import com.x0xp.xdolf.settings.NumberSetting;
 import com.x0xp.xdolf.settings.TextSetting;
@@ -17,7 +16,6 @@ import com.x0xp.xdolf.settings.Keybinds;
 
 import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.module.ModuleManager;
-import com.x0xp.xdolf.settings.*;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -120,7 +118,7 @@ public final class ClientScreen extends Screen {
         ClientSmoke.frame();
     }
 
-    static void renderPinned(GuiGraphics graphics) {
+    public static void renderPinned(GuiGraphics graphics) {
         setup();
         if (Minecraft.getInstance().screen instanceof ClientScreen) return;
         for (ClickGuiPanel panel : PANELS)
@@ -575,7 +573,7 @@ public final class ClientScreen extends Screen {
     @Override
     public boolean isPauseScreen() { return false; }
 
-    static void smokeCheckAndArrange() {
+    public static void smokeCheckAndArrange() {
         var screen = (ClientScreen) Minecraft.getInstance().screen;
         if (PANELS.size() != 6) throw new IllegalStateException("Expected six GUI windows");
         var player = panel("Player");

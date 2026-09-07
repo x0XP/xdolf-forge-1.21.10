@@ -15,7 +15,7 @@ public final class SocialState {
     private static final Set<String> FRIENDS = new TreeSet<>();
     private static final Path FILE = FMLPaths.CONFIGDIR.get().resolve("xdolf-friends.txt");
 
-    static void load() {
+    public static void load() {
         try {
             if (Files.isRegularFile(FILE)) for (String line : Files.readAllLines(FILE)) {
                 if (line.matches("[A-Za-z0-9_]{1,16}")) FRIENDS.add(line.toLowerCase(Locale.ROOT));
@@ -23,7 +23,7 @@ public final class SocialState {
         } catch (IOException error) { LogUtils.getLogger().warn("Could not load Xdolf friends", error); }
     }
     public static boolean isFriend(String name) { return FRIENDS.contains(name.toLowerCase(Locale.ROOT)); }
-    static void command(String[] parts) {
+    public static void command(String[] parts) {
         if (parts.length==2 && parts[1].equalsIgnoreCase("clear")) {
             FRIENDS.clear();save();return;
         }

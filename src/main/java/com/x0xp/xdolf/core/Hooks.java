@@ -4,7 +4,6 @@ import com.x0xp.xdolf.settings.BooleanSetting;
 import com.x0xp.xdolf.settings.NumberSetting;
 
 import com.x0xp.xdolf.module.ModuleManager;
-import com.x0xp.xdolf.settings.*;
 
 import com.x0xp.xdolf.module.player.AnnouncerModule;
 import com.x0xp.xdolf.module.world.FreecamModule;

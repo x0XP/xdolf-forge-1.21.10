@@ -1,6 +1,5 @@
 package com.x0xp.xdolf.chat;
 
-import com.x0xp.xdolf.module.Activity;
 
 import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.module.ModuleManager;

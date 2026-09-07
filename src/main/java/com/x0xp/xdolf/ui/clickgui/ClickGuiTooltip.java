@@ -1,14 +1,12 @@
 package com.x0xp.xdolf.ui.clickgui;
 
 import com.x0xp.xdolf.settings.ChoiceSetting;
-import com.x0xp.xdolf.settings.Kind;
 import com.x0xp.xdolf.settings.ModuleSetting;
 import com.x0xp.xdolf.settings.NumberSetting;
 import com.x0xp.xdolf.ui.XdolfFont;
 
 import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.module.ModuleManager;
-import com.x0xp.xdolf.settings.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

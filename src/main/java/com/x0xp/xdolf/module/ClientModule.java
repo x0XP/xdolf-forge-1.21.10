@@ -8,7 +8,6 @@ import com.x0xp.xdolf.settings.TextSetting;
 
 import com.x0xp.xdolf.settings.ClientConfig;
 import com.x0xp.xdolf.core.ClientRuntime;
-import com.x0xp.xdolf.settings.*;
 
 import net.minecraft.client.Minecraft;
 import java.util.ArrayList;

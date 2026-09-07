@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.OptionalDouble;
 
 /** World-space renderer for Xdolf tracers, ESP, storage, trajectories and visual smoke fixtures. */
-final class WorldVisuals implements FramePassManager.PassDefinition {
+public final class WorldVisuals implements FramePassManager.PassDefinition {
     private record Segment(Vec3 a,Vec3 b,int color,double width,boolean stableStart) {
         Segment(Vec3 a,Vec3 b,int color,double width){this(a,b,color,width,false);}
     }
@@ -60,10 +60,10 @@ final class WorldVisuals implements FramePassManager.PassDefinition {
     }
 
     private Scene scene=Scene.empty();
-    static boolean smokeFixture;
+    public static boolean smokeFixture;
     private static int smokeLines,smokeBoxes,smokeTags;
 
-    static void assertSmokeRendered() {
+    public static void assertSmokeRendered() {
         if(smokeLines==0||smokeBoxes==0||smokeTags==0)
             throw new IllegalStateException("World frame pass did not render all visual fixture types");
     }
@@ -87,7 +87,7 @@ final class WorldVisuals implements FramePassManager.PassDefinition {
 
     private static ResourceLocation id(String path){return ResourceLocation.fromNamespaceAndPath(Xdolf.ID,path);}
 
-    static void register() {
+    public static void register() {
         AddFramePassEvent.BUS.addListener(event->event.addPass(id("world_visuals"),new WorldVisuals()));
     }
 

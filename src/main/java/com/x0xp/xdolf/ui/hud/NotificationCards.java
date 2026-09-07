@@ -29,7 +29,7 @@ public final class NotificationCards {
 
     private NotificationCards() {}
 
-    static void module(ClientModule module, boolean enabled) {
+    public static void module(ClientModule module, boolean enabled) {
         show(ClientScreen.label(module), enabled ? "Enabled" : "Disabled",
             enabled ? 0xFF35D07F : 0xFFFF4D5E,
             enabled ? 0xFF72E8A6 : 0xFFFF7B88);
@@ -52,7 +52,7 @@ public final class NotificationCards {
         reflow(now);
     }
 
-    static void render(GuiGraphics graphics) {
+    public static void render(GuiGraphics graphics) {
         long now = System.nanoTime();
         expire(now);
         int screenHeight = graphics.guiHeight();
@@ -67,9 +67,9 @@ public final class NotificationCards {
         for (int i = ACTIVE.size() - 1; i >= 0; i--) draw(graphics, ACTIVE.get(i), screenHeight, now);
     }
 
-    static int visibleCount() { return ACTIVE.size(); }
+    public static int visibleCount() { return ACTIVE.size(); }
 
-    static void clear() {
+    public static void clear() {
         ACTIVE.clear();
         EXITING.clear();
     }

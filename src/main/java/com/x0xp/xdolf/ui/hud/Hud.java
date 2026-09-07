@@ -31,14 +31,14 @@ import java.util.Locale;
 import java.util.Map;
 
 /** Xdolf HUD, module list, potion list and screen-space player/logout labels. */
-final class Hud {
-    static boolean showModules=true,showPotions=true;
+public final class Hud {
+    public static boolean showModules=true,showPotions=true;
     private static final long MODULE_ENTER_NS = 180_000_000L;
     private static final long MODULE_MOVE_NS = 160_000_000L;
     private static final long MODULE_EXIT_NS = 160_000_000L;
     private static final Map<ClientModule, ModuleHudEntry> MODULE_HUD = new IdentityHashMap<>();
 
-    static void render(GuiGraphics graphics) {
+    public static void render(GuiGraphics graphics) {
         var mc=Minecraft.getInstance();
         if(mc.player==null||mc.level==null||mc.options.hideGui)return;
 

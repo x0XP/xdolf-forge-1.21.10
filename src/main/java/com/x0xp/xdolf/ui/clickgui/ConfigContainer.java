@@ -10,7 +10,6 @@ import com.x0xp.xdolf.ui.XdolfFont;
 import com.x0xp.xdolf.settings.Keybinds;
 
 import com.x0xp.xdolf.module.ClientModule;
-import com.x0xp.xdolf.settings.*;
 
 import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
