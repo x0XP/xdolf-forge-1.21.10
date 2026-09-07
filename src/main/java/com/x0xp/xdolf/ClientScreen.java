@@ -317,7 +317,7 @@ public final class ClientScreen extends Screen {
         float rowLeft = left + 6;
         float rowRight = right - 5;
         float y = top + ConfigContainer.HEADER_HEIGHT + 2;
-        float keyFieldLeft = right - 3 - ConfigContainer.FIELD_WIDTH;
+        float keyFieldLeft = rowRight - ConfigContainer.FIELD_WIDTH;
         if (button == 0 && hit(mouseX, mouseY, keyFieldLeft, y + 1, ConfigContainer.FIELD_WIDTH, 10)) {
             commitEditing();
             beginBinding(module);
