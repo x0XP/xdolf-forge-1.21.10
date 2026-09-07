@@ -206,7 +206,8 @@ public final class ClientScreen extends Screen {
         boolean enabled = module.enabled();
         if (expanded) rect(graphics, x, y, x + 95, y + 12, hover ? 0xCC252E3B : 0xB81B222D);
         int color = enabled ? hover ? 0xFF44AAFF : 0xFFFFFFFF : hover ? 0xFF888888 : 0x99FFFFFF;
-        rect(graphics, x + 95, y, x + 96, y + 12,
+        // Keep the activation rail inside the module lane, immediately before the scrollbar lane.
+        rect(graphics, x + 94, y, x + 95, y + 12,
             enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0x0033363D);
         String name = label(module);
         XdolfFont.draw(graphics, name, x + 48 - XdolfFont.width(name) / 2f, y, color);
@@ -229,9 +230,9 @@ public final class ClientScreen extends Screen {
         float visible = Math.max(1, displayHeight - 13);
         float thumbHeight = Math.max(16, trackHeight * Math.min(1, visible / content));
         float thumbY = trackTop + Math.max(0, trackHeight - thumbHeight) * (scroll / max);
-        // Keep the scrollbar left of the module's x+97..x+98 enabled rail.
-        rect(graphics, panel.x + 96, trackTop, panel.x + 96.5f, trackBottom, 0x553A3D44);
-        rect(graphics, panel.x + 95.5f, thumbY, panel.x + 96.5f, thumbY + thumbHeight, 0xCC7B828F);
+        // Rightmost inner lane: module content -> enabled rail -> scrollbar -> panel border.
+        rect(graphics, panel.x + 98.25f, trackTop, panel.x + 98.75f, trackBottom, 0x553A3D44);
+        rect(graphics, panel.x + 98, thumbY, panel.x + 99, thumbY + thumbHeight, 0xCC7B828F);
     }
 
     private static List<? extends Player> radar() {
