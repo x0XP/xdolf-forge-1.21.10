@@ -1,11 +1,11 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
 
 import java.util.Locale;
 
 public final class BooleanSetting extends ModuleSetting<Boolean> {
     private boolean value;
 
-    BooleanSetting(String name, String label, String description, boolean value) {
+    public BooleanSetting(String name, String label, String description, boolean value) {
         super(name, label, description);
         this.value = value;
     }

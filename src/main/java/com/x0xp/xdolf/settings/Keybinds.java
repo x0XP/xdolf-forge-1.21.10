@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.ClientModule;
+
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
 import java.util.stream.Collectors;

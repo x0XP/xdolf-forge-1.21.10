@@ -1,5 +1,8 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.ClientModule;
+import com.x0xp.xdolf.module.ModuleManager;
+
 import net.minecraft.client.Minecraft;
 import java.util.LinkedHashMap;
 

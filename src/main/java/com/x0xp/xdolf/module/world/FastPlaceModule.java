@@ -1,5 +1,7 @@
 package com.x0xp.xdolf.module.world;
 
+import com.x0xp.xdolf.module.ClientModule;
+
 import com.x0xp.xdolf.*;
 import com.x0xp.xdolf.module.support.*;
 

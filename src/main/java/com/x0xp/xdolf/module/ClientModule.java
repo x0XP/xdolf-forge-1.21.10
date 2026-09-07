@@ -1,4 +1,8 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module;
+
+import com.x0xp.xdolf.ClientConfig;
+import com.x0xp.xdolf.ClientRuntime;
+import com.x0xp.xdolf.settings.*;
 
 import net.minecraft.client.Minecraft;
 import java.util.ArrayList;
@@ -27,7 +31,7 @@ public abstract class ClientModule {
     }
 
     public final boolean enabled() { return enabled; }
-    final void restoreEnabled(boolean value) { enabled = value; }
+    public final void restoreEnabled(boolean value) { enabled = value; }
 
     protected final NumberSetting setting(String name, double value, double min, double max, double step) {
         return numberSetting(name, name, "", value, min, max, step);

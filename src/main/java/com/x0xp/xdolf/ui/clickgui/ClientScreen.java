@@ -1,5 +1,9 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.ClientModule;
+import com.x0xp.xdolf.module.ModuleManager;
+import com.x0xp.xdolf.settings.*;
+
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
 
 /** A typed, self-validating value that can be persisted and rendered without module-specific GUI code. */
 public abstract class ModuleSetting<T> {
@@ -8,7 +8,7 @@ public abstract class ModuleSetting<T> {
     public final String label;
     public final String description;
 
-    ModuleSetting(String name, String label, String description) {
+    protected ModuleSetting(String name, String label, String description) {
         this.name = name;
         this.label = label == null || label.isBlank() ? name : label;
         this.description = description == null ? "" : description;

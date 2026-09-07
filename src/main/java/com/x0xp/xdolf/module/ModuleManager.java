@@ -1,4 +1,7 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module;
+
+import com.x0xp.xdolf.ClientRuntime;
+import com.x0xp.xdolf.NotificationCards;
 
 import net.minecraft.client.Minecraft;
 import java.util.HashSet;
@@ -7,19 +10,19 @@ import java.util.List;
 import java.util.Set;
 
 /** One authority for enablement, dependencies, conflicts and temporary suspension. */
-final class ModuleManager {
-    enum Activity { DISABLED, WAITING_FOR_WORLD, MISSING_DEPENDENCY, SUSPENDED, PAUSED, ACTIVE }
-    record Status(Activity activity, String detail) {
-        boolean active() { return activity == Activity.ACTIVE; }
+public final class ModuleManager {
+    public enum Activity { DISABLED, WAITING_FOR_WORLD, MISSING_DEPENDENCY, SUSPENDED, PAUSED, ACTIVE }
+    public record Status(Activity activity, String detail) {
+        public boolean active() { return activity == Activity.ACTIVE; }
     }
 
     private ModuleManager() {}
 
-    static boolean setEnabled(ClientModule module, boolean enabled) {
+    public static boolean setEnabled(ClientModule module, boolean enabled) {
         return enabled ? enable(module, new HashSet<>()) : disable(module);
     }
 
-    static boolean toggle(ClientModule module) {
+    public static boolean toggle(ClientModule module) {
         return setEnabled(module, !module.enabled());
     }
 
@@ -60,16 +63,16 @@ final class ModuleManager {
         return true;
     }
 
-    static boolean conflict(ClientModule first, ClientModule second) {
+    public static boolean conflict(ClientModule first, ClientModule second) {
         return contains(first.conflicts(), second.name) || contains(second.conflicts(), first.name);
     }
 
-    static List<String> conflicts(ClientModule module) {
+    public static List<String> conflicts(ClientModule module) {
         return ClientRuntime.MODULES.stream().filter(other -> other != module && conflict(module, other))
             .map(other -> other.name).toList();
     }
 
-    static Status status(ClientModule module, Minecraft mc) {
+    public static Status status(ClientModule module, Minecraft mc) {
         if (!module.enabled()) return new Status(Activity.DISABLED, "Disabled");
         if (mc == null || mc.player == null || mc.level == null || mc.getConnection() == null)
             return new Status(Activity.WAITING_FOR_WORLD, "Waiting for a world");
@@ -86,11 +89,11 @@ final class ModuleManager {
         return new Status(Activity.ACTIVE, "Active");
     }
 
-    static boolean active(ClientModule module, Minecraft mc) {
+    public static boolean active(ClientModule module, Minecraft mc) {
         return status(module, mc).active();
     }
 
-    static void reconcileRestoredSelections() {
+    public static void reconcileRestoredSelections() {
         for (ClientModule module : ClientRuntime.MODULES) {
             if (!module.enabled()) continue;
             for (ClientModule other : ClientRuntime.MODULES) {

@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.ClientModule;
+
 import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +9,7 @@ import java.util.List;
 import static com.x0xp.xdolf.UiDraw.*;
 
 /** Animated centre-left HUD cards for module state and short client notices. */
-final class NotificationCards {
+public final class NotificationCards {
     private static final int MAX_VISIBLE = 3;
     private static final float LEFT = 7.0f;
     private static final float CARD_WIDTH = 142.0f;
@@ -30,7 +32,7 @@ final class NotificationCards {
             enabled ? 0xFF72E8A6 : 0xFFFF7B88);
     }
 
-    static void warning(String title, String detail) {
+    public static void warning(String title, String detail) {
         show(title, detail, 0xFFFFB347, 0xFFFFC66D);
     }
 

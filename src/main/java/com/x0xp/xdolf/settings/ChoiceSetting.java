@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
 
 import java.util.List;
 
@@ -6,7 +6,7 @@ public final class ChoiceSetting extends ModuleSetting<String> {
     public final List<String> choices;
     private String value;
 
-    ChoiceSetting(String name, String label, String description, String value, String... choices) {
+    public ChoiceSetting(String name, String label, String description, String value, String... choices) {
         super(name, label, description);
         this.choices = List.of(choices);
         if (this.choices.isEmpty()) throw new IllegalArgumentException("Choice setting requires values");

@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.ClientModule;
+
 import com.x0xp.xdolf.module.player.SpammerModule;
 import com.x0xp.xdolf.module.world.XRayModule;
 import net.minecraft.client.Minecraft;

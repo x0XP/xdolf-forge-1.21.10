@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.ClientModule;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
