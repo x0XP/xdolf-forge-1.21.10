@@ -2,7 +2,6 @@ package com.x0xp.xdolf.module.world;
 
 import com.x0xp.xdolf.module.ClientModule;
 
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -19,7 +18,9 @@ public final class XRayModule extends ClientModule {
         var snapshot=selection;
         if(snapshot.removed.contains(id))return false;
         if(snapshot.added.contains(id))return true;
-        return state.is(Tags.Blocks.ORES) || state.is(Blocks.ANCIENT_DEBRIS) || state.is(Blocks.CHEST)
+        return state.is(Blocks.COAL_ORE) || state.is(Blocks.DEEPSLATE_COAL_ORE)
+            || state.is(Blocks.IRON_ORE) || state.is(Blocks.DEEPSLATE_IRON_ORE)
+            || state.is(Tags.Blocks.ORES) || state.is(Blocks.ANCIENT_DEBRIS) || state.is(Blocks.CHEST)
             || state.is(Blocks.TRAPPED_CHEST) || state.is(Blocks.ENDER_CHEST) || state.is(Blocks.SPAWNER);
     }
     public static void edit(String id,boolean add) {
