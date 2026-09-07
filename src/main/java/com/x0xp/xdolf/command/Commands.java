@@ -1,5 +1,8 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.player.SpammerModule;
+import com.x0xp.xdolf.module.world.XRayModule;
+
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;
@@ -194,7 +197,7 @@ final class Commands {
 
     private static void spam(String body,String[] p) {
         need(p,2);
-        SpammerModule spammer=NetworkModules.spammer();
+        SpammerModule spammer=(SpammerModule)ClientRuntime.find("Spammer");
         String response;
         switch(p[1].toLowerCase(Locale.ROOT)) {
             case "mode" -> {

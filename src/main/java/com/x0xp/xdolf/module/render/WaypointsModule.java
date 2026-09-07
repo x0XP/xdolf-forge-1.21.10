@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 
-final class WaypointsModule extends ClientModule {
-    WaypointsModule() {
+public final class WaypointsModule extends ClientModule {
+    public WaypointsModule() {
         super("Waypoints", "Toggle rendering for saved .waypoint locations.", "Render");
     }
 

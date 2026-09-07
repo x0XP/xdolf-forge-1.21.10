@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.render.LogoutSpotModule;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;

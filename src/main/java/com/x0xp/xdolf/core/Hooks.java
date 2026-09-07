@@ -1,5 +1,8 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.player.AnnouncerModule;
+import com.x0xp.xdolf.module.world.FreecamModule;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;

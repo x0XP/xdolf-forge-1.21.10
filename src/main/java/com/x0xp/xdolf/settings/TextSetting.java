@@ -1,6 +1,6 @@
 package com.x0xp.xdolf;
 
-final class TextSetting extends ModuleSetting<String> {
+public final class TextSetting extends ModuleSetting<String> {
     public final int maxLength;
     private String value;
 

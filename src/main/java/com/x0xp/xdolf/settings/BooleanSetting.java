@@ -2,7 +2,7 @@ package com.x0xp.xdolf;
 
 import java.util.Locale;
 
-final class BooleanSetting extends ModuleSetting<Boolean> {
+public final class BooleanSetting extends ModuleSetting<Boolean> {
     private boolean value;
 
     BooleanSetting(String name, String label, String description, boolean value) {

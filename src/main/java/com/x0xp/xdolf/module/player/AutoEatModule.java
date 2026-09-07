@@ -1,4 +1,7 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -7,14 +10,14 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Items;
 
-final class AutoEatModule extends ClientModule {
+public final class AutoEatModule extends ClientModule {
     private final NumberSetting hunger = setting("hunger", 7, 0, 19, 1);
     private int original = -1;
     private int selected = -1;
     private LocalPlayer owner;
     private boolean holdingUse;
 
-    AutoEatModule() {
+    public AutoEatModule() {
         super("AutoEat", "Eat ordinary food; preserve golden apples and avoid harmful food.", "Player");
     }
 

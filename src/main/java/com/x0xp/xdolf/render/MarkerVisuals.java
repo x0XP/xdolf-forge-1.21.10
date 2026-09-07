@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.render.LogoutSpotModule;
+
 import com.x0xp.xdolf.mixin.GameRendererAccess;
 import com.x0xp.xdolf.mixin.LevelRendererAccess;
 import com.mojang.blaze3d.framegraph.FramePass;

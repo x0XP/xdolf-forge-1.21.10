@@ -1,4 +1,7 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -10,7 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /** Batches ordinary player activity into one rate-limited public chat message. */
-final class AnnouncerModule extends ClientModule {
+public final class AnnouncerModule extends ClientModule {
     final NumberSetting delay = numberSetting("delay", "Delay (ms)",
         "Minimum time between announcement messages.", 1800, 250, 120000, 100);
     final BooleanSetting walking = booleanSetting("walking", "Distance walked",
@@ -36,7 +39,7 @@ final class AnnouncerModule extends ClientModule {
     private int attacks;
     private long intervalStarted;
 
-    AnnouncerModule() {
+    public AnnouncerModule() {
         super("Announcer", "Share batched walking, mining, eating, jumping and combat activity in chat.", "Player");
     }
 
@@ -87,15 +90,15 @@ final class AnnouncerModule extends ClientModule {
         ChatQueue.offer(this, message.substring(0, Math.min(message.length(), 256)), Math.round(delay.get()));
     }
 
-    void blockBroken(String name) {
+    public void blockBroken(String name) {
         if (enabled() && breaking.on()) broken.merge(cleanName(name), 1, Integer::sum);
     }
 
-    void foodEaten(String name) {
+    public void foodEaten(String name) {
         if (enabled() && eating.on()) eaten.merge(cleanName(name), 1, Integer::sum);
     }
 
-    void entityAttacked() {
+    public void entityAttacked() {
         if (enabled() && attacking.on()) attacks++;
     }
 

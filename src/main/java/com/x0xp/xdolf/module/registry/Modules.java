@@ -1,14 +1,16 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.registry;
+
+import com.x0xp.xdolf.*;
 
 import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Central module registry. Implementations are kept one-class-per-file in their GUI category. */
-final class Modules {
+public final class Modules {
     private Modules() {}
 
-    static List<ClientModule> create() {
+    public static List<ClientModule> create() {
         var modules = new ArrayList<ClientModule>();
         registerPlayer(modules);
         registerRender(modules);

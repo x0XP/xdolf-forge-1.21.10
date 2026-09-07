@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 
-final class NametagsModule extends ClientModule {
-    NametagsModule() {
+public final class NametagsModule extends ClientModule {
+    public NametagsModule() {
         super("Nametags", "Original player names and health percentages.", "Render");
     }
 

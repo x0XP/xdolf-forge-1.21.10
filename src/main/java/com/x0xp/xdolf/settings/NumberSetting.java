@@ -2,7 +2,7 @@ package com.x0xp.xdolf;
 
 import java.util.Locale;
 
-final class NumberSetting extends ModuleSetting<Double> {
+public final class NumberSetting extends ModuleSetting<Double> {
     public final double min, max, step;
     private double value;
 

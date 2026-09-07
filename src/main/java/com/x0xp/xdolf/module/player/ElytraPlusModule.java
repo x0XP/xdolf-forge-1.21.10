@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 
-final class ElytraPlusModule extends ClientModule {
+public final class ElytraPlusModule extends ClientModule {
     private final NumberSetting boost = setting("boost", 0.05, 0.01, 0.3, 0.01);
     private final BooleanSetting takeoff = booleanSetting("takeoff", "Instant fly - easy takeoff",
         "Request elytra takeoff while jump is held in the air.", true);
@@ -11,7 +14,7 @@ final class ElytraPlusModule extends ClientModule {
         "Pause the elytra boost while touching water.", false);
     private int delay;
 
-    ElytraPlusModule() {
+    public ElytraPlusModule() {
         super("ElytraPlus", "Boost gliding; hold jump in the air to request takeoff.", "Player");
         conflictsWith("Flight", "ElytraFly");
     }

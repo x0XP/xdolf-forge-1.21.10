@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 
-final class JesusModule extends ClientModule {
-    JesusModule() {
+public final class JesusModule extends ClientModule {
+    public JesusModule() {
         super("Jesus", "Walk on fluid surfaces; sneak to descend.", "Player");
     }
 

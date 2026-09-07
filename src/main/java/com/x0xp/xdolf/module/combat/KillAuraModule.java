@@ -1,4 +1,7 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.combat;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
@@ -7,7 +10,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import java.util.Comparator;
 
-final class KillAuraModule extends ClientModule {
+public final class KillAuraModule extends ClientModule {
     private final NumberSetting range = setting("range", 3.75, 3, 10, 0.25);
     private final BooleanSetting players = toggle("players", true);
     private final BooleanSetting monsters = toggle("monsters", true);
@@ -15,7 +18,7 @@ final class KillAuraModule extends ClientModule {
     private final BooleanSetting walls = booleanSetting("walls", "Hit Through Walls", "", true);
     private final BooleanSetting seen = booleanSetting("seen", "Can Be Seen", "", false);
 
-    KillAuraModule() {
+    public KillAuraModule() {
         super("KillAura", "Attack the nearest visible selected target at full cooldown.", "Combat");
     }
 

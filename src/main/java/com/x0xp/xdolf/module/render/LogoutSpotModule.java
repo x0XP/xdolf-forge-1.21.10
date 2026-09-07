@@ -1,4 +1,7 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
@@ -17,19 +20,19 @@ import java.util.UUID;
  * Player object is retained while a spot exists; this preserves the skin, equipment,
  * pose and rotations needed to draw the logout model exactly where it disappeared.</p>
  */
-final class LogoutSpotModule extends ClientModule {
-    record Spot(UUID id, String name, String dimension, Vec3 position, Player ghost) {}
+public final class LogoutSpotModule extends ClientModule {
+    public record Spot(UUID id, String name, String dimension, Vec3 position, Player ghost) {}
 
     private static final Map<UUID, Spot> LOGOUT_SPOTS = new LinkedHashMap<>();
     private final Map<UUID, Spot> lastSeen = new HashMap<>();
     private String dimension;
 
-    LogoutSpotModule() {
+    public LogoutSpotModule() {
         super("LogoutSpot", "Render logout positions, retained player models and optional tracers.", "Render");
         toggle("tracers", true);
     }
 
-    static java.util.Collection<Spot> spots() {
+    public static java.util.Collection<Spot> spots() {
         return java.util.List.copyOf(LOGOUT_SPOTS.values());
     }
 

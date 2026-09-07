@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.registry.Modules;
+
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.DeathScreen;
@@ -16,8 +18,8 @@ import net.minecraftforge.event.TickEvent;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
-final class ClientRuntime {
-    static final List<ClientModule> MODULES = Modules.create();
+public final class ClientRuntime {
+    public static final List<ClientModule> MODULES = Modules.create();
     private static ClientLevel previousLevel;
     private static net.minecraft.client.player.LocalPlayer previousPlayer;
 
@@ -132,7 +134,7 @@ final class ClientRuntime {
         }
     }
 
-    static ClientModule find(String name) {
+    public static ClientModule find(String name) {
         return MODULES.stream().filter(module -> module.name.replace(" ", "").equalsIgnoreCase(name.replace(" ", ""))
             || ClientScreen.label(module).equalsIgnoreCase(name)).findFirst().orElse(null);
     }
@@ -142,7 +144,7 @@ final class ClientRuntime {
         NotificationCards.module(module, module.enabled());
     }
 
-    static void message(String text) {
+    public static void message(String text) {
         var player = Minecraft.getInstance().player;
         if (player != null) player.displayClientMessage(ChatFormatter.prefixed(text), false);
     }

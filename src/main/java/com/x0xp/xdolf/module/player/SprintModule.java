@@ -1,13 +1,16 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
-final class SprintModule extends ClientModule {
+public final class SprintModule extends ClientModule {
     private LocalPlayer owner;
     private boolean applied;
 
-    SprintModule() {
+    public SprintModule() {
         super("Sprint", "Sprint while moving forward and able to sprint.", "Player");
     }
 

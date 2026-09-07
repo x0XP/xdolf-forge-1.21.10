@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 
-final class StorageESPModule extends ClientModule {
-    StorageESPModule() {
+public final class StorageESPModule extends ClientModule {
+    public StorageESPModule() {
         super("StorageESP", "Original filled storage boxes and type colours.", "Render");
     }
 

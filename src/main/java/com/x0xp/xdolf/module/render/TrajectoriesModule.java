@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.support.*;
 
 import net.minecraft.client.Minecraft;
 
-final class TrajectoriesModule extends ClientModule {
-    TrajectoriesModule() {
+public final class TrajectoriesModule extends ClientModule {
+    public TrajectoriesModule() {
         super("Trajectories", "Original projectile line and landing box.", "Render");
     }
 

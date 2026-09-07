@@ -2,7 +2,7 @@ package com.x0xp.xdolf;
 
 import java.util.List;
 
-final class ChoiceSetting extends ModuleSetting<String> {
+public final class ChoiceSetting extends ModuleSetting<String> {
     public final List<String> choices;
     private String value;
 
