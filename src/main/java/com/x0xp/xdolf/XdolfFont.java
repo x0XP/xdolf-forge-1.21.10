@@ -5,7 +5,6 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.ComponentRenderUtils;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -15,10 +14,10 @@ import net.minecraft.util.FormattedCharSequence;
 import java.awt.Color;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+
+
 import java.util.List;
-import javax.imageio.ImageIO;
+
 
 /** Xdolf's Roboto/AWT font renderer used by the GUI, HUD, chat and world labels. */
 public final class XdolfFont {
@@ -27,9 +26,10 @@ public final class XdolfFont {
     private static final int COMPACT_FONT_SIZE = 7;
     private static final int MAX_RASTER_SCALE = 4;
     private static final int GLYPH_COUNT = 2048;
+    private static final java.util.Map<String, FontAtlas> EXTRA_ATLASES = new java.util.HashMap<>();
+    private static java.awt.Font bundledFont;
     private static final FontAtlas[] ATLASES = new FontAtlas[MAX_RASTER_SCALE + 1];
     private static final FontAtlas[] COMPACT_ATLASES = new FontAtlas[MAX_RASTER_SCALE + 1];
-    private static final char[] FORMAT_CODES = "0123456789abcdef".toCharArray();
     private static final int[] CHAT_RGB = {
         0x000000,0x0000AA,0x00AA00,0x00AAAA,0xAA0000,0xAA00AA,0xFFAA00,0xAAAAAA,
         0x555555,0x5555FF,0x55FF55,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
@@ -117,10 +117,37 @@ public final class XdolfFont {
         activeCompactAtlas=null;
     }
 
+    private static java.awt.Font font(int size) throws java.io.IOException {
+        if (bundledFont == null) {
+            try (var stream = XdolfFont.class.getResourceAsStream("/assets/xdolf/font/Roboto-Regular.ttf")) {
+                if (stream == null) throw new java.io.IOException("Bundled Roboto font missing");
+                bundledFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, stream);
+            } catch (java.awt.FontFormatException error) {
+                throw new java.io.IOException("Invalid bundled Roboto font", error);
+            }
+        }
+        return bundledFont.deriveFont((float) size);
+    }
+
+    private static FontAtlas glyphAtlas(FontAtlas base, int codePoint) {
+        int page = codePoint / GLYPH_COUNT;
+        if (page == 0) return base.texture.getPath().contains("compact") ? compactAtlas() : atlas();
+        boolean compact = base.texture.getPath().contains("compact");
+        String key = (compact ? "compact_" : "main_") + base.scale + "_" + page;
+        return EXTRA_ATLASES.computeIfAbsent(key, ignored -> buildAtlas(base.scale,
+            compact ? COMPACT_FONT_SIZE : BASE_FONT_SIZE, "font_page_" + key + "_", "unicode", page));
+    }
+
     private static FontAtlas buildAtlas(int scale,int baseFontSize,String texturePrefix,String role) {
+        return buildAtlas(scale,baseFontSize,texturePrefix,role,0);
+    }
+
+    private static FontAtlas buildAtlas(int scale,int baseFontSize,String texturePrefix,String role,int page) {
         long started=System.nanoTime();
         try {
             int fontSize=baseFontSize*scale;
+            var primaryFont=font(fontSize);
+            var fallbackFont=new java.awt.Font("Dialog",java.awt.Font.PLAIN,fontSize);
             int cellPadding=Math.max(2,2*scale);
             int leftPadding=Math.max(1,Math.round(0.75f*scale));
             int topPadding=Math.max(0,Math.round(0.25f*scale));
@@ -130,14 +157,16 @@ public final class XdolfFont {
             // Measure/layout first so each raster scale only allocates the texture height it uses.
             var measuringImage=new BufferedImage(1,1,BufferedImage.TYPE_INT_ARGB);
             var measuringGraphics=measuringImage.createGraphics();
-            measuringGraphics.setFont(new java.awt.Font("Roboto",java.awt.Font.PLAIN,fontSize));
+            measuringGraphics.setFont(primaryFont);
             measuringGraphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             measuringGraphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
             var metrics=measuringGraphics.getFontMetrics();
             int glyphHeight=metrics.getHeight()+extraHeight;
             int x=0,y=0;
             for(int i=0;i<GLYPH_COUNT;i++) {
-                width[i]=Math.max(scale+1,metrics.charWidth((char)i)+cellPadding);
+                int codePoint=page*GLYPH_COUNT+i;
+                var selected=primaryFont.canDisplay(codePoint)?primaryFont:fallbackFont;
+                width[i]=Math.max(cellPadding,measuringGraphics.getFontMetrics(selected).charWidth(codePoint)+cellPadding);
                 if(x+width[i]>=ATLAS_WIDTH) { x=0; y+=glyphHeight; }
                 xPos[i]=x;
                 yPos[i]=y;
@@ -151,18 +180,22 @@ public final class XdolfFont {
 
             var imageBuffer=new BufferedImage(ATLAS_WIDTH,textureHeight,BufferedImage.TYPE_INT_ARGB);
             var graphics=imageBuffer.createGraphics();
-            graphics.setFont(new java.awt.Font("Roboto",java.awt.Font.PLAIN,fontSize));
+            graphics.setFont(primaryFont);
             graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
             graphics.setColor(Color.WHITE);
-            for(int i=0;i<GLYPH_COUNT;i++)
-                graphics.drawString(String.valueOf((char)i),xPos[i]+leftPadding,yPos[i]+topPadding+metrics.getAscent());
+            for(int i=0;i<GLYPH_COUNT;i++) {
+                int codePoint=page*GLYPH_COUNT+i;
+                graphics.setFont(primaryFont.canDisplay(codePoint)?primaryFont:fallbackFont);
+                graphics.drawString(new String(Character.toChars(codePoint)),xPos[i]+leftPadding,yPos[i]+topPadding+metrics.getAscent());
+            }
             graphics.dispose();
 
             int[] visible=measureVisibleAsciiBounds(imageBuffer,width,xPos,yPos,glyphHeight);
-            var bytes=new ByteArrayOutputStream();
-            ImageIO.write(imageBuffer,"png",bytes);
-            var nativeImage=NativeImage.read(new ByteArrayInputStream(bytes.toByteArray()));
+            var nativeImage=new NativeImage(ATLAS_WIDTH,textureHeight,false);
+            for(int py=0;py<textureHeight;py++)
+                for(int px=0;px<ATLAS_WIDTH;px++)
+                    nativeImage.setPixelARGB(px,py,imageBuffer.getRGB(px,py));
             var dynamicTexture=new DynamicTexture(() -> "Xdolf "+role+" TTF font scale "+scale,nativeImage);
             dynamicTexture.setFilter(false,false);
             ResourceLocation texture=ResourceLocation.fromNamespaceAndPath("xdolf",texturePrefix+scale);
@@ -244,16 +277,19 @@ public final class XdolfFont {
         var matrix=new org.joml.Matrix4f(transform).translate(x-1.5f,y,shadow?0.001f:0).scale(scale,scale,1);
         var consumer=buffers.getBuffer(atlas.worldText);
         int offset=0,current=color;
-        for(int i=0;i<text.length();i++) {
-            char c=text.charAt(i);
-            if(c=='\u00a7'&&i+1<text.length()) {
-                char formatting=Character.toLowerCase(text.charAt(++i));
+        for(int i=0;i<text.length();) {
+            int c=text.codePointAt(i);
+            i+=Character.charCount(c);
+            if(c=='\u00a7'&&i<text.length()) {
+                char formatting=Character.toLowerCase(text.charAt(i++));
                 int code="0123456789abcdef".indexOf(formatting);
                 if(!shadow&&code>=0)current=(color&0xFF000000)|CHAT_RGB[code];
                 else if(!shadow&&formatting=='r')current=color;
                 continue;
             }
-            if(c>=atlas.width.length)continue;
+            atlas=glyphAtlas(atlas,c);
+            c%=GLYPH_COUNT;
+            consumer=buffers.getBuffer(atlas.worldText);
             float u=atlas.x[c]/(float)ATLAS_WIDTH,v=atlas.y[c]/(float)atlas.textureHeight;
             float right=(atlas.x[c]+atlas.width[c])/(float)ATLAS_WIDTH;
             float bottom=(atlas.y[c]+atlas.glyphHeight)/(float)atlas.textureHeight;
@@ -275,15 +311,25 @@ public final class XdolfFont {
 
     private static int width(FontAtlas atlas,String text) {
         int width=0;
-        for(int i=0;i<text.length();i++) {
-            char c=text.charAt(i);
-            if(c=='\u00a7'&&i+1<text.length()){i++;continue;}
-            if(c<atlas.width.length)width+=atlas.width[c]-atlas.cellPadding;
+        for(int i=0;i<text.length();) {
+            int c=text.codePointAt(i);
+            i+=Character.charCount(c);
+            if(c=='\u00a7'&&i<text.length()){i++;continue;}
+            var glyph=glyphAtlas(atlas,c);
+            width+=glyph.width[c%GLYPH_COUNT]-glyph.cellPadding;
         }
         return Math.round(width/(float)atlas.scale);
     }
 
-    public static int width(FormattedCharSequence sequence) { return width(toFormattedString(sequence)); }
+    public static int width(FormattedCharSequence sequence) {
+        final float[] advance={0};
+        sequence.accept((index,style,cp)->{
+            var glyph=glyphAtlas(atlas(),cp);
+            advance[0]+=(glyph.width[cp%GLYPH_COUNT]-glyph.cellPadding)/(float)glyph.scale+(style.isBold()?1:0);
+            return true;
+        });
+        return Math.round(advance[0]);
+    }
 
     public static String trim(String text,int max) {
         return trim(atlas(),text,max);
@@ -294,8 +340,18 @@ public final class XdolfFont {
     }
 
     private static String trim(FontAtlas atlas,String text,int max) {
-        int end=text.length();
-        while(end>0&&width(atlas,text.substring(0,end))>max)end--;
+        int end=0;
+        int advance=0;
+        while(end<text.length()) {
+            int cp=text.codePointAt(end);
+            int next=end+Character.charCount(cp);
+            if(cp=='\u00a7'&&next<text.length()) { end=next+1; continue; }
+            var glyph=glyphAtlas(atlas,cp);
+            int candidate=advance+glyph.width[cp%GLYPH_COUNT]-glyph.cellPadding;
+            if(Math.round(candidate/(float)atlas.scale)>max)break;
+            advance=candidate;
+            end=next;
+        }
         return text.substring(0,end);
     }
 
@@ -304,18 +360,12 @@ public final class XdolfFont {
      * whose resulting lines fit the Xdolf font's real advances inside the configured chat width.
      */
     public static List<FormattedCharSequence> wrapChat(FormattedText text,int visualWidth,Font vanillaFont) {
-        if(visualWidth<=1)return ComponentRenderUtils.wrapComponents(text,Math.max(1,visualWidth),vanillaFont);
-        int low=1,high=visualWidth,best=1;
-        List<FormattedCharSequence> bestLines=ComponentRenderUtils.wrapComponents(text,best,vanillaFont);
-        while(low<=high) {
-            int candidate=(low+high)>>>1;
-            List<FormattedCharSequence> lines=ComponentRenderUtils.wrapComponents(text,candidate,vanillaFont);
-            boolean fits=true;
-            for(var line:lines)if(width(line)>visualWidth){fits=false;break;}
-            if(fits){best=candidate;bestLines=lines;low=candidate+1;}
-            else high=candidate-1;
-        }
-        return bestLines;
+        var splitter=new net.minecraft.client.StringSplitter((cp,style)->{
+            var glyph=glyphAtlas(atlas(),cp);
+            return (glyph.width[cp%GLYPH_COUNT]-glyph.cellPadding)/(float)glyph.scale+(style.isBold()?1:0);
+        });
+        return splitter.splitLines(text,Math.max(1,visualWidth),net.minecraft.network.chat.Style.EMPTY).stream()
+            .map(line->net.minecraft.locale.Language.getInstance().getVisualOrder(line)).toList();
     }
 
     public static void draw(GuiGraphics g,String text,float x,float y,int color) { draw(g,text,x,y,color,true); }
@@ -332,8 +382,32 @@ public final class XdolfFont {
         if(shadow)drawLine(atlas,g,text,x+1,y+1,(color&0xFF000000)|0x000D0D0D,true);
         drawLine(atlas,g,text,x,y,color,false);
     }
-    public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color) { draw(g,toFormattedString(sequence),x,y,color,true); }
-    public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color,boolean shadow) { draw(g,toFormattedString(sequence),x,y,color,shadow); }
+    public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color) { draw(g,sequence,x,y,color,true); }
+    public static void draw(GuiGraphics g,FormattedCharSequence sequence,float x,float y,int color,boolean shadow) {
+        final float[] offset={0};
+        final int baseColor=opaqueIfNeeded(color);
+        sequence.accept((index,style,cp)->{
+            var glyph=glyphAtlas(atlas(),cp);
+            float advance=(glyph.width[cp%GLYPH_COUNT]-glyph.cellPadding)/(float)glyph.scale+(style.isBold()?1:0);
+            int tint=style.getColor()==null?baseColor:(baseColor&0xFF000000)|style.getColor().getValue();
+            String value=new String(Character.toChars(cp));
+            if(style.isItalic()) {
+                g.pose().pushMatrix();
+                g.pose().translate(x+offset[0],y);
+                g.pose().mul(new org.joml.Matrix3x2f().m10(-0.2f));
+                draw(g,value,0,0,tint,shadow);
+                if(style.isBold())draw(g,value,1,0,tint,false);
+                g.pose().popMatrix();
+            } else {
+                draw(g,value,x+offset[0],y,tint,shadow);
+            if(style.isBold())draw(g,value,x+offset[0]+1,y,tint,false);
+            }
+            if(style.isUnderlined())UiDraw.rect(g,x+offset[0],y+10,x+offset[0]+advance,y+11,tint);
+            if(style.isStrikethrough())UiDraw.rect(g,x+offset[0],y+6,x+offset[0]+advance,y+7,tint);
+            offset[0]+=advance;
+            return true;
+        });
+    }
 
     private static void drawLine(FontAtlas atlas,GuiGraphics g,String text,float x,float y,int color,boolean shadow) {
         float scale=1.0f/atlas.scale;
@@ -343,16 +417,18 @@ public final class XdolfFont {
         g.pose().translate(snappedX,snappedY);
         g.pose().scale(scale,scale);
         int offset=0,current=color;
-        for(int i=0;i<text.length();i++) {
-            char c=text.charAt(i);
-            if(c=='\u00a7'&&i+1<text.length()) {
-                char formatting=Character.toLowerCase(text.charAt(++i));
+        for(int i=0;i<text.length();) {
+            int c=text.codePointAt(i);
+            i+=Character.charCount(c);
+            if(c=='\u00a7'&&i<text.length()) {
+                char formatting=Character.toLowerCase(text.charAt(i++));
                 int index="0123456789abcdef".indexOf(formatting);
                 if(!shadow&&index>=0)current=(color&0xFF000000)|CHAT_RGB[index];
                 else if(!shadow&&formatting=='r')current=color;
                 continue;
             }
-            if(c>=atlas.width.length)continue;
+            atlas=glyphAtlas(atlas,c);
+            c%=GLYPH_COUNT;
             g.blit(RenderPipelines.GUI_TEXTURED,atlas.texture,offset,0,atlas.x[c],atlas.y[c],atlas.width[c],atlas.glyphHeight,
                 ATLAS_WIDTH,atlas.textureHeight,current);
             offset+=atlas.width[c]-atlas.cellPadding;
@@ -374,32 +450,6 @@ public final class XdolfFont {
 
     private static int ceilDiv(int value,int divisor) {
         return (value+divisor-1)/divisor;
-    }
-
-    private static String toFormattedString(FormattedCharSequence sequence) {
-        var out=new StringBuilder();
-        final int[] last={-2};
-        sequence.accept((index,style,codePoint)->{
-            int next=style.getColor()==null?-1:nearestChatColor(style.getColor().getValue());
-            if(next!=last[0]) {
-                out.append('\u00a7').append(next<0?'f':FORMAT_CODES[next]);
-                last[0]=next;
-            }
-            if(Character.isBmpCodePoint(codePoint))out.append((char)codePoint);
-            else out.appendCodePoint(codePoint);
-            return true;
-        });
-        return out.toString();
-    }
-
-    private static int nearestChatColor(int rgb) {
-        rgb&=0xFFFFFF;
-        int r=rgb>>16&255,g=rgb>>8&255,b=rgb&255,best=0,bestDistance=Integer.MAX_VALUE;
-        for(int i=0;i<CHAT_RGB.length;i++) {
-            int c=CHAT_RGB[i],dr=r-(c>>16&255),dg=g-(c>>8&255),db=b-(c&255),d=dr*dr+dg*dg+db*db;
-            if(d<bestDistance){bestDistance=d;best=i;}
-        }
-        return best;
     }
 
     private static int opaqueIfNeeded(int color) { return (color>>>24)==0?color|0xFF000000:color; }
