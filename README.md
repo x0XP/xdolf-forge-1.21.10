@@ -63,11 +63,16 @@ Built JARs are written to `build/libs`. GitHub Actions also compiles the project
 
 ## Project structure
 
-The Java source is grouped by responsibility so the repository is easier to navigate. The existing Java package declarations are intentionally retained while the client is actively being rebuilt, preserving package-private contracts without introducing unnecessary API churn.
+Organisation is treated as an architectural requirement. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the source ownership rules.
 
 - `src/main/java/com/x0xp/xdolf/core/` — bootstrap, runtime hooks and core client state
-- `src/main/java/com/x0xp/xdolf/module/` — module base/registry code and modules grouped by role
-- `src/main/java/com/x0xp/xdolf/settings/` — typed settings, configuration and keybind handling
+- `src/main/java/com/x0xp/xdolf/module/player/` — one source file per Player module
+- `src/main/java/com/x0xp/xdolf/module/combat/` — one source file per Combat module
+- `src/main/java/com/x0xp/xdolf/module/render/` — one source file per Render module
+- `src/main/java/com/x0xp/xdolf/module/world/` — one source file per World module
+- `src/main/java/com/x0xp/xdolf/module/registry/` — module registration and lookup bridges only
+- `src/main/java/com/x0xp/xdolf/module/support/` — reusable module implementation helpers
+- `src/main/java/com/x0xp/xdolf/settings/` — typed settings, configuration and keybind handling; setting types are split into individual files
 - `src/main/java/com/x0xp/xdolf/chat/` — shared chat formatting, context and queueing
 - `src/main/java/com/x0xp/xdolf/command/` — command handling
 - `src/main/java/com/x0xp/xdolf/ui/clickgui/` — ClickGUI panels, options, persistence and tooltips
