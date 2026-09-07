@@ -42,7 +42,7 @@ public final class Commands {
     private static int macroDepth;
     private static final Map<String,String> SYNTAX=new LinkedHashMap<>();
 
-    public static {
+    static {
         String[] values={"help","toggle <name of hack>","timer <speed>","alloff","say <message>","modlist",
             "spam <mode/msg/delay> <args>","rotate <yaw> <pitch>","view <name/off>","bind add <hack> <key>, bind del <key>",
             "friend add <name> [alias], friend del <name>, friend list/clear","impersonate <chat/whisper> <name> <msg>",
