@@ -183,6 +183,14 @@ public final class ClientScreen extends Screen {
             enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0x0033363D);
         String name = label(module);
         XdolfFont.draw(graphics, name, x + 48 - XdolfFont.width(name) / 2f, y, color);
+        if (hover) {
+            // Draw the chevron directly so it does not depend on font glyph support.
+            for (int i = 0; i < 5; i++) {
+                float offset = expanded ? Math.abs(i - 2) : 2 - Math.abs(i - 2);
+                rect(graphics, x + 88 + i, y + 4 + offset,
+                    x + 89 + i, y + 5 + offset, 0xFF62B5FF);
+            }
+        }
     }
 
     private static void drawScrollbar(GuiGraphics graphics, ClickGuiPanel panel, float displayHeight,
