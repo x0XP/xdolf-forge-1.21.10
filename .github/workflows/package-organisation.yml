@@ -1,0 +1,150 @@
+name: Package Organisation Migration
+
+on:
+  push:
+    branches: [package-organisation]
+    paths:
+      - '.github/workflows/package-organisation.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: package-organisation
+      - name: Align module Java packages with folders
+        shell: python
+        run: |
+          from pathlib import Path
+
+          root = Path('src/main/java/com/x0xp/xdolf')
+          package_roots = {
+              root / 'module/player': 'com.x0xp.xdolf.module.player',
+              root / 'module/combat': 'com.x0xp.xdolf.module.combat',
+              root / 'module/render': 'com.x0xp.xdolf.module.render',
+              root / 'module/world': 'com.x0xp.xdolf.module.world',
+              root / 'module/support': 'com.x0xp.xdolf.module.support',
+              root / 'module/registry': 'com.x0xp.xdolf.module.registry',
+          }
+
+          for folder, package in package_roots.items():
+              for path in folder.glob('*.java'):
+                  text = path.read_text()
+                  text = text.replace('package com.x0xp.xdolf;', f'package {package};', 1)
+                  marker = f'package {package};\n'
+                  if package.startswith('com.x0xp.xdolf.module.'):
+                      imports = '\nimport com.x0xp.xdolf.*;\n'
+                      if package not in ('com.x0xp.xdolf.module.support', 'com.x0xp.xdolf.module.registry'):
+                          imports += 'import com.x0xp.xdolf.module.support.*;\n'
+                      text = text.replace(marker, marker + imports, 1)
+                  path.write_text(text)
+
+          # Category implementations must be constructible by the central registry.
+          for folder in ['player', 'combat', 'render', 'world']:
+              for path in (root / 'module' / folder).glob('*Module.java'):
+                  text = path.read_text()
+                  cls = path.stem
+                  text = text.replace(f'final class {cls}', f'public final class {cls}', 1)
+                  text = text.replace(f'    {cls}()', f'    public {cls}()', 1)
+                  path.write_text(text)
+
+          # Shared helpers are explicit cross-category APIs.
+          for name in ['MovementMath', 'InventoryActions']:
+              path = root / 'module/support' / f'{name}.java'
+              text = path.read_text().replace(f'final class {name}', f'public final class {name}', 1)
+              text = text.replace('    static ', '    public static ')
+              path.write_text(text)
+
+          # The registry is the only place that owns module construction/order.
+          path = root / 'module/registry/Modules.java'
+          text = path.read_text().replace('final class Modules', 'public final class Modules', 1)
+          text = text.replace('    static List<ClientModule> create()', '    public static List<ClientModule> create()', 1)
+          path.write_text(text)
+
+          # Legacy command lookup bridge is no longer needed after concrete modules have real packages.
+          legacy = root / 'module/registry/NetworkModules.java'
+          if legacy.exists(): legacy.unlink()
+
+          # Root-level types referenced from category packages become explicit public APIs.
+          public_types = {
+              root / 'chat/ChatQueue.java': ('final class ChatQueue', 'public final class ChatQueue'),
+              root / 'social/SocialState.java': ('final class SocialState', 'public final class SocialState'),
+              root / 'core/ClientRuntime.java': ('final class ClientRuntime', 'public final class ClientRuntime'),
+          }
+          for path, (old, new) in public_types.items():
+              text = path.read_text().replace(old, new, 1)
+              path.write_text(text)
+
+          # Public setting value types are needed by module subclasses in category packages.
+          for name in ['NumberSetting', 'BooleanSetting', 'TextSetting', 'ChoiceSetting']:
+              path = root / 'settings' / f'{name}.java'
+              text = path.read_text().replace(f'final class {name}', f'public final class {name}', 1)
+              path.write_text(text)
+
+          # Concrete cross-package hooks.
+          path = root / 'module/player/AnnouncerModule.java'
+          text = path.read_text().replace('    void blockBroken(', '    public void blockBroken(').replace('    void foodEaten(', '    public void foodEaten(').replace('    void entityAttacked()', '    public void entityAttacked()')
+          path.write_text(text)
+
+          path = root / 'module/player/SpammerModule.java'
+          text = path.read_text().replace('    final TextSetting message', '    public final TextSetting message').replace('    final ChoiceSetting mode', '    public final ChoiceSetting mode').replace('    final NumberSetting delay', '    public final NumberSetting delay')
+          path.write_text(text)
+
+          path = root / 'module/world/FreecamModule.java'
+          text = path.read_text().replace('    static Vec3 cameraPosition(', '    public static Vec3 cameraPosition(')
+          path.write_text(text)
+
+          path = root / 'module/world/XRayModule.java'
+          text = path.read_text().replace('    static void edit(', '    public static void edit(').replace('    static void loadSelection(', '    public static void loadSelection(').replace('    static void saveSelection(', '    public static void saveSelection(')
+          path.write_text(text)
+
+          path = root / 'module/render/LogoutSpotModule.java'
+          text = path.read_text().replace('    record Spot(', '    public record Spot(').replace('    static java.util.Collection<Spot> spots()', '    public static java.util.Collection<Spot> spots()')
+          path.write_text(text)
+
+          # Root classes that use concrete module types now import their owning packages.
+          import_map = {
+              root / 'core/ClientRuntime.java': ['com.x0xp.xdolf.module.registry.Modules'],
+              root / 'core/Hooks.java': ['com.x0xp.xdolf.module.player.AnnouncerModule', 'com.x0xp.xdolf.module.world.FreecamModule'],
+              root / 'command/Commands.java': ['com.x0xp.xdolf.module.player.SpammerModule', 'com.x0xp.xdolf.module.world.XRayModule'],
+              root / 'settings/ClientConfig.java': ['com.x0xp.xdolf.module.world.XRayModule'],
+              root / 'render/MarkerVisuals.java': ['com.x0xp.xdolf.module.render.LogoutSpotModule'],
+              root / 'ui/hud/Hud.java': ['com.x0xp.xdolf.module.render.LogoutSpotModule'],
+          }
+          for path, imports in import_map.items():
+              text = path.read_text()
+              marker = 'package com.x0xp.xdolf;\n'
+              block = ''.join(f'import {name};\n' for name in imports)
+              text = text.replace(marker, marker + '\n' + block, 1)
+              path.write_text(text)
+
+          # Replace the old NetworkModules command bridge with the concrete owned module.
+          path = root / 'command/Commands.java'
+          text = path.read_text().replace('SpammerModule spammer=NetworkModules.spammer();', 'SpammerModule spammer=(SpammerModule)ClientRuntime.find("Spammer");')
+          path.write_text(text)
+
+          # Category modules need access to these root coordination methods.
+          path = root / 'chat/ChatQueue.java'
+          text = path.read_text()
+          for method in ['pending', 'cancel', 'clear', 'offer', 'tick']:
+              text = text.replace(f'    static {"boolean" if method == "pending" else "void"} {method}(', f'    public static {"boolean" if method == "pending" else "void"} {method}(')
+          path.write_text(text)
+
+          path = root / 'social/SocialState.java'
+          text = path.read_text().replace('    static boolean isFriend(', '    public static boolean isFriend(')
+          path.write_text(text)
+
+          path = root / 'core/ClientRuntime.java'
+          text = path.read_text().replace('    static final List<ClientModule> MODULES', '    public static final List<ClientModule> MODULES').replace('    static ClientModule find(', '    public static ClientModule find(').replace('    static void message(', '    public static void message(')
+          path.write_text(text)
+      - name: Commit package migration
+        run: |
+          git config user.name x0XP
+          git config user.email 3501503+x0XP@users.noreply.github.com
+          git add src
+          git commit -m "Align module packages with category folders"
+          git push origin package-organisation
