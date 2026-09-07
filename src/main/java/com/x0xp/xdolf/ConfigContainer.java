@@ -10,7 +10,7 @@ import static com.x0xp.xdolf.UiDraw.*;
 /** Rendering and geometry for the typed option cards shown beneath a module. */
 final class ConfigContainer {
     static final float HEADER_HEIGHT = 13;
-    static final float KEYBIND_HEIGHT = 14;
+    static final float KEYBIND_HEIGHT = 15;
     static final float NUMBER_HEIGHT = 25;
     static final float TEXT_HEIGHT = 25;
     static final float CHOICE_HEIGHT = 15;
@@ -19,6 +19,8 @@ final class ConfigContainer {
     static final float FIELD_WIDTH = 38;
     static final float NUMBER_FIELD_WIDTH = 25;
     private static final float TOGGLE_LABEL_WIDTH = 68;
+    private static final float CONTENT_LEFT_INSET = 6;
+    private static final float CONTENT_RIGHT_INSET = 5;
 
     private ConfigContainer() {}
 
@@ -48,6 +50,8 @@ final class ConfigContainer {
         if (progress <= 0.001f) return;
         float left = panel.x + 4;
         float right = panel.x + 96;
+        float contentLeft = left + CONTENT_LEFT_INSET;
+        float contentRight = right - CONTENT_RIGHT_INSET;
         float fullHeight = height(module);
         int scissorTop = (int) Math.floor(top);
         int scissorBottom = (int) Math.ceil(top + fullHeight * progress);
@@ -60,19 +64,27 @@ final class ConfigContainer {
         outline(graphics, left, top, right, top + fullHeight, fade(0xFF343943, progress));
         rect(graphics, left, top, left + 1, top + fullHeight, fade(0xFFFF2020, progress));
         rect(graphics, left + 1, top, right, top + HEADER_HEIGHT, fade(0xF0181B22, progress));
-        rect(graphics, left + 1, top + HEADER_HEIGHT - 1, left + 47, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
-        rect(graphics, left + 47, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
+
+        float headerMid = left + (right - left) / 2f;
+        rect(graphics, left + 1, top + HEADER_HEIGHT - 1, headerMid, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
+        rect(graphics, headerMid, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
         float headerTextY = centered(top, top + HEADER_HEIGHT - 1);
-        XdolfFont.drawCompact(graphics, XdolfFont.compactTrim(ClientScreen.label(module), 48),
-            left + 4, headerTextY, fade(0xFFFFFFFF, progress));
+        String moduleName = XdolfFont.compactTrim(ClientScreen.label(module), 42);
+        float leftHalfStart = left + 1;
+        float leftHalfWidth = headerMid - leftHalfStart;
+        XdolfFont.drawCompact(graphics, moduleName,
+            leftHalfStart + (leftHalfWidth - XdolfFont.compactWidth(moduleName)) / 2f,
+            headerTextY, fade(0xFFFFFFFF, progress));
         String options = "OPTIONS";
-        XdolfFont.drawCompact(graphics, options, right - 4 - XdolfFont.compactWidth(options), headerTextY,
-            fade(0xFF8C929D, progress));
+        float rightHalfWidth = right - headerMid;
+        XdolfFont.drawCompact(graphics, options,
+            headerMid + (rightHalfWidth - XdolfFont.compactWidth(options)) / 2f,
+            headerTextY, fade(0xFF8C929D, progress));
 
         boolean interactive = panel.expansion(module).open && progress >= 0.95f && screen != null;
         float y = top + HEADER_HEIGHT + 2;
-        drawKeybind(graphics, module, left + 4, right - 3, y,
-            interactive && hit(mouseX, mouseY, right - 3 - FIELD_WIDTH, y + 1, FIELD_WIDTH, 10), progress, screen);
+        drawKeybind(graphics, module, contentLeft, contentRight, y,
+            interactive && hit(mouseX, mouseY, contentRight - FIELD_WIDTH, y + 1, FIELD_WIDTH, 10), progress, screen);
         y += KEYBIND_HEIGHT;
 
         for (ModuleSetting<?> setting : module.settings) {
@@ -81,10 +93,10 @@ final class ConfigContainer {
             if (hover) screen.noteSettingHover(module, setting);
             card(graphics, left + 3, right - 2, y, y + rowHeight - 2, hover, progress);
             switch (setting.kind()) {
-                case BOOLEAN -> drawBoolean(graphics, (BooleanSetting) setting, left + 6, right - 5, y, hover, progress);
-                case NUMBER -> drawNumber(graphics, (NumberSetting) setting, left + 6, right - 5, y, hover, progress, screen);
-                case TEXT -> drawText(graphics, (TextSetting) setting, left + 6, right - 5, y, hover, progress, screen);
-                case CHOICE -> drawChoice(graphics, (ChoiceSetting) setting, left + 6, right - 5, y, hover, progress);
+                case BOOLEAN -> drawBoolean(graphics, (BooleanSetting) setting, contentLeft, contentRight, y, hover, progress);
+                case NUMBER -> drawNumber(graphics, (NumberSetting) setting, contentLeft, contentRight, y, hover, progress, screen);
+                case TEXT -> drawText(graphics, (TextSetting) setting, contentLeft, contentRight, y, hover, progress, screen);
+                case CHOICE -> drawChoice(graphics, (ChoiceSetting) setting, contentLeft, contentRight, y, hover, progress);
             }
             y += rowHeight;
         }
