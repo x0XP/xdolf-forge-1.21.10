@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 
-final class EntityESPModule extends ClientModule {
-    EntityESPModule() {
+public final class EntityESPModule extends ClientModule {
+    public EntityESPModule() {
         super("EntityESP", "Show selected entities with outlines or boxes.", "Render");
         toggle("players", true);
         toggle("monsters", true);

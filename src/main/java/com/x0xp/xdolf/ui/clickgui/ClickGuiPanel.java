@@ -1,4 +1,8 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.clickgui;
+
+import com.x0xp.xdolf.ui.UiDraw;
+
+import com.x0xp.xdolf.module.ClientModule;
 
 import java.util.ArrayList;
 import java.util.HashMap;

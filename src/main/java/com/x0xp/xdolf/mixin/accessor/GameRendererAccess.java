@@ -1,4 +1,4 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.accessor;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Camera;

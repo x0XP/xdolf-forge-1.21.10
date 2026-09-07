@@ -1,4 +1,13 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module;
+
+import com.x0xp.xdolf.settings.BooleanSetting;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.ModuleSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.settings.TextSetting;
+
+import com.x0xp.xdolf.settings.ClientConfig;
+import com.x0xp.xdolf.core.ClientRuntime;
 
 import net.minecraft.client.Minecraft;
 import java.util.ArrayList;
@@ -27,7 +36,7 @@ public abstract class ClientModule {
     }
 
     public final boolean enabled() { return enabled; }
-    final void restoreEnabled(boolean value) { enabled = value; }
+    public final void restoreEnabled(boolean value) { enabled = value; }
 
     protected final NumberSetting setting(String name, double value, double min, double max, double step) {
         return numberSetting(name, name, "", value, min, max, step);
@@ -76,7 +85,7 @@ public abstract class ClientModule {
     protected final void runDuringFreecam() { runsDuringFreecam = true; }
     protected final void runWhilePaused() { runsWhilePaused = true; }
     final Set<String> conflicts() { return Set.copyOf(conflicts); }
-    final Set<String> dependencies() { return Set.copyOf(dependencies); }
+    public final Set<String> dependencies() { return Set.copyOf(dependencies); }
     final boolean runsDuringFreecam() { return runsDuringFreecam; }
     final boolean runsWhilePaused() { return runsWhilePaused; }
 

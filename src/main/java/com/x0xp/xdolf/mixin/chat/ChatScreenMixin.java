@@ -1,6 +1,6 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.chat;
 
-import com.x0xp.xdolf.XdolfFont;
+import com.x0xp.xdolf.ui.XdolfFont;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import org.spongepowered.asm.mixin.Mixin;

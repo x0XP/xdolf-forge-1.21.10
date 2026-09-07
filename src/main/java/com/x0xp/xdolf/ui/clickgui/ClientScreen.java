@@ -1,4 +1,23 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.clickgui;
+
+import com.x0xp.xdolf.ui.UiDraw;
+
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.dev.ClientSmoke;
+import com.x0xp.xdolf.settings.BooleanSetting;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.ModuleSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.settings.TextSetting;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.XdolfFont;
+import com.x0xp.xdolf.ui.hud.NotificationCards;
+
+import com.x0xp.xdolf.settings.ClientConfig;
+import com.x0xp.xdolf.settings.Keybinds;
+
+import com.x0xp.xdolf.module.ClientModule;
+import com.x0xp.xdolf.module.ModuleManager;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -18,7 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-import static com.x0xp.xdolf.UiDraw.*;
+import static com.x0xp.xdolf.ui.UiDraw.*;
 
 /** Xdolf's draggable click GUI. Typed option cards are rendered by {@link ConfigContainer}. */
 public final class ClientScreen extends Screen {
@@ -45,7 +64,7 @@ public final class ClientScreen extends Screen {
     private ModuleSetting<?> tooltipSetting;
     private long tooltipStarted;
 
-    ClientScreen() {
+    public ClientScreen() {
         super(Component.literal("Xdolf"));
         setup();
     }
@@ -72,7 +91,7 @@ public final class ClientScreen extends Screen {
         PANELS.add(panel);
     }
 
-    static String label(ClientModule module) {
+    public static String label(ClientModule module) {
         return switch (module.name) {
             case "Sprint" -> "AutoSprint";
             case "NoHurtCam" -> "NoHurtcam";
@@ -101,7 +120,7 @@ public final class ClientScreen extends Screen {
         ClientSmoke.frame();
     }
 
-    static void renderPinned(GuiGraphics graphics) {
+    public static void renderPinned(GuiGraphics graphics) {
         setup();
         if (Minecraft.getInstance().screen instanceof ClientScreen) return;
         for (ClickGuiPanel panel : PANELS)
@@ -556,7 +575,7 @@ public final class ClientScreen extends Screen {
     @Override
     public boolean isPauseScreen() { return false; }
 
-    static void smokeCheckAndArrange() {
+    public static void smokeCheckAndArrange() {
         var screen = (ClientScreen) Minecraft.getInstance().screen;
         if (PANELS.size() != 6) throw new IllegalStateException("Expected six GUI windows");
         var player = panel("Player");

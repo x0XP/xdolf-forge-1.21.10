@@ -1,12 +1,17 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.combat;
+
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
-final class AutoLogModule extends ClientModule {
+public final class AutoLogModule extends ClientModule {
     private final NumberSetting health = setting("health", 6, 1, 19, 1);
 
-    AutoLogModule() {
+    public AutoLogModule() {
         super("AutoLog", "Disconnect at the configured health threshold.", "Combat");
     }
 

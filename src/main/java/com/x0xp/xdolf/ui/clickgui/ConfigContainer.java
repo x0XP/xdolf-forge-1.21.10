@@ -1,4 +1,17 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.clickgui;
+
+import com.x0xp.xdolf.ui.UiDraw;
+
+import com.x0xp.xdolf.settings.BooleanSetting;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.ModuleSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.settings.TextSetting;
+import com.x0xp.xdolf.ui.XdolfFont;
+
+import com.x0xp.xdolf.settings.Keybinds;
+
+import com.x0xp.xdolf.module.ClientModule;
 
 import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
@@ -7,7 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import static com.x0xp.xdolf.UiDraw.*;
+import static com.x0xp.xdolf.ui.UiDraw.*;
 
 /** Rendering and geometry for the typed option cards shown beneath a module. */
 final class ConfigContainer {

@@ -1,12 +1,15 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
-final class AutoRespawnModule extends ClientModule {
+public final class AutoRespawnModule extends ClientModule {
     private LocalPlayer lastDeath;
 
-    AutoRespawnModule() {
+    public AutoRespawnModule() {
         super("AutoRespawn", "Request respawn once after each death.", "Player");
     }
 

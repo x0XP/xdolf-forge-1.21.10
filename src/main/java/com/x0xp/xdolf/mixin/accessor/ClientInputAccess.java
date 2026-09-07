@@ -1,4 +1,4 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.accessor;
 
 import net.minecraft.client.player.ClientInput;
 import net.minecraft.world.phys.Vec2;

@@ -1,11 +1,17 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.module.support.MovementMath;
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 
-final class EntitySpeedModule extends ClientModule {
+public final class EntitySpeedModule extends ClientModule {
     private final NumberSetting speed = setting("speed", 3, 0.1, 3.86, 0.01);
 
-    EntitySpeedModule() {
+    public EntitySpeedModule() {
         super("EntitySpeed", "Change the speed of the vehicle you control.", "Player");
     }
 

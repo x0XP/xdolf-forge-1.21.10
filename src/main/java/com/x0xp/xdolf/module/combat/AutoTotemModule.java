@@ -1,12 +1,17 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.combat;
+
+import com.x0xp.xdolf.module.support.InventoryActions;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.Items;
 
-final class AutoTotemModule extends ClientModule {
+public final class AutoTotemModule extends ClientModule {
     private int delay;
 
-    AutoTotemModule() {
+    public AutoTotemModule() {
         super("AutoTotem", "Automatically replace the offhand item with a Totem of Undying.", "Combat");
     }
 

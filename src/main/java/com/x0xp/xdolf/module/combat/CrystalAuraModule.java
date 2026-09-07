@@ -1,16 +1,21 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.combat;
+
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import java.util.Comparator;
 
-final class CrystalAuraModule extends ClientModule {
+public final class CrystalAuraModule extends ClientModule {
     private final NumberSetting range = setting("range", 3.75, 3, 10, 0.25);
     private final NumberSetting rate = setting("speed", 8, 1, 20, 1);
     private long lastAttack;
 
-    CrystalAuraModule() {
+    public CrystalAuraModule() {
         super("CrystalAura", "Break the nearest visible end crystal in range.", "Combat");
     }
 

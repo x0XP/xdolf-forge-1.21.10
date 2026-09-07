@@ -1,7 +1,7 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.chat;
 
-import com.x0xp.xdolf.ChatTextContext;
-import com.x0xp.xdolf.XdolfFont;
+import com.x0xp.xdolf.chat.ChatTextContext;
+import com.x0xp.xdolf.ui.XdolfFont;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;

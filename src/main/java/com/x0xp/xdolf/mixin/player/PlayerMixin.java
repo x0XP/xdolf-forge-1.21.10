@@ -1,6 +1,6 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.player;
 
-import com.x0xp.xdolf.Hooks;
+import com.x0xp.xdolf.core.Hooks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;

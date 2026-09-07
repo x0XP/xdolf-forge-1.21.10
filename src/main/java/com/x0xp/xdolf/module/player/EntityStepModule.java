@@ -1,4 +1,10 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.core.Xdolf;
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
@@ -6,12 +12,12 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 
-final class EntityStepModule extends ClientModule {
+public final class EntityStepModule extends ClientModule {
     private final NumberSetting height = setting("height", 2, 1, 256, 1);
     private final ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Xdolf.ID, "entity_step");
     private LivingEntity owner;
 
-    EntityStepModule() {
+    public EntityStepModule() {
         super("EntityStep", "Increase step height for a controlled living mount.", "Player");
     }
 

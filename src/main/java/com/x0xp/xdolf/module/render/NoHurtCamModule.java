@@ -1,10 +1,13 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 
 /** Behaviour is supplied by the camera mixin. */
-final class NoHurtCamModule extends ClientModule {
-    NoHurtCamModule() {
+public final class NoHurtCamModule extends ClientModule {
+    public NoHurtCamModule() {
         super("NoHurtCam", "Disable the camera shake caused by damage.", "Render");
     }
 

@@ -1,4 +1,19 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.command;
+
+import com.x0xp.xdolf.chat.ChatFormatter;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.core.OriginalQuotes;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
+import com.x0xp.xdolf.ui.hud.Hud;
+
+import com.x0xp.xdolf.settings.ClientConfig;
+import com.x0xp.xdolf.settings.KeyNames;
+
+import com.x0xp.xdolf.module.ClientModule;
+
+import com.x0xp.xdolf.module.player.SpammerModule;
+import com.x0xp.xdolf.module.world.XRayModule;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -15,14 +30,14 @@ import java.nio.file.Files;
 import java.util.*;
 
 /** Xdolf dot-command parser and persistent command data. */
-final class Commands {
-    record Macro(int key,String command) {}
-    record Waypoint(String name,String dimension,int x,int y,int z) {}
+public final class Commands {
+    public record Macro(int key,String command) {}
+    public record Waypoint(String name,String dimension,int x,int y,int z) {}
 
-    static final List<Macro> macros=new ArrayList<>();
-    static final List<Waypoint> waypoints=new ArrayList<>();
-    static boolean showLogo=true;
-    static double deathX,deathY,deathZ;
+    public static final List<Macro> macros=new ArrayList<>();
+    public static final List<Waypoint> waypoints=new ArrayList<>();
+    public static boolean showLogo=true;
+    public static double deathX,deathY,deathZ;
     private static boolean wasDead;
     private static int macroDepth;
     private static final Map<String,String> SYNTAX=new LinkedHashMap<>();
@@ -36,7 +51,7 @@ final class Commands {
         for(String syntax:values)SYNTAX.put(syntax.split(" ")[0],syntax);
     }
 
-    static boolean execute(String text) {
+    public static boolean execute(String text) {
         if(!text.startsWith("."))return false;
         String body=text.substring(1).trim();
         String[] p=body.isEmpty()?new String[]{""}:body.split("\\s+");
@@ -185,7 +200,7 @@ final class Commands {
         save();
     }
 
-    static void runMacros(int key) {
+    public static void runMacros(int key) {
         if(macroDepth>0)return;
         macroDepth++;
         try {for(var m:List.copyOf(macros))if(m.key==key)execute(m.command);}
@@ -194,7 +209,7 @@ final class Commands {
 
     private static void spam(String body,String[] p) {
         need(p,2);
-        SpammerModule spammer=NetworkModules.spammer();
+        SpammerModule spammer=(SpammerModule)ClientRuntime.find("Spammer");
         String response;
         switch(p[1].toLowerCase(Locale.ROOT)) {
             case "mode" -> {
@@ -258,19 +273,19 @@ final class Commands {
         }
     }
 
-    static void recordDeath(Minecraft mc) {
+    public static void recordDeath(Minecraft mc) {
         if(mc.player==null)return;
         boolean dead=mc.player.isDeadOrDying();
         if(dead&&!wasDead){deathX=mc.player.getX();deathY=mc.player.getY();deathZ=mc.player.getZ();}
         wasDead=dead;
     }
 
-    static void worldChanged(Minecraft mc) {
+    public static void worldChanged(Minecraft mc) {
         wasDead=false;
         if(mc.player!=null)mc.setCameraEntity(mc.player);
     }
 
-    static void load() {
+    public static void load() {
         var path=FMLPaths.CONFIGDIR.get().resolve("xdolf-commands.properties");
         if(!Files.isRegularFile(path))return;
         var p=new Properties();
@@ -292,7 +307,7 @@ final class Commands {
         XRayModule.loadSelection(p);
     }
 
-    static void save() {
+    public static void save() {
         var p=new Properties();
         for(int i=0;i<macros.size();i++) {
             var m=macros.get(i);

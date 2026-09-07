@@ -1,9 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.render;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 
-final class TracersModule extends ClientModule {
-    TracersModule() {
+public final class TracersModule extends ClientModule {
+    public TracersModule() {
         super("Tracers", "Original distance-coloured player and chest tracers.", "Render");
         toggle("players", true);
         toggle("chests", false);

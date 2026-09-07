@@ -1,10 +1,13 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.world;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 
 /** Behaviour is supplied by the client interaction-delay hook. */
-final class FastPlaceModule extends ClientModule {
-    FastPlaceModule() {
+public final class FastPlaceModule extends ClientModule {
+    public FastPlaceModule() {
         super("FastPlace", "Remove the client-side right-click delay.", "World");
     }
 

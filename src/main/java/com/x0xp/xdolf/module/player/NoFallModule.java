@@ -1,12 +1,15 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 
-final class NoFallModule extends ClientModule {
+public final class NoFallModule extends ClientModule {
     private int delay;
 
-    NoFallModule() {
+    public NoFallModule() {
         super("NoFall", "Send grounded status while falling; server-dependent.", "Player");
     }
 

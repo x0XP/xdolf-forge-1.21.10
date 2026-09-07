@@ -1,12 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
 
 import java.util.Locale;
 
-final class NumberSetting extends ModuleSetting<Double> {
+public final class NumberSetting extends ModuleSetting<Double> {
     public final double min, max, step;
     private double value;
 
-    NumberSetting(String name, String label, String description, double value, double min, double max, double step) {
+    public NumberSetting(String name, String label, String description, double value, double min, double max, double step) {
         super(name, label, description);
         if (!Double.isFinite(min) || !Double.isFinite(max) || !Double.isFinite(step) || min > max || step <= 0)
             throw new IllegalArgumentException("Invalid numeric setting range: " + name);

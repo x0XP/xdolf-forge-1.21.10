@@ -1,4 +1,24 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.core;
+
+import com.x0xp.xdolf.chat.ChatFormatter;
+import com.x0xp.xdolf.chat.ChatQueue;
+import com.x0xp.xdolf.command.Commands;
+import com.x0xp.xdolf.dev.ClientSmoke;
+import com.x0xp.xdolf.render.MarkerVisuals;
+import com.x0xp.xdolf.render.WorldVisuals;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.social.SocialState;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
+import com.x0xp.xdolf.ui.hud.Hud;
+import com.x0xp.xdolf.ui.hud.NotificationCards;
+
+import com.x0xp.xdolf.settings.ClientConfig;
+
+import com.x0xp.xdolf.module.ClientModule;
+import com.x0xp.xdolf.module.ModuleManager;
+
+import com.x0xp.xdolf.module.registry.Modules;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -9,19 +29,19 @@ import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 import net.minecraftforge.client.event.ClientChatEvent;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
-import com.x0xp.xdolf.mixin.ClientInputAccess;
+import com.x0xp.xdolf.mixin.accessor.ClientInputAccess;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.phys.Vec2;
 import net.minecraftforge.event.TickEvent;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
-final class ClientRuntime {
-    static final List<ClientModule> MODULES = Modules.create();
+public final class ClientRuntime {
+    public static final List<ClientModule> MODULES = Modules.create();
     private static ClientLevel previousLevel;
     private static net.minecraft.client.player.LocalPlayer previousPlayer;
 
-    static void register() {
+    public static void register() {
         WorldVisuals.register();
         MarkerVisuals.register();
         ClientConfig.load(MODULES);
@@ -83,7 +103,7 @@ final class ClientRuntime {
         ChatQueue.tick(mc);
     }
 
-    static void updateSession(Minecraft mc) {
+    public static void updateSession(Minecraft mc) {
         if (mc.level == previousLevel && mc.player == previousPlayer) return;
         ChatQueue.clear();
         for (var module : MODULES) module.reset(mc);
@@ -96,7 +116,7 @@ final class ClientRuntime {
 
     private static void key(InputEvent.Key event) { handleKey(event.getKey(),event.getAction()); }
 
-    static void handleKey(int key,int action) {
+    public static void handleKey(int key,int action) {
         Minecraft mc = Minecraft.getInstance();
         if (action != GLFW.GLFW_PRESS || mc.screen != null || mc.player == null || key < 0) return;
         for (ClientModule module : MODULES) if (module.key == key) toggle(module);
@@ -109,7 +129,7 @@ final class ClientRuntime {
 
     private static boolean chat(ClientChatEvent event) { return Commands.execute(event.getMessage()); }
 
-    static void configure(String[] parts) {
+    public static void configure(String[] parts) {
         ClientModule module = parts.length >= 2 ? find(parts[1]) : null;
         if (module == null) { message(".set <module> <setting> <value>"); return; }
         if (parts.length == 2) {
@@ -132,17 +152,17 @@ final class ClientRuntime {
         }
     }
 
-    static ClientModule find(String name) {
+    public static ClientModule find(String name) {
         return MODULES.stream().filter(module -> module.name.replace(" ", "").equalsIgnoreCase(name.replace(" ", ""))
             || ClientScreen.label(module).equalsIgnoreCase(name)).findFirst().orElse(null);
     }
 
-    static void toggle(ClientModule module) {
+    public static void toggle(ClientModule module) {
         ModuleManager.toggle(module);
         NotificationCards.module(module, module.enabled());
     }
 
-    static void message(String text) {
+    public static void message(String text) {
         var player = Minecraft.getInstance().player;
         if (player != null) player.displayClientMessage(ChatFormatter.prefixed(text), false);
     }

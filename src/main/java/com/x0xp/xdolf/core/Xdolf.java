@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.core;
 
 import net.minecraftforge.fml.common.Mod;
 

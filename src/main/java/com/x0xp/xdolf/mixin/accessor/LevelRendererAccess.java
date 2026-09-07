@@ -1,4 +1,4 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.accessor;
 
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.SubmitNodeStorage;

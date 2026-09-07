@@ -1,13 +1,18 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.combat;
+
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 
-final class CrystalLogModule extends ClientModule {
+public final class CrystalLogModule extends ClientModule {
     private final NumberSetting range = setting("range", 2, 1, 10, 1);
 
-    CrystalLogModule() {
+    public CrystalLogModule() {
         super("CrystalLog", "Disconnect when an end crystal is within the configured range.", "Combat");
     }
 

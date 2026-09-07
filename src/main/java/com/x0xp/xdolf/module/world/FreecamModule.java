@@ -1,22 +1,29 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.world;
+
+import com.x0xp.xdolf.core.Hooks;
+import com.x0xp.xdolf.module.support.MovementMath;
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 
 /** Camera-only noclip movement. The server-side player remains at its real position. */
-final class FreecamModule extends ClientModule {
+public final class FreecamModule extends ClientModule {
     private static Vec3 position;
     private static long lastFrameNanos;
     final NumberSetting speed = setting("speed", 0.5, 0.05, 3, 0.05);
 
-    FreecamModule() { super("Freecam", "Move the camera independently; your player remains in the world.", "World"); }
+    public FreecamModule() { super("Freecam", "Move the camera independently; your player remains in the world.", "World"); }
 
     /**
      * Freecam motion is integrated from render-frame time instead of advancing only at 20 client
      * ticks per second. This keeps camera travel continuous at high refresh rates and avoids the
      * characteristic tick-to-tick teleport/stutter of a tick-driven camera.
      */
-    static Vec3 cameraPosition(float partialTick) {
+    public static Vec3 cameraPosition(float partialTick) {
         if (position == null) return null;
 
         Minecraft mc = Minecraft.getInstance();

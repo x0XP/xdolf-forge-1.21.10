@@ -1,4 +1,10 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
+
+import com.x0xp.xdolf.core.ClientRuntime;
+
+import com.x0xp.xdolf.module.ClientModule;
+
+import com.x0xp.xdolf.module.world.XRayModule;
 
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.fml.loading.FMLPaths;
@@ -12,11 +18,11 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Properties;
 
-final class ClientConfig {
+public final class ClientConfig {
     private static final Path FILE = FMLPaths.CONFIGDIR.get().resolve("xdolf.properties");
-    static int guiKey = org.lwjgl.glfw.GLFW.GLFW_KEY_GRAVE_ACCENT;
+    public static int guiKey = org.lwjgl.glfw.GLFW.GLFW_KEY_GRAVE_ACCENT;
 
-    static void load(List<ClientModule> modules) {
+    public static void load(List<ClientModule> modules) {
         if (!Files.isRegularFile(FILE)) return;
         Properties properties = new Properties();
         Properties legacyCommands = legacyCommands();
@@ -51,7 +57,7 @@ final class ClientConfig {
         }
     }
 
-    static void save(List<ClientModule> modules) {
+    public static void save(List<ClientModule> modules) {
         Properties properties = new Properties();
         properties.setProperty("config.version", "2");
         properties.setProperty("GUI.key", Integer.toString(guiKey));

@@ -1,7 +1,7 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.render;
 
-import com.x0xp.xdolf.Hooks;
-import com.x0xp.xdolf.ChamsRenderTypes;
+import com.x0xp.xdolf.core.Hooks;
+import com.x0xp.xdolf.render.ChamsRenderTypes;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;

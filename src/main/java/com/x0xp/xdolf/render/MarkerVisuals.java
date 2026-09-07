@@ -1,7 +1,13 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.render;
 
-import com.x0xp.xdolf.mixin.GameRendererAccess;
-import com.x0xp.xdolf.mixin.LevelRendererAccess;
+import com.x0xp.xdolf.command.Commands;
+import com.x0xp.xdolf.core.Hooks;
+import com.x0xp.xdolf.core.Xdolf;
+
+import com.x0xp.xdolf.module.render.LogoutSpotModule;
+
+import com.x0xp.xdolf.mixin.accessor.GameRendererAccess;
+import com.x0xp.xdolf.mixin.accessor.LevelRendererAccess;
 import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -34,7 +40,7 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 /** World rendering for Waypoints and LogoutSpot. */
-final class MarkerVisuals implements FramePassManager.PassDefinition {
+public final class MarkerVisuals implements FramePassManager.PassDefinition {
     private record Segment(Vec3 a,Vec3 b,int color,double width,boolean stableStart) {
         Segment(Vec3 a,Vec3 b,int color,double width){this(a,b,color,width,false);}
     }
@@ -59,7 +65,7 @@ final class MarkerVisuals implements FramePassManager.PassDefinition {
 
     private static ResourceLocation id(String path){return ResourceLocation.fromNamespaceAndPath(Xdolf.ID,path);}
 
-    static void register(){AddFramePassEvent.BUS.addListener(event->event.addPass(id("marker_visuals"),new MarkerVisuals()));}
+    public static void register(){AddFramePassEvent.BUS.addListener(event->event.addPass(id("marker_visuals"),new MarkerVisuals()));}
 
     @Override
     public void targets(LevelTargetBundle targets,FramePass pass) {

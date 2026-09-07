@@ -1,6 +1,6 @@
-package com.x0xp.xdolf.mixin;
+package com.x0xp.xdolf.mixin.network;
 
-import com.x0xp.xdolf.Hooks;
+import com.x0xp.xdolf.core.Hooks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;

@@ -1,4 +1,10 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.settings.BooleanSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
@@ -6,7 +12,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.sound.PlaySoundEvent;
 
-final class AutoFishModule extends ClientModule {
+public final class AutoFishModule extends ClientModule {
     private record Splash(Vec3 position, long time) {}
     private volatile Splash splash;
     private int delay = 20;
@@ -21,7 +27,7 @@ final class AutoFishModule extends ClientModule {
     private long lastUse;
     private boolean castAfterCatch;
 
-    AutoFishModule() {
+    public AutoFishModule() {
         super("AutoFish", "Reel on nearby bobber splashes and optionally recast.", "Player");
         PlaySoundEvent.BUS.addListener(event -> {
             var sound = event.getOriginalSound();

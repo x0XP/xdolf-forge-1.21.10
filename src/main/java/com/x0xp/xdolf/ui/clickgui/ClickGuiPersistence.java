@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.clickgui;
 
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.fml.loading.FMLPaths;

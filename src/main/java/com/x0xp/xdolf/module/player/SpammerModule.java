@@ -1,18 +1,27 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.chat.ChatQueue;
+import com.x0xp.xdolf.core.ClientRuntime;
+import com.x0xp.xdolf.settings.ChoiceSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+import com.x0xp.xdolf.settings.TextSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import java.util.UUID;
 
-final class SpammerModule extends ClientModule {
-    final TextSetting message = textSetting("message", "Message",
+public final class SpammerModule extends ClientModule {
+    public final TextSetting message = textSetting("message", "Message",
         "The chat message repeated while Spammer is enabled.", "test", 256);
-    final ChoiceSetting mode = choiceSetting("mode", "Mode",
+    public final ChoiceSetting mode = choiceSetting("mode", "Mode",
         "Anti-spam adds a changing suffix when servers reject duplicates.", "normal", "normal", "antispam");
-    final NumberSetting delay = numberSetting("delay", "Delay (ms)",
+    public final NumberSetting delay = numberSetting("delay", "Delay (ms)",
         "Minimum time between messages.", 1800, 1, 120000, 100);
     private long lastMessage;
 
-    SpammerModule() {
+    public SpammerModule() {
         super("Spammer", "Repeat a configurable message at a controlled interval.", "Player");
     }
 

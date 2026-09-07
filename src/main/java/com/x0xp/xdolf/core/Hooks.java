@@ -1,4 +1,12 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.core;
+
+import com.x0xp.xdolf.settings.BooleanSetting;
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ModuleManager;
+
+import com.x0xp.xdolf.module.player.AnnouncerModule;
+import com.x0xp.xdolf.module.world.FreecamModule;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;

@@ -1,4 +1,6 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.social;
+
+import com.x0xp.xdolf.core.ClientRuntime;
 
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.fml.loading.FMLPaths;
@@ -9,19 +11,19 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 
-final class SocialState {
+public final class SocialState {
     private static final Set<String> FRIENDS = new TreeSet<>();
     private static final Path FILE = FMLPaths.CONFIGDIR.get().resolve("xdolf-friends.txt");
 
-    static void load() {
+    public static void load() {
         try {
             if (Files.isRegularFile(FILE)) for (String line : Files.readAllLines(FILE)) {
                 if (line.matches("[A-Za-z0-9_]{1,16}")) FRIENDS.add(line.toLowerCase(Locale.ROOT));
             }
         } catch (IOException error) { LogUtils.getLogger().warn("Could not load Xdolf friends", error); }
     }
-    static boolean isFriend(String name) { return FRIENDS.contains(name.toLowerCase(Locale.ROOT)); }
-    static void command(String[] parts) {
+    public static boolean isFriend(String name) { return FRIENDS.contains(name.toLowerCase(Locale.ROOT)); }
+    public static void command(String[] parts) {
         if (parts.length==2 && parts[1].equalsIgnoreCase("clear")) {
             FRIENDS.clear();save();return;
         }

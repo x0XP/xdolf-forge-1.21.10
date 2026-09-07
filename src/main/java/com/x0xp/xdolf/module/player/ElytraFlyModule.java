@@ -1,11 +1,17 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.player;
+
+import com.x0xp.xdolf.module.support.MovementMath;
+import com.x0xp.xdolf.settings.NumberSetting;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 
-final class ElytraFlyModule extends ClientModule {
+public final class ElytraFlyModule extends ClientModule {
     private final NumberSetting speed = setting("speed", 1.41, 0.1, 1.45, 0.01);
 
-    ElytraFlyModule() {
+    public ElytraFlyModule() {
         super("ElytraFly", "Control horizontal and vertical speed while gliding.", "Player");
         conflictsWith("Flight", "ElytraPlus");
     }

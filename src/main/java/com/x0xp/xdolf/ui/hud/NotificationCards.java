@@ -1,13 +1,18 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.ui.hud;
+
+import com.x0xp.xdolf.ui.XdolfFont;
+import com.x0xp.xdolf.ui.clickgui.ClientScreen;
+
+import com.x0xp.xdolf.module.ClientModule;
 
 import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.x0xp.xdolf.UiDraw.*;
+import static com.x0xp.xdolf.ui.UiDraw.*;
 
 /** Animated centre-left HUD cards for module state and short client notices. */
-final class NotificationCards {
+public final class NotificationCards {
     private static final int MAX_VISIBLE = 3;
     private static final float LEFT = 7.0f;
     private static final float CARD_WIDTH = 142.0f;
@@ -24,13 +29,13 @@ final class NotificationCards {
 
     private NotificationCards() {}
 
-    static void module(ClientModule module, boolean enabled) {
+    public static void module(ClientModule module, boolean enabled) {
         show(ClientScreen.label(module), enabled ? "Enabled" : "Disabled",
             enabled ? 0xFF35D07F : 0xFFFF4D5E,
             enabled ? 0xFF72E8A6 : 0xFFFF7B88);
     }
 
-    static void warning(String title, String detail) {
+    public static void warning(String title, String detail) {
         show(title, detail, 0xFFFFB347, 0xFFFFC66D);
     }
 
@@ -47,7 +52,7 @@ final class NotificationCards {
         reflow(now);
     }
 
-    static void render(GuiGraphics graphics) {
+    public static void render(GuiGraphics graphics) {
         long now = System.nanoTime();
         expire(now);
         int screenHeight = graphics.guiHeight();
@@ -62,9 +67,9 @@ final class NotificationCards {
         for (int i = ACTIVE.size() - 1; i >= 0; i--) draw(graphics, ACTIVE.get(i), screenHeight, now);
     }
 
-    static int visibleCount() { return ACTIVE.size(); }
+    public static int visibleCount() { return ACTIVE.size(); }
 
-    static void clear() {
+    public static void clear() {
         ACTIVE.clear();
         EXITING.clear();
     }

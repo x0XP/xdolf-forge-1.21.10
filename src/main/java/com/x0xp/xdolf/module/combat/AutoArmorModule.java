@@ -1,13 +1,18 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.combat;
+
+import com.x0xp.xdolf.module.support.InventoryActions;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.Items;
 
-final class AutoArmorModule extends ClientModule {
+public final class AutoArmorModule extends ClientModule {
     private int delay;
 
-    AutoArmorModule() {
+    public AutoArmorModule() {
         super("AutoArmor", "Equip higher base-armor pieces using inventory transactions.", "Combat");
     }
 

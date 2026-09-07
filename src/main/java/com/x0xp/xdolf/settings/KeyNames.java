@@ -1,4 +1,4 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -6,7 +6,7 @@ import java.util.Map;
 import org.lwjgl.glfw.GLFW;
 
 /** Maps Xdolf/LWJGL-style key names onto current GLFW key codes. */
-final class KeyNames {
+public final class KeyNames {
     private static final Map<String,Integer> KEYS=new HashMap<>();
     private static final Map<Integer,String> NAMES=new HashMap<>();
     static {
@@ -32,7 +32,7 @@ final class KeyNames {
     }
     private static String normalize(String s) {return s.toUpperCase(Locale.ROOT).replace("_","").replace("-","");}
     private static void alias(String alias,String target) {int key=KEYS.get(normalize(target));KEYS.put(normalize(alias),key);}
-    static int parse(String name) {var key=KEYS.get(normalize(name));if(key==null)throw new IllegalArgumentException("Invalid key.");return key;}
-    static String name(int key) {return NAMES.getOrDefault(key,"NONE");}
-    static int read(String value,int fallback) {try {int key=Integer.parseInt(value);return NAMES.containsKey(key)?key:fallback;}catch(RuntimeException e){return fallback;}}
+    public static int parse(String name) {var key=KEYS.get(normalize(name));if(key==null)throw new IllegalArgumentException("Invalid key.");return key;}
+    public static String name(int key) {return NAMES.getOrDefault(key,"NONE");}
+    public static int read(String value,int fallback) {try {int key=Integer.parseInt(value);return NAMES.containsKey(key)?key:fallback;}catch(RuntimeException e){return fallback;}}
 }

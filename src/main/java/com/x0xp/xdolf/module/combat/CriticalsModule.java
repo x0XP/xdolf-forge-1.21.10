@@ -1,10 +1,13 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.module.combat;
+
+import com.x0xp.xdolf.module.ClientModule;
+
 
 import net.minecraft.client.Minecraft;
 
 /** Behaviour is supplied by the outbound attack packet hook. */
-final class CriticalsModule extends ClientModule {
-    CriticalsModule() {
+public final class CriticalsModule extends ClientModule {
+    public CriticalsModule() {
         super("Criticals", "Send a short airborne packet sequence before melee attacks.", "Combat");
     }
 

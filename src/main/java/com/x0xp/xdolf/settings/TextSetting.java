@@ -1,10 +1,10 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
 
-final class TextSetting extends ModuleSetting<String> {
+public final class TextSetting extends ModuleSetting<String> {
     public final int maxLength;
     private String value;
 
-    TextSetting(String name, String label, String description, String value, int maxLength) {
+    public TextSetting(String name, String label, String description, String value, int maxLength) {
         super(name, label, description);
         if (maxLength < 1) throw new IllegalArgumentException("Text limit must be positive");
         this.maxLength = maxLength;
