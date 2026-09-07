@@ -1,0 +1,20 @@
+package com.x0xp.xdolf;
+
+import net.minecraft.client.Minecraft;
+
+final class EntitySpeedModule extends ClientModule {
+    private final NumberSetting speed = setting("speed", 3, 0.1, 3.86, 0.01);
+
+    EntitySpeedModule() {
+        super("EntitySpeed", "Change the speed of the vehicle you control.", "Player");
+    }
+
+    @Override
+    public void tick(Minecraft mc) {
+        var vehicle = mc.player.getVehicle();
+        if (vehicle != null && vehicle.getControllingPassenger() == mc.player) {
+            var move = MovementMath.direction(mc, speed.get());
+            vehicle.setDeltaMovement(move.x, vehicle.getDeltaMovement().y, move.z);
+        }
+    }
+}
