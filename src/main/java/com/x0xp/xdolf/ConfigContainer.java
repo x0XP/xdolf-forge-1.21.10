@@ -9,7 +9,7 @@ import static com.x0xp.xdolf.UiDraw.*;
 
 /** Rendering and geometry for the typed option cards shown beneath a module. */
 final class ConfigContainer {
-    static final float HEADER_HEIGHT = 11;
+    static final float HEADER_HEIGHT = 13;
     static final float KEYBIND_HEIGHT = 14;
     static final float NUMBER_HEIGHT = 25;
     static final float TEXT_HEIGHT = 25;
@@ -62,10 +62,11 @@ final class ConfigContainer {
         rect(graphics, left + 1, top, right, top + HEADER_HEIGHT, fade(0xF0181B22, progress));
         rect(graphics, left + 1, top + HEADER_HEIGHT - 1, left + 47, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
         rect(graphics, left + 47, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
+        float headerTextY = centered(top, top + HEADER_HEIGHT - 1);
         XdolfFont.drawCompact(graphics, XdolfFont.compactTrim(ClientScreen.label(module), 48),
-            left + 4, top + 1.5f, fade(0xFFFFFFFF, progress));
+            left + 4, headerTextY, fade(0xFFFFFFFF, progress));
         String options = "OPTIONS";
-        XdolfFont.drawCompact(graphics, options, right - 4 - XdolfFont.compactWidth(options), top + 1.5f,
+        XdolfFont.drawCompact(graphics, options, right - 4 - XdolfFont.compactWidth(options), headerTextY,
             fade(0xFF8C929D, progress));
 
         boolean interactive = panel.expansion(module).open && progress >= 0.95f && screen != null;
