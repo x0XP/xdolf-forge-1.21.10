@@ -1,0 +1,109 @@
+name: OptiFine + Complementary compatibility
+
+on:
+  push:
+    branches: [optifine-complementary-compat]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile Xdolf
+        run: bash gradlew clean build --console=plain
+
+      - name: Install OptiFine 1.21.10 and Complementary Reimagined r5.9
+        run: |
+          mkdir -p run/mods run/shaderpacks build/diagnostics
+          python3 <<'PY'
+          import html
+          import json
+          import pathlib
+          import re
+          import urllib.parse
+          import urllib.request
+
+          user_agent = {"User-Agent": "Xdolf compatibility CI/1.0"}
+
+          optifine_name = "preview_OptiFine_1.21.10_HD_U_J7_pre11.jar"
+          landing = f"https://optifine.net/adloadx?f={optifine_name}"
+          request = urllib.request.Request(landing, headers=user_agent)
+          page = urllib.request.urlopen(request, timeout=30).read().decode("utf-8", "replace")
+          match = re.search(r"href=['\"]([^'\"]*downloadx\?[^'\"]+)['\"]", page)
+          if not match:
+              raise RuntimeError("Could not resolve the official OptiFine download link")
+          optifine_url = urllib.parse.urljoin("https://optifine.net/", html.unescape(match.group(1)))
+          request = urllib.request.Request(optifine_url, headers=user_agent)
+          pathlib.Path("run/mods/OptiFine_1.21.10_HD_U_J7_pre11.jar").write_bytes(
+              urllib.request.urlopen(request, timeout=60).read()
+          )
+
+          version_url = "https://api.modrinth.com/v2/project/complementary-reimagined/version/r5.9"
+          request = urllib.request.Request(version_url, headers=user_agent)
+          version = json.loads(urllib.request.urlopen(request, timeout=30).read())
+          files = version.get("files", [])
+          primary = next((file for file in files if file.get("primary")), files[0] if files else None)
+          if primary is None:
+              raise RuntimeError("Complementary Reimagined r5.9 has no downloadable file")
+          shader_name = primary["filename"]
+          request = urllib.request.Request(primary["url"], headers=user_agent)
+          pathlib.Path("run/shaderpacks", shader_name).write_bytes(
+              urllib.request.urlopen(request, timeout=60).read()
+          )
+          pathlib.Path("build/diagnostics/shader-name.txt").write_text(shader_name, encoding="utf-8")
+          PY
+
+          shader_name="$(cat build/diagnostics/shader-name.txt)"
+          cat > run/optionsshaders.txt <<EOF
+          shaderPack=${shader_name}
+          antialiasingLevel=0
+          normalMapEnabled=true
+          specularMapEnabled=true
+          renderResMul=1.0
+          shadowResMul=0.5
+          handDepthMul=0.125
+          cloudShadow=false
+          oldHandLight=default
+          oldLighting=default
+          EOF
+
+          test -s run/mods/OptiFine_1.21.10_HD_U_J7_pre11.jar
+          test -s "run/shaderpacks/${shader_name}"
+          ls -lh run/mods run/shaderpacks
+
+      - name: Test Xdolf with OptiFine and Complementary shaders enabled
+        run: |
+          set +e
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 360s bash gradlew runClient -PxdolfSmokeTest --console=plain > build/diagnostics/optifine-complementary-smoke.log 2>&1
+          smoke_status=$?
+          set -e
+          tail -n 120 build/diagnostics/optifine-complementary-smoke.log
+          test "$smoke_status" -eq 0
+          grep -q 'XDOLF_SMOKE_OK' build/diagnostics/optifine-complementary-smoke.log
+          grep -Eqi 'OptiFine|optifine' build/diagnostics/optifine-complementary-smoke.log
+          grep -Eqi 'ComplementaryReimagined|Complementary Reimagined' build/diagnostics/optifine-complementary-smoke.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: optifine-complementary-smoke-log
+          path: build/diagnostics/optifine-complementary-smoke.log
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: optifine-complementary-gui-screenshot
+          path: run/screenshots/*.png
+          if-no-files-found: warn
