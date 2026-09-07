@@ -1,0 +1,217 @@
+name: Dev.16 OptiFine + Complementary Compatibility
+
+on:
+  push:
+    branches:
+      - optifine-complementary-dev16
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: xdolf-dev16-optifine-complementary-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Confirm dev.16 source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'mod_version=4.0.0-dev.16' gradle.properties
+          grep -Fq 'ConfigContainer' src/main/java/com/x0xp/xdolf/ui/clickgui/ClientScreen.java
+          grep -Fq 'ClickGuiTooltip' src/main/java/com/x0xp/xdolf/ui/clickgui/ClientScreen.java
+          grep -Fq 'XDOLF_GUI_OK: redesigned typed option cards, hover descriptions, scrolling, conflicts and Announcer controls' src/main/java/com/x0xp/xdolf/ui/clickgui/ClientScreen.java
+          printf 'Source version: '; grep '^mod_version=' gradle.properties
+
+      - name: Build dev.16 Xdolf
+        run: bash gradlew clean build --console=plain
+
+      - name: Install OptiFine HD U J7 pre11 and Complementary Reimagined r5.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p run/mods run/shaderpacks build/diagnostics
+
+          OPTIFINE_FILE='preview_OptiFine_1.21.10_HD_U_J7_pre11.jar'
+          OPTIFINE_PAGE="$(curl -fsSL --retry 3 -A 'Mozilla/5.0' "https://optifine.net/adloadx?f=${OPTIFINE_FILE}")"
+          OPTIFINE_PATH="$(printf '%s' "$OPTIFINE_PAGE" | sed 's/&amp;/\&/g' | grep -oE 'downloadx\?f=[^"< ]+&x=[0-9a-f]+' | head -n 1)"
+          test -n "$OPTIFINE_PATH"
+          curl -fL --retry 3 -A 'Mozilla/5.0' "https://optifine.net/${OPTIFINE_PATH}" -o "run/mods/${OPTIFINE_FILE}"
+          jar tf "run/mods/${OPTIFINE_FILE}" > build/diagnostics/optifine-entries.txt
+          grep -qE '(^|/)net/optifine/Config.class$' build/diagnostics/optifine-entries.txt
+          grep -qE '(^|/)optifine/OptiFineTransformationService.class$' build/diagnostics/optifine-entries.txt
+
+          SHADER_URL="$(curl -fsSL --retry 3 'https://api.modrinth.com/v2/project/complementary-reimagined/version' \
+            | jq -r '[.[] | select(.version_number == "r5.9")][0].files | ((map(select(.primary == true))[0] // .[0]).url)')"
+          test -n "$SHADER_URL"
+          test "$SHADER_URL" != 'null'
+          curl -fL --retry 3 "$SHADER_URL" -o run/shaderpacks/ComplementaryReimagined_r5.9.zip
+          unzip -l run/shaderpacks/ComplementaryReimagined_r5.9.zip > build/diagnostics/complementary-entries.txt
+          grep -qE '(^|[[:space:]])([^[:space:]]*/)?shaders/' build/diagnostics/complementary-entries.txt
+
+          printf 'shaderPack=ComplementaryReimagined_r5.9.zip\n' > run/optionsshaders.txt
+          printf 'Xdolf source: 4.0.0-dev.16\nOptiFine: %s\nComplementary: %s\n' "$OPTIFINE_FILE" "$SHADER_URL" | tee build/diagnostics/compat-inputs.txt
+
+      - name: Development-runtime dev.16 smoke
+        shell: bash
+        run: |
+          set +e
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 420s bash gradlew runClient -PxdolfSmokeTest --console=plain > build/diagnostics/optifine-complementary-smoke.log 2>&1
+          smoke_status=$?
+          set -e
+          tail -n 160 build/diagnostics/optifine-complementary-smoke.log
+          test "$smoke_status" -eq 0
+          grep -q 'XDOLF_XRAY_OK: dev.16' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_XRAY_CAPTURE_OK: dev.16' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_XRAY_RESTORE_OK: dev.16' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_GUI_OK: redesigned typed option cards' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_LOW_RES_FONT_OK' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_SCREEN_MODULES_OK' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_LIFECYCLE_OK' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_SMOKE_OK: dev.16 GUI' build/diagnostics/optifine-complementary-smoke.log
+
+      - name: Install isolated production Forge 60.1.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'portablemc[certifi]==4.4.1'
+          PROD_DIR="$RUNNER_TEMP/xdolf-dev16-production"
+          rm -rf "$PROD_DIR"
+          mkdir -p "$PROD_DIR"
+          portablemc --main-dir "$PROD_DIR" --work-dir "$PROD_DIR" start --dry --jvm "$JAVA_HOME/bin/java" forge:1.21.10-60.1.0 \
+            > build/diagnostics/portablemc-install.log 2>&1
+          tail -n 100 build/diagnostics/portablemc-install.log
+          test -d "$PROD_DIR/versions"
+
+      - name: Stage dev.16, OptiFine and Complementary into production instance
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_DIR="$RUNNER_TEMP/xdolf-dev16-production"
+          mkdir -p "$PROD_DIR/mods" "$PROD_DIR/shaderpacks"
+          XDOLF_JAR="$(find build/libs -maxdepth 1 -type f -name 'xdolf-4.0.0-dev.16.jar' -print -quit)"
+          test -n "$XDOLF_JAR"
+          cp "$XDOLF_JAR" "$PROD_DIR/mods/"
+          cp run/mods/preview_OptiFine_1.21.10_HD_U_J7_pre11.jar "$PROD_DIR/mods/"
+          cp run/shaderpacks/ComplementaryReimagined_r5.9.zip "$PROD_DIR/shaderpacks/"
+          printf 'shaderPack=ComplementaryReimagined_r5.9.zip\n' > "$PROD_DIR/optionsshaders.txt"
+          {
+            echo "Xdolf: $(basename "$XDOLF_JAR")"
+            echo 'Source baseline: 4.0.0-dev.16'
+            echo 'Forge: 1.21.10-60.1.0'
+            echo 'OptiFine: preview_OptiFine_1.21.10_HD_U_J7_pre11.jar'
+            echo 'Shader: ComplementaryReimagined_r5.9.zip'
+            echo 'optionsshaders.txt:'
+            cat "$PROD_DIR/optionsshaders.txt"
+          } | tee build/diagnostics/production-inputs.txt
+
+      - name: Production dev.16 + Forge + OptiFine + active Complementary smoke
+        shell: bash
+        run: |
+          set +e
+          PROD_DIR="$RUNNER_TEMP/xdolf-dev16-production"
+          LOG='build/diagnostics/production-optifine-complementary.log'
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 480s \
+            portablemc --main-dir "$PROD_DIR" --work-dir "$PROD_DIR" start \
+              -u XdolfCI --jvm "$JAVA_HOME/bin/java" --resolution 1280x800 \
+              "--jvm-args=-Xmx3G -Dxdolf.smokeTest=true" \
+              forge:1.21.10-60.1.0 \
+              > "$LOG" 2>&1
+          production_status=$?
+          set -e
+          tail -n 220 "$LOG"
+          test "$production_status" -eq 0
+
+          # Prove the exact production stack and exact Xdolf dev.16 artifact.
+          grep -Fq 'OptiFineTransformationService.onLoad' "$LOG"
+          grep -Fq 'OptiFine_1.21.10_HD_U_J7_pre11' "$LOG"
+          grep -Fq 'Forge version: 60.1.0' "$LOG"
+          grep -Eq 'Found mod file xdolf-4\.0\.0-dev\.16\.jar of type MOD' "$LOG"
+
+          # Prove dev.16's current UI/settings/font/lifecycle smoke path, not the old dev.8 GUI.
+          grep -q 'XDOLF_GUI_OK: redesigned typed option cards, hover descriptions, scrolling, conflicts and Announcer controls' "$LOG"
+          grep -q 'XDOLF_SCREEN_MODULES_OK' "$LOG"
+          grep -q 'XDOLF_LOW_RES_FONT_OK' "$LOG"
+          grep -q 'XDOLF_LIFECYCLE_OK' "$LOG"
+          grep -q 'XDOLF_SMOKE_OK: dev.16 GUI' "$LOG"
+
+          # Prove the OptiFine-safe XRay hook and deterministic coal/iron terrain test.
+          grep -q 'XDOLF_XRAY_OK: dev.16' "$LOG"
+          grep -q 'XDOLF_XRAY_CAPTURE_OK: dev.16' "$LOG"
+          grep -q 'XDOLF_XRAY_RESTORE_OK: dev.16' "$LOG"
+
+          # Require Complementary itself to be active and rendering.
+          grep -Fq 'Loaded shaderpack: ComplementaryReimagined_r5.9.zip' "$LOG"
+          grep -Fq 'Program loaded: world0/final' "$LOG"
+          grep -Fq 'Framebuffer created: dfb' "$LOG"
+          grep -Fq 'Framebuffer created: sfb' "$LOG"
+
+          forbidden='Base resource not found:|MixinTransformerError|MixinApplyError|InvalidInjectionException|InjectionError|Shader compilation failed|Program link failed|OpenGL Error|GL_INVALID_|The game crashed|Crash report saved|Exception in thread "Render thread"|\[FATAL\]'
+          if grep -Eqi "$forbidden" "$LOG"; then
+            echo 'Fatal dev.16 OptiFine/Xdolf/shader compatibility signature found:' >&2
+            grep -Ein "$forbidden" "$LOG" >&2 || true
+            exit 1
+          fi
+
+      - name: Extract dev.16 compatibility evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p build/diagnostics
+          LOG='build/diagnostics/production-optifine-complementary.log'
+          {
+            echo '=== Xdolf source baseline ==='
+            grep '^mod_version=' gradle.properties 2>/dev/null || true
+            git rev-parse HEAD 2>/dev/null || true
+            echo '=== Development dev.16 smoke ==='
+            grep -E 'XDOLF_(SMOKE|GUI|XRAY|LOW_RES|SCREEN_MODULES|LIFECYCLE)' build/diagnostics/optifine-complementary-smoke.log 2>/dev/null || true
+            echo '=== Production stack ==='
+            grep -E 'OptiFineTransformationService.onLoad|OptiFine_1\.21\.10_HD_U_J7_pre11|Forge version: 60\.1\.0|Found mod file xdolf-4\.0\.0-dev\.16' "$LOG" 2>/dev/null || true
+            echo '=== Production shader initialisation ==='
+            grep -E 'Loaded shaderpack: ComplementaryReimagined_r5.9.zip|Program loaded: world0/final|Framebuffer created: (dfb|sfb)' "$LOG" 2>/dev/null || true
+            echo '=== Production dev.16 smoke evidence ==='
+            grep -E 'XDOLF_(SMOKE|GUI|XRAY|LOW_RES|SCREEN_MODULES|LIFECYCLE)' "$LOG" 2>/dev/null || true
+            echo '=== Fatal compatibility signatures (must be empty) ==='
+            grep -Ein 'Base resource not found:|MixinTransformerError|MixinApplyError|InvalidInjectionException|InjectionError|Shader compilation failed|Program link failed|OpenGL Error|GL_INVALID_|The game crashed|Crash report saved|Exception in thread "Render thread"|\[FATAL\]' "$LOG" 2>/dev/null || true
+            echo '=== Other ERROR-severity lines (diagnostic only) ==='
+            grep -En '\[ERROR\]' "$LOG" 2>/dev/null || true
+            echo '=== Production inputs ==='
+            cat build/diagnostics/production-inputs.txt 2>/dev/null || true
+          } > build/diagnostics/compat-evidence.txt
+          cat build/diagnostics/compat-evidence.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dev16-optifine-complementary-proof
+          path: |
+            build/diagnostics/compat-inputs.txt
+            build/diagnostics/compat-evidence.txt
+            build/diagnostics/optifine-entries.txt
+            build/diagnostics/complementary-entries.txt
+            build/diagnostics/optifine-complementary-smoke.log
+            build/diagnostics/portablemc-install.log
+            build/diagnostics/production-inputs.txt
+            build/diagnostics/production-optifine-complementary.log
+            run/logs/latest.log
+            run/optionsshaders.txt
+            run/screenshots/*.png
+            ${{ runner.temp }}/xdolf-dev16-production/logs/latest.log
+            ${{ runner.temp }}/xdolf-dev16-production/optionsshaders.txt
+            ${{ runner.temp }}/xdolf-dev16-production/screenshots/*.png
+          if-no-files-found: warn
