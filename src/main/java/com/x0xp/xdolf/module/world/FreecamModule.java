@@ -35,8 +35,8 @@ final class FreecamModule extends ClientModule {
 
         // Existing speed values were blocks per client tick. Preserve that feel at 20 ticks/sec.
         double distance = Hooks.setting("Freecam", "speed", 0.5) * 20.0 * seconds;
-        position = position.add(MovementModules.direction(mc, distance))
-            .add(0, MovementModules.vertical(mc, distance), 0);
+        position = position.add(MovementMath.direction(mc, distance))
+            .add(0, MovementMath.vertical(mc, distance), 0);
         return position;
     }
 
