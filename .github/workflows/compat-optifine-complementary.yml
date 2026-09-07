@@ -105,7 +105,7 @@ jobs:
           chmod +x "$PMC"
           echo "$PMC" > build/diagnostics/portablemc-path.txt
           "$PMC" --main-dir "$PWD/build/production-minecraft" \
-            start forge:1.21.10-60.1.0:unstable -u Dev --jvm "$JAVA_HOME/bin/java" --dry
+            start forge::1.21.10-60.1.0 -u Dev --jvm "$JAVA_HOME/bin/java" --dry
 
       - name: Stage production Xdolf, OptiFine and Complementary
         run: |
@@ -126,7 +126,7 @@ jobs:
           set +e
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 480s "$PMC" \
             --main-dir "$PROD" \
-            start forge:1.21.10-60.1.0:unstable -u Dev --jvm "$JAVA_HOME/bin/java" \
+            start forge::1.21.10-60.1.0 -u Dev --jvm "$JAVA_HOME/bin/java" \
             "--jvm-args=-Xmx3G -Dxdolf.smokeTest=true" --resolution 1280x800 \
             > build/diagnostics/optifine-complementary-production.log 2>&1
           smoke_status=$?
