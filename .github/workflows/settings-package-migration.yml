@@ -1,0 +1,91 @@
+name: Settings Package Migration
+
+on:
+  push:
+    branches: [package-organisation]
+    paths:
+      - '.github/workflows/settings-package-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: package-organisation
+      - name: Align settings service packages
+        shell: python
+        run: |
+          from pathlib import Path
+
+          root = Path('src/main/java/com/x0xp/xdolf')
+          settings = root / 'settings'
+
+          def replace_package(path, package):
+              text = path.read_text()
+              first = text.splitlines()[0]
+              text = text.replace(first, f'package {package};', 1)
+              path.write_text(text)
+
+          # Complete the settings namespace: persistence and key services live beside typed values.
+          for name in ['ClientConfig', 'Keybinds', 'KeyNames']:
+              replace_package(settings / f'{name}.java', 'com.x0xp.xdolf.settings')
+
+          cfg = settings / 'ClientConfig.java'
+          text = cfg.read_text()
+          text = text.replace('package com.x0xp.xdolf.settings;\n', 'package com.x0xp.xdolf.settings;\n\nimport com.x0xp.xdolf.ClientRuntime;\n', 1)
+          text = text.replace('    static int guiKey', '    public static int guiKey')
+          text = text.replace('    static void load(', '    public static void load(')
+          cfg.write_text(text)
+
+          names = settings / 'KeyNames.java'
+          text = names.read_text().replace('final class KeyNames', 'public final class KeyNames', 1)
+          for sig in ['static int parse(', 'static String name(', 'static int read(']:
+              text = text.replace('    ' + sig, '    public ' + sig)
+          names.write_text(text)
+
+          binds = settings / 'Keybinds.java'
+          text = binds.read_text()
+          text = text.replace('package com.x0xp.xdolf.settings;\n',
+              'package com.x0xp.xdolf.settings;\n\nimport com.x0xp.xdolf.ClientRuntime;\nimport com.x0xp.xdolf.ClientScreen;\nimport com.x0xp.xdolf.module.ClientModule;\n', 1)
+          text = text.replace('final class Keybinds', 'public final class Keybinds', 1)
+          for sig in ['static String display(', 'static boolean guiConflict(', 'static List<ClientModule> conflicts(',
+                      'static String conflictNames(', 'static void replaceConflicts(']:
+              text = text.replace('    ' + sig, '    public ' + sig)
+          binds.write_text(text)
+
+          # ClientScreen provides the human-facing alias for conflict notices.
+          screen = root / 'ui/clickgui/ClientScreen.java'
+          text = screen.read_text().replace('    static String label(ClientModule module)', '    public static String label(ClientModule module)')
+          screen.write_text(text)
+
+          # Redirect references to the owned settings namespace.
+          for path in root.rglob('*.java'):
+              if path in [cfg, names, binds]:
+                  continue
+              text = path.read_text()
+              text = text.replace('import com.x0xp.xdolf.ClientConfig;', 'import com.x0xp.xdolf.settings.ClientConfig;')
+              text = text.replace('import com.x0xp.xdolf.Keybinds;', 'import com.x0xp.xdolf.settings.Keybinds;')
+              text = text.replace('import com.x0xp.xdolf.KeyNames;', 'import com.x0xp.xdolf.settings.KeyNames;')
+              first_nl = text.find('\n')
+              if first_nl >= 0 and text.startswith('package '):
+                  imports = []
+                  if 'ClientConfig' in text and 'import com.x0xp.xdolf.settings.ClientConfig;' not in text:
+                      imports.append('import com.x0xp.xdolf.settings.ClientConfig;')
+                  if 'Keybinds' in text and 'import com.x0xp.xdolf.settings.Keybinds;' not in text:
+                      imports.append('import com.x0xp.xdolf.settings.Keybinds;')
+                  if 'KeyNames' in text and 'import com.x0xp.xdolf.settings.KeyNames;' not in text:
+                      imports.append('import com.x0xp.xdolf.settings.KeyNames;')
+                  if imports:
+                      text = text[:first_nl+1] + '\n' + '\n'.join(imports) + '\n' + text[first_nl+1:]
+              path.write_text(text)
+      - name: Commit migration
+        run: |
+          git config user.name x0XP
+          git config user.email 3501503+x0XP@users.noreply.github.com
+          git add src
+          git commit -m "Complete settings package namespace"
+          git push origin package-organisation
