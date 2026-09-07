@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.module.player.SpammerModule;
+import com.x0xp.xdolf.module.world.XRayModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.block.Blocks;
 import org.lwjgl.glfw.GLFW;
@@ -30,7 +32,7 @@ final class CommandSmoke {
         check(ClientRuntime.find("Fullbright").enabled()&&ClientRuntime.find("NoHurtCam").enabled(),"Shared-key macros failed");
         Commands.execute(".timer 2");check(ClientRuntime.find("Timer").numberSetting("speed").get()==2,"Timer command failed");
         Commands.execute(".spam mode antispam");Commands.execute(".spam delay 1800");Commands.execute(".spam msg Mixed Case: test");
-        check(NetworkModules.spammer().message.get().equals("Mixed Case: test"),"Message content changed");
+        check(((SpammerModule)ClientRuntime.find("Spammer")).message.get().equals("Mixed Case: test"),"Message content changed");
         Commands.execute(".xray add stone");check(XRayModule.visible(Blocks.STONE.defaultBlockState()),"Xray add failed");
         Commands.execute(".xray del stone");check(!XRayModule.visible(Blocks.STONE.defaultBlockState()),"Xray del failed");
         Commands.execute(".waypoint add TestHome");check(Commands.waypoints.size()==1,"Waypoint add failed");
