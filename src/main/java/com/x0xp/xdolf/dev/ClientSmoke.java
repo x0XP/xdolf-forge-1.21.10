@@ -1,6 +1,7 @@
 package com.x0xp.xdolf;
 
 import com.mojang.logging.LogUtils;
+import com.x0xp.xdolf.module.world.XRayModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
