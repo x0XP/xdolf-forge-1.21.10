@@ -1,6 +1,10 @@
 package com.x0xp.xdolf.module.registry;
 
 import com.x0xp.xdolf.*;
+import com.x0xp.xdolf.module.player.*;
+import com.x0xp.xdolf.module.render.*;
+import com.x0xp.xdolf.module.combat.*;
+import com.x0xp.xdolf.module.world.*;
 
 import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
