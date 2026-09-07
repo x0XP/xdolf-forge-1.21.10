@@ -16,7 +16,7 @@ Original Xdolf source: https://github.com/x0XP/xdolf
 
 Xdolf is client-only and does not need to be installed on the server.
 
-The click GUI uses the original grave/backtick default key. Right-click a module to open its inset option card, and hover modules or settings for descriptions and live status information. Text, choices, toggles, numbers and keybinds share one typed setting system. Spammer's message, normal/anti-spam mode and delay can be edited there as well as through `.spam`. Module states, keybinds and settings are stored under Minecraft's `config` folder. Normal inventory/chat/settings screens do **not** disable enabled modules.
+The click GUI uses the original grave/backtick default key. Right-click a module to open its inset option card, and hover modules or settings for descriptions and live status information. Module expansion indicators use the same bundled TTF renderer as the module labels, and boolean option toggles animate their knob, track and state colours rather than snapping between states. Text, choices, toggles, numbers and keybinds share one typed setting system. Spammer's message, normal/anti-spam mode and delay can be edited there as well as through `.spam`. Module states, keybinds and settings are stored under Minecraft's `config` folder. Normal inventory/chat/settings screens do **not** disable enabled modules.
 
 Announcer batches ordinary activity into a single rate-limited chat message. Walking distance, mined block types, eaten items, jumps and attacks can each be enabled independently, and its default delay is 1800 ms.
 
