@@ -1,0 +1,91 @@
+name: Package Boundary Contract Cleanup
+
+on:
+  push:
+    branches: [package-organisation]
+    paths:
+      - '.github/workflows/boundary-contracts.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: package-organisation
+      - name: Make cross-package contracts explicit
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path('src/main/java/com/x0xp/xdolf')
+
+          # Remove imports that were accidentally inferred from nested types during the
+          # mechanical migration. Keep real top-level types and explicit nested-type imports.
+          import_re = re.compile(r'(?m)^import\s+(?:static\s+)?(com\.x0xp\.xdolf(?:\.[\w$]+)+)(?:\.\*)?;\n')
+          for path in root.rglob('*.java'):
+              text = path.read_text()
+              def valid_import(match):
+                  fqcn = match.group(1)
+                  parts = fqcn.split('.')[3:]  # path below com/x0xp/xdolf
+                  direct = root.joinpath(*parts).with_suffix('.java')
+                  if direct.exists():
+                      return match.group(0)
+                  # A nested type import is valid when its owning top-level class exists.
+                  if len(parts) > 1:
+                      outer = root.joinpath(*parts[:-1]).with_suffix('.java')
+                      if outer.exists():
+                          return match.group(0)
+                  return ''
+              text = import_re.sub(valid_import, text)
+              path.write_text(text)
+
+          # These classes are deliberate subsystem entry points/services. Their package
+          # boundaries are now explicit, so only their existing package-level API is opened;
+          # private implementation remains private.
+          contracts = {
+              'chat/ChatFormatter.java': 'ChatFormatter',
+              'chat/ChatQueue.java': 'ChatQueue',
+              'chat/ChatTextContext.java': 'ChatTextContext',
+              'command/Commands.java': 'Commands',
+              'core/ClientRuntime.java': 'ClientRuntime',
+              'core/Hooks.java': 'Hooks',
+              'core/OriginalQuotes.java': 'OriginalQuotes',
+              'dev/ClientSmoke.java': 'ClientSmoke',
+              'render/MarkerVisuals.java': 'MarkerVisuals',
+              'render/WorldVisuals.java': 'WorldVisuals',
+              'render/VisualStyle.java': 'VisualStyle',
+              'social/SocialState.java': 'SocialState',
+              'ui/UiDraw.java': 'UiDraw',
+              'ui/hud/Hud.java': 'Hud',
+              'ui/hud/NotificationCards.java': 'NotificationCards',
+              'ui/clickgui/ClientScreen.java': 'ClientScreen',
+          }
+
+          for relative, name in contracts.items():
+              path = root / relative
+              text = path.read_text()
+              # Top-level service visibility.
+              text = re.sub(
+                  rf'(?m)^(?!(?:public)\b)((?:final\s+|abstract\s+)?class\s+{re.escape(name)}\b)',
+                  r'public \1', text, count=1
+              )
+              # Existing package-level static API becomes explicitly public. Private/protected
+              # members are left untouched, keeping implementation details encapsulated.
+              text = re.sub(r'(?m)^    static\s+', '    public static ', text)
+              # Commands exposes immutable value shapes used by rendering/dev validation.
+              if name == 'Commands':
+                  text = text.replace('    record Macro(', '    public record Macro(')
+                  text = text.replace('    record Waypoint(', '    public record Waypoint(')
+              path.write_text(text)
+      - name: Commit boundary contracts
+        run: |
+          git config user.name x0XP
+          git config user.email 3501503+x0XP@users.noreply.github.com
+          git add src
+          git commit -m "Make package boundary contracts explicit"
+          git push origin package-organisation
