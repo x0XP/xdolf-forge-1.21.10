@@ -8,6 +8,7 @@ import java.util.Map;
 /** Persistent window state and animation, independent from rendering and input. */
 final class ClickGuiPanel {
     private static final long OPTION_ANIMATION_NS = 135_000_000L;
+    private static final long WINDOW_ANIMATION_NS = 180_000_000L;
     private static final long SCROLL_ANIMATION_NS = 120_000_000L;
     static final float MAX_BODY_HEIGHT = 205.0f;
 
@@ -51,6 +52,10 @@ final class ClickGuiPanel {
     float scrollFrom;
     float scrollTarget;
     private long scrollStarted;
+    private float openProgress;
+    private float openFrom;
+    private float openTarget;
+    private long openStarted;
 
     ClickGuiPanel(String title, int y) {
         this.title = title;
@@ -58,6 +63,31 @@ final class ClickGuiPanel {
     }
 
     boolean text() { return title.equals("Info") || title.equals("Radar"); }
+
+    float openProgress() {
+        if (openProgress == openTarget) return openProgress;
+        float elapsed = Math.min(1.0f, (System.nanoTime() - openStarted) / (float) WINDOW_ANIMATION_NS);
+        openProgress = openFrom + (openTarget - openFrom) * UiDraw.easeOutCubic(elapsed);
+        if (elapsed >= 1.0f) openProgress = openTarget;
+        return openProgress;
+    }
+
+    void setOpen(boolean value) {
+        float current = openProgress();
+        open = value;
+        openFrom = current;
+        openTarget = value ? 1.0f : 0.0f;
+        openStarted = System.nanoTime();
+    }
+
+    void restoreOpen(boolean value) {
+        open = value;
+        openProgress = openFrom = openTarget = value ? 1.0f : 0.0f;
+    }
+
+    void finishOpenAnimation() {
+        openProgress = openFrom = openTarget;
+    }
 
     Expansion expansion(ClientModule module) {
         return expansions.computeIfAbsent(module, ignored -> new Expansion());
@@ -79,23 +109,34 @@ final class ClickGuiPanel {
     }
 
     float height(int textLines) {
-        if (text()) return open ? textLines * 10 + 16 : 14;
-        if (!open) return 13;
-        float height = 13 + modules.size() * 12 + 0.5f;
-        for (ClientModule module : modules) height += animatedSettingsHeight(module);
-        return height;
+        float fullHeight;
+        if (text()) fullHeight = textLines * 10 + 16;
+        else {
+            fullHeight = 13 + modules.size() * 12 + 0.5f;
+            for (ClientModule module : modules) fullHeight += animatedSettingsHeight(module);
+        }
+        return 13 + Math.max(0, fullHeight - 13) * openProgress();
     }
 
     float displayHeight(int screenHeight, int textLines) {
-        float height = height(textLines);
-        if (text() || !open) return height;
+        float progress = openProgress();
+        if (progress <= .001f) return 13;
+        float fullHeight;
+        if (text()) fullHeight = textLines * 10 + 16;
+        else {
+            fullHeight = 13 + modules.size() * 12 + .5f;
+            for (ClientModule module : modules) fullHeight += animatedSettingsHeight(module);
+        }
         float availableBody = Math.max(48.0f, Math.min(MAX_BODY_HEIGHT, screenHeight - y - 21.0f));
-        return 13.0f + Math.min(height - 13.0f, availableBody);
+        float targetHeight = 13.0f + Math.min(fullHeight - 13.0f, availableBody);
+        return 13.0f + (targetHeight - 13.0f) * progress;
     }
 
     float maxScroll(int screenHeight) {
-        float height = height(0);
-        return Math.max(0, height - displayHeight(screenHeight, 0));
+        float fullHeight = 13 + modules.size() * 12 + .5f;
+        for (ClientModule module : modules) fullHeight += animatedSettingsHeight(module);
+        float availableBody = Math.max(48.0f, Math.min(MAX_BODY_HEIGHT, screenHeight - y - 21.0f));
+        return Math.max(0, fullHeight - (13 + Math.min(fullHeight - 13, availableBody)));
     }
 
     float scrollValue(int screenHeight) {

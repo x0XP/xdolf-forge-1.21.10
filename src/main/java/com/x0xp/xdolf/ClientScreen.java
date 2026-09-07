@@ -137,11 +137,13 @@ public final class ClientScreen extends Screen {
             border(graphics, panel.x + 89, panel.y + 2, panel.x + 98, panel.y + 11,
                 panel.open ? 0xFFFF0000 : 0xFF383B42);
         }
-        if (!panel.open) return;
+        if (panel.openProgress() <= .001f) return;
 
         if (panel.text()) {
+            graphics.enableScissor(panel.x, panel.y + 12, panel.x + 100, (int) Math.ceil(panel.y + displayHeight));
             for (int i = 0; i < text.size(); i++)
                 XdolfFont.draw(graphics, XdolfFont.trim(text.get(i), 97), panel.x + 3, panel.y + 13 + i * 10, 0xFFFFFFFF);
+            graphics.disableScissor();
             return;
         }
 
@@ -256,7 +258,7 @@ public final class ClientScreen extends Screen {
 
             if (hit(mouseX, mouseY, panel.x + 89, panel.y + 2, 9, 9)) {
                 commitEditing();
-                panel.open = !panel.open;
+                panel.setOpen(!panel.open);
             } else if (hit(mouseX, mouseY, panel.x + 79, panel.y + 2, 9, 9)) {
                 commitEditing();
                 panel.pinned = !panel.pinned;
@@ -565,7 +567,7 @@ public final class ClientScreen extends Screen {
         elytra.setEnabled(false);
 
         for (ClickGuiPanel panel : PANELS) {
-            panel.open = true;
+            panel.restoreOpen(true);
             panel.pinned = false;
             panel.expansions.clear();
             panel.scroll = panel.scrollFrom = panel.scrollTarget = 0;

@@ -23,7 +23,7 @@ final class ClickGuiPersistence {
                     panel.x = Integer.parseInt(properties.getProperty(panel.title + ".x", "2"));
                     panel.y = Integer.parseInt(properties.getProperty(panel.title + ".y", Integer.toString(panel.y)));
                 } catch (NumberFormatException ignored) { }
-                panel.open = Boolean.parseBoolean(properties.getProperty(panel.title + ".open"));
+                panel.restoreOpen(Boolean.parseBoolean(properties.getProperty(panel.title + ".open")));
                 panel.pinned = Boolean.parseBoolean(properties.getProperty(panel.title + ".pinned"));
             }
         } catch (java.io.IOException error) {
