@@ -184,12 +184,10 @@ public final class ClientScreen extends Screen {
         String name = label(module);
         XdolfFont.draw(graphics, name, x + 48 - XdolfFont.width(name) / 2f, y, color);
         if (hover) {
-            // Draw the chevron directly so it does not depend on font glyph support.
-            for (int i = 0; i < 5; i++) {
-                float offset = expanded ? Math.abs(i - 2) : 2 - Math.abs(i - 2);
-                rect(graphics, x + 88 + i, y + 4 + offset,
-                    x + 89 + i, y + 5 + offset, 0xFF62B5FF);
-            }
+            // Use the same bundled Roboto TTF renderer and baseline as the module label.
+            String arrow = expanded ? "v" : ">";
+            float arrowX = x + 90.5f - XdolfFont.width(arrow) / 2f;
+            XdolfFont.draw(graphics, arrow, arrowX, y, 0xFF62B5FF);
         }
     }
 

@@ -2,14 +2,18 @@ package com.x0xp.xdolf;
 
 import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static com.x0xp.xdolf.UiDraw.*;
 
 /** Rendering and geometry for the typed option cards shown beneath a module. */
 final class ConfigContainer {
     private static final float TOP_GAP = 2;
+    private static final long TOGGLE_ANIMATION_NS = 140_000_000L;
+    private static final Map<BooleanSetting, ToggleAnimation> TOGGLE_ANIMATIONS = new IdentityHashMap<>();
     static final float HEADER_HEIGHT = 15;
     static final float KEYBIND_HEIGHT = 15;
     static final float NUMBER_HEIGHT = 25;
@@ -133,19 +137,22 @@ final class ConfigContainer {
 
     private static void drawBoolean(GuiGraphics graphics, BooleanSetting setting, float left, float right, float y,
                                     boolean hover, float alpha) {
+        float toggle = toggleProgress(setting);
         List<String> lines = wrap(label(setting), (int) (right - left - 23));
         float textY = lines.size() > 1 ? y + 1 : centered(y, y + rowHeight(setting) - 2);
+        int labelColor = mixColor(0xFFADB2BA, 0xFFFFFFFF, toggle);
         for (int i = 0; i < lines.size(); i++)
-            XdolfFont.drawCompact(graphics, lines.get(i), left, textY + i * 8,
-                fade(setting.on() ? 0xFFFFFFFF : 0xFFADB2BA, alpha));
+            XdolfFont.drawCompact(graphics, lines.get(i), left, textY + i * 8, fade(labelColor, alpha));
         float switchRight = right - 2;
         float switchLeft = switchRight - 17;
         float switchTop = y + (rowHeight(setting) - 8) / 2;
         rect(graphics, switchLeft, switchTop, switchRight, switchTop + 7,
-            fade(setting.on() ? 0xFFFF2020 : 0xFF30353D, alpha));
+            fade(mixColor(0xFF30353D, 0xFFFF2020, toggle), alpha));
         outline(graphics, switchLeft, switchTop, switchRight, switchTop + 7,
-            fade(hover ? 0xFF329CFF : setting.on() ? 0xFFFF6868 : 0xFF515863, alpha));
-        float knob = setting.on() ? switchRight - 6 : switchLeft + 1;
+            fade(hover ? 0xFF329CFF : mixColor(0xFF515863, 0xFFFF6868, toggle), alpha));
+        float knobOff = switchLeft + 1;
+        float knobOn = switchRight - 6;
+        float knob = knobOff + (knobOn - knobOff) * toggle;
         rect(graphics, knob, switchTop + 1, knob + 5, switchTop + 6, fade(0xFFFFFFFF, alpha));
     }
 
@@ -209,6 +216,53 @@ final class ConfigContainer {
     }
 
     static float sliderTop(float y) { return y + 16; }
+
+    private static float toggleProgress(BooleanSetting setting) {
+        return TOGGLE_ANIMATIONS.computeIfAbsent(setting, ignored -> new ToggleAnimation(setting.on()))
+            .value(setting.on());
+    }
+
+    private static int mixColor(int from, int to, float amount) {
+        float t = clamp01(amount);
+        int a0 = (from >>> 24) & 0xFF, r0 = (from >>> 16) & 0xFF, g0 = (from >>> 8) & 0xFF, b0 = from & 0xFF;
+        int a1 = (to >>> 24) & 0xFF, r1 = (to >>> 16) & 0xFF, g1 = (to >>> 8) & 0xFF, b1 = to & 0xFF;
+        int a = Math.round(a0 + (a1 - a0) * t);
+        int r = Math.round(r0 + (r1 - r0) * t);
+        int g = Math.round(g0 + (g1 - g0) * t);
+        int b = Math.round(b0 + (b1 - b0) * t);
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    private static final class ToggleAnimation {
+        private float from;
+        private float target;
+        private long started;
+
+        ToggleAnimation(boolean enabled) {
+            from = target = enabled ? 1f : 0f;
+            started = System.nanoTime();
+        }
+
+        float value(boolean enabled) {
+            long now = System.nanoTime();
+            float current = current(now);
+            float desired = enabled ? 1f : 0f;
+            if (desired != target) {
+                from = current;
+                target = desired;
+                started = now;
+            }
+            return current;
+        }
+
+        private float current(long now) {
+            if (from == target) return target;
+            float elapsed = Math.min(1f, (now - started) / (float) TOGGLE_ANIMATION_NS);
+            float value = from + (target - from) * UiDraw.easeOutCubic(elapsed);
+            if (elapsed >= 1f) from = target;
+            return value;
+        }
+    }
 
     private static float centered(float top, float bottom) {
         int rounded = Math.round(top);
