@@ -20,37 +20,28 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('src/main/java/com/x0xp/xdolf/ConfigContainer.java')
           text = path.read_text()
-          old = '''        float headerMid = left + (right - left) / 2f;
-          rect(graphics, left + 1, top + HEADER_HEIGHT - 1, headerMid, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
-          rect(graphics, headerMid, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
-          float headerTextY = centered(cardTop, top + HEADER_HEIGHT - 1);
-          String moduleName = XdolfFont.compactTrim(ClientScreen.label(module), 42);
-          float leftHalfStart = left + 1;
-          float leftHalfWidth = headerMid - leftHalfStart;
-          XdolfFont.drawCompact(graphics, moduleName,
-              leftHalfStart + (leftHalfWidth - XdolfFont.compactWidth(moduleName)) / 2f,
-              headerTextY, fade(0xFFFFFFFF, progress));
-          String options = "OPTIONS";
-          float rightHalfWidth = right - headerMid;
-          XdolfFont.drawCompact(graphics, options,
-              headerMid + (rightHalfWidth - XdolfFont.compactWidth(options)) / 2f,
-              headerTextY, fade(0xFF8C929D, progress));
-          '''
-          new = '''        rect(graphics, left + 1, top + HEADER_HEIGHT - 1, left + 47, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
-          rect(graphics, left + 47, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
-          float headerTextY = centered(cardTop, top + HEADER_HEIGHT - 1);
-          XdolfFont.drawCompact(graphics, XdolfFont.compactTrim(ClientScreen.label(module), 48),
-              left + 4, headerTextY, fade(0xFFFFFFFF, progress));
-          String options = "OPTIONS";
-          XdolfFont.drawCompact(graphics, options, right - 4 - XdolfFont.compactWidth(options), headerTextY,
-              fade(0xFF8C929D, progress));
-          '''
-          if text.count(old) != 1:
-              raise SystemExit(f'header block match count was {text.count(old)}')
-          path.write_text(text.replace(old, new))
+          pattern = re.compile(
+              r'\s*float headerMid = left \+ \(right - left\) / 2f;.*?'
+              r'headerTextY, fade\(0xFF8C929D, progress\)\);',
+              re.S,
+          )
+          replacement = '''
+        rect(graphics, left + 1, top + HEADER_HEIGHT - 1, left + 47, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
+        rect(graphics, left + 47, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
+        float headerTextY = centered(cardTop, top + HEADER_HEIGHT - 1);
+        XdolfFont.drawCompact(graphics, XdolfFont.compactTrim(ClientScreen.label(module), 48),
+            left + 4, headerTextY, fade(0xFFFFFFFF, progress));
+        String options = "OPTIONS";
+        XdolfFont.drawCompact(graphics, options, right - 4 - XdolfFont.compactWidth(options), headerTextY,
+            fade(0xFF8C929D, progress));'''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'header block regex match count was {count}')
+          path.write_text(text)
           PY
 
           rm .github/workflows/restore-option-header-x.yml
