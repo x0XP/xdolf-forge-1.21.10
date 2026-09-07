@@ -1,0 +1,107 @@
+name: Module Settings Package Migration
+
+on:
+  push:
+    branches: [package-organisation]
+    paths:
+      - '.github/workflows/module-settings-package-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: package-organisation
+      - name: Align module base and setting packages
+        shell: python
+        run: |
+          from pathlib import Path
+
+          root = Path('src/main/java/com/x0xp/xdolf')
+
+          def replace_package(path, package):
+              text = path.read_text()
+              old = text.splitlines()[0]
+              if old.startswith('package '):
+                  text = text.replace(old, f'package {package};', 1)
+              path.write_text(text)
+
+          # Typed setting value model owns its namespace.
+          setting_names = ['ModuleSetting', 'BooleanSetting', 'NumberSetting', 'TextSetting', 'ChoiceSetting']
+          for name in setting_names:
+              path = root / 'settings' / f'{name}.java'
+              replace_package(path, 'com.x0xp.xdolf.settings')
+              text = path.read_text()
+              if name == 'ModuleSetting':
+                  text = text.replace('    ModuleSetting(', '    protected ModuleSetting(')
+              else:
+                  text = text.replace(f'    {name}(', f'    public {name}(')
+              path.write_text(text)
+
+          # Core module contract and lifecycle policy own the module root package.
+          client_module = root / 'module/ClientModule.java'
+          replace_package(client_module, 'com.x0xp.xdolf.module')
+          text = client_module.read_text()
+          text = text.replace('package com.x0xp.xdolf.module;\n',
+              'package com.x0xp.xdolf.module;\n\nimport com.x0xp.xdolf.ClientConfig;\nimport com.x0xp.xdolf.ClientRuntime;\nimport com.x0xp.xdolf.settings.*;\n', 1)
+          text = text.replace('    final void restoreEnabled(', '    public final void restoreEnabled(')
+          client_module.write_text(text)
+
+          manager = root / 'module/ModuleManager.java'
+          replace_package(manager, 'com.x0xp.xdolf.module')
+          text = manager.read_text()
+          text = text.replace('package com.x0xp.xdolf.module;\n',
+              'package com.x0xp.xdolf.module;\n\nimport com.x0xp.xdolf.ClientRuntime;\nimport com.x0xp.xdolf.NotificationCards;\n', 1)
+          text = text.replace('final class ModuleManager', 'public final class ModuleManager')
+          text = text.replace('    enum Activity', '    public enum Activity')
+          text = text.replace('    record Status', '    public record Status')
+          text = text.replace('        boolean active()', '        public boolean active()')
+          for signature in [
+              'static boolean setEnabled(', 'static boolean toggle(', 'static boolean conflict(',
+              'static List<String> conflicts(', 'static Status status(', 'static boolean active(',
+              'static void reconcileRestoredSelections()'
+          ]:
+              text = text.replace('    ' + signature, '    public ' + signature)
+          manager.write_text(text)
+
+          # Minimal explicit cross-package services used by the module contract/manager.
+          cfg = root / 'settings/ClientConfig.java'
+          text = cfg.read_text().replace('final class ClientConfig', 'public final class ClientConfig', 1)
+          text = text.replace('    static void save(', '    public static void save(')
+          cfg.write_text(text)
+
+          notices = root / 'ui/hud/NotificationCards.java'
+          text = notices.read_text().replace('final class NotificationCards', 'public final class NotificationCards', 1)
+          text = text.replace('    static void warning(', '    public static void warning(')
+          notices.write_text(text)
+
+          # Add imports wherever a source now crosses the new module/settings namespaces.
+          for path in root.rglob('*.java'):
+              if path in [client_module, manager] or path.name in [f'{n}.java' for n in setting_names]:
+                  continue
+              text = path.read_text()
+              first_nl = text.find('\n')
+              if first_nl < 0 or not text.startswith('package '):
+                  continue
+              imports = []
+              if 'ClientModule' in text and 'import com.x0xp.xdolf.module.ClientModule;' not in text:
+                  imports.append('import com.x0xp.xdolf.module.ClientModule;')
+              if 'ModuleManager' in text and 'import com.x0xp.xdolf.module.ModuleManager;' not in text:
+                  imports.append('import com.x0xp.xdolf.module.ModuleManager;')
+              setting_refs = ['ModuleSetting', 'BooleanSetting', 'NumberSetting', 'TextSetting', 'ChoiceSetting']
+              if any(name in text for name in setting_refs) and 'import com.x0xp.xdolf.settings.*;' not in text:
+                  imports.append('import com.x0xp.xdolf.settings.*;')
+              if imports:
+                  text = text[:first_nl+1] + '\n' + '\n'.join(imports) + '\n' + text[first_nl+1:]
+                  path.write_text(text)
+      - name: Commit migration
+        run: |
+          git config user.name x0XP
+          git config user.email 3501503+x0XP@users.noreply.github.com
+          git add src
+          git commit -m "Align module base and setting value packages"
+          git push origin package-organisation
