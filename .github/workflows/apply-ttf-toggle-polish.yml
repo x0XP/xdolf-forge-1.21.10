@@ -23,156 +23,116 @@ jobs:
 
           screen = Path('src/main/java/com/x0xp/xdolf/ClientScreen.java')
           text = screen.read_text()
-          old = '''        if (hover) {
-              // Draw the chevron directly so it does not depend on font glyph support.
-              for (int i = 0; i < 5; i++) {
-                  float offset = expanded ? Math.abs(i - 2) : 2 - Math.abs(i - 2);
-                  rect(graphics, x + 88 + i, y + 4 + offset,
-                      x + 89 + i, y + 5 + offset, 0xFF62B5FF);
-              }
-          }
-          '''
-          new = '''        if (hover) {
-              // Use the same bundled Roboto TTF renderer and baseline as the module label.
-              String arrow = expanded ? "v" : ">";
-              float arrowX = x + 90.5f - XdolfFont.width(arrow) / 2f;
-              XdolfFont.draw(graphics, arrow, arrowX, y, 0xFF62B5FF);
-          }
-          '''
-          if text.count(old) != 1:
-              raise SystemExit(f'ClientScreen arrow block match count was {text.count(old)}')
-          screen.write_text(text.replace(old, new))
+          start_marker = "        if (hover) {\n            // Draw the chevron directly so it does not depend on font glyph support."
+          start = text.index(start_marker)
+          end = text.index("    }\n\n    private static void drawScrollbar", start)
+          replacement = "\n".join([
+              "        if (hover) {",
+              "            // Use the same bundled Roboto TTF renderer and baseline as the module label.",
+              "            String arrow = expanded ? \"v\" : \">\";",
+              "            float arrowX = x + 90.5f - XdolfFont.width(arrow) / 2f;",
+              "            XdolfFont.draw(graphics, arrow, arrowX, y, 0xFF62B5FF);",
+              "        }",
+              "",
+          ])
+          screen.write_text(text[:start] + replacement + text[end:])
 
           config = Path('src/main/java/com/x0xp/xdolf/ConfigContainer.java')
           text = config.read_text()
+          imports_old = "import java.util.ArrayList;\nimport java.util.List;\nimport java.util.Locale;\n"
+          imports_new = "import java.util.ArrayList;\nimport java.util.IdentityHashMap;\nimport java.util.List;\nimport java.util.Locale;\nimport java.util.Map;\n"
+          if text.count(imports_old) != 1:
+              raise SystemExit(f'import match count: {text.count(imports_old)}')
+          text = text.replace(imports_old, imports_new)
 
-          old = '''import java.util.ArrayList;
-          import java.util.List;
-          import java.util.Locale;
-          '''
-          new = '''import java.util.ArrayList;
-          import java.util.IdentityHashMap;
-          import java.util.List;
-          import java.util.Locale;
-          import java.util.Map;
-          '''
-          if text.count(old) != 1:
-              raise SystemExit(f'ConfigContainer import block match count was {text.count(old)}')
-          text = text.replace(old, new)
+          top_gap = "    private static final float TOP_GAP = 2;\n"
+          constants = top_gap + "    private static final long TOGGLE_ANIMATION_NS = 140_000_000L;\n    private static final Map<BooleanSetting, ToggleAnimation> TOGGLE_ANIMATIONS = new IdentityHashMap<>();\n"
+          if text.count(top_gap) != 1:
+              raise SystemExit(f'TOP_GAP match count: {text.count(top_gap)}')
+          text = text.replace(top_gap, constants)
 
-          old = '''final class ConfigContainer {
-              private static final float TOP_GAP = 2;
-              static final float HEADER_HEIGHT = 15;
-          '''
-          new = '''final class ConfigContainer {
-              private static final float TOP_GAP = 2;
-              private static final long TOGGLE_ANIMATION_NS = 140_000_000L;
-              private static final Map<BooleanSetting, ToggleAnimation> TOGGLE_ANIMATIONS = new IdentityHashMap<>();
-              static final float HEADER_HEIGHT = 15;
-          '''
-          if text.count(old) != 1:
-              raise SystemExit(f'ConfigContainer constants block match count was {text.count(old)}')
-          text = text.replace(old, new)
+          method_start = text.index("    private static void drawBoolean(")
+          method_end = text.index("    private static void drawChoice(", method_start)
+          boolean_method = "\n".join([
+              "    private static void drawBoolean(GuiGraphics graphics, BooleanSetting setting, float left, float right, float y,",
+              "                                    boolean hover, float alpha) {",
+              "        float toggle = toggleProgress(setting);",
+              "        List<String> lines = wrap(label(setting), (int) (right - left - 23));",
+              "        float textY = lines.size() > 1 ? y + 1 : centered(y, y + rowHeight(setting) - 2);",
+              "        int labelColor = mixColor(0xFFADB2BA, 0xFFFFFFFF, toggle);",
+              "        for (int i = 0; i < lines.size(); i++)",
+              "            XdolfFont.drawCompact(graphics, lines.get(i), left, textY + i * 8, fade(labelColor, alpha));",
+              "        float switchRight = right - 2;",
+              "        float switchLeft = switchRight - 17;",
+              "        float switchTop = y + (rowHeight(setting) - 8) / 2;",
+              "        rect(graphics, switchLeft, switchTop, switchRight, switchTop + 7,",
+              "            fade(mixColor(0xFF30353D, 0xFFFF2020, toggle), alpha));",
+              "        outline(graphics, switchLeft, switchTop, switchRight, switchTop + 7,",
+              "            fade(hover ? 0xFF329CFF : mixColor(0xFF515863, 0xFFFF6868, toggle), alpha));",
+              "        float knobOff = switchLeft + 1;",
+              "        float knobOn = switchRight - 6;",
+              "        float knob = knobOff + (knobOn - knobOff) * toggle;",
+              "        rect(graphics, knob, switchTop + 1, knob + 5, switchTop + 6, fade(0xFFFFFFFF, alpha));",
+              "    }",
+              "",
+              "",
+          ])
+          text = text[:method_start] + boolean_method + text[method_end:]
 
-          old = '''    private static void drawBoolean(GuiGraphics graphics, BooleanSetting setting, float left, float right, float y,
-                                          boolean hover, float alpha) {
-              List<String> lines = wrap(label(setting), (int) (right - left - 23));
-              float textY = lines.size() > 1 ? y + 1 : centered(y, y + rowHeight(setting) - 2);
-              for (int i = 0; i < lines.size(); i++)
-                  XdolfFont.drawCompact(graphics, lines.get(i), left, textY + i * 8,
-                      fade(setting.on() ? 0xFFFFFFFF : 0xFFADB2BA, alpha));
-              float switchRight = right - 2;
-              float switchLeft = switchRight - 17;
-              float switchTop = y + (rowHeight(setting) - 8) / 2;
-              rect(graphics, switchLeft, switchTop, switchRight, switchTop + 7,
-                  fade(setting.on() ? 0xFFFF2020 : 0xFF30353D, alpha));
-              outline(graphics, switchLeft, switchTop, switchRight, switchTop + 7,
-                  fade(hover ? 0xFF329CFF : setting.on() ? 0xFFFF6868 : 0xFF515863, alpha));
-              float knob = setting.on() ? switchRight - 6 : switchLeft + 1;
-              rect(graphics, knob, switchTop + 1, knob + 5, switchTop + 6, fade(0xFFFFFFFF, alpha));
-          }
-          '''
-          new = '''    private static void drawBoolean(GuiGraphics graphics, BooleanSetting setting, float left, float right, float y,
-                                          boolean hover, float alpha) {
-              float toggle = toggleProgress(setting);
-              List<String> lines = wrap(label(setting), (int) (right - left - 23));
-              float textY = lines.size() > 1 ? y + 1 : centered(y, y + rowHeight(setting) - 2);
-              int labelColor = mixColor(0xFFADB2BA, 0xFFFFFFFF, toggle);
-              for (int i = 0; i < lines.size(); i++)
-                  XdolfFont.drawCompact(graphics, lines.get(i), left, textY + i * 8, fade(labelColor, alpha));
-              float switchRight = right - 2;
-              float switchLeft = switchRight - 17;
-              float switchTop = y + (rowHeight(setting) - 8) / 2;
-              rect(graphics, switchLeft, switchTop, switchRight, switchTop + 7,
-                  fade(mixColor(0xFF30353D, 0xFFFF2020, toggle), alpha));
-              outline(graphics, switchLeft, switchTop, switchRight, switchTop + 7,
-                  fade(hover ? 0xFF329CFF : mixColor(0xFF515863, 0xFFFF6868, toggle), alpha));
-              float knobOff = switchLeft + 1;
-              float knobOn = switchRight - 6;
-              float knob = knobOff + (knobOn - knobOff) * toggle;
-              rect(graphics, knob, switchTop + 1, knob + 5, switchTop + 6, fade(0xFFFFFFFF, alpha));
-          }
-          '''
-          if text.count(old) != 1:
-              raise SystemExit(f'ConfigContainer boolean block match count was {text.count(old)}')
-          text = text.replace(old, new)
-
-          marker = '''    static float sliderTop(float y) { return y + 16; }
-
-              private static float centered(float top, float bottom) {
-          '''
-          replacement = '''    static float sliderTop(float y) { return y + 16; }
-
-              private static float toggleProgress(BooleanSetting setting) {
-                  return TOGGLE_ANIMATIONS.computeIfAbsent(setting, ignored -> new ToggleAnimation(setting.on()))
-                      .value(setting.on());
-              }
-
-              private static int mixColor(int from, int to, float amount) {
-                  float t = clamp01(amount);
-                  int a = Math.round(((from >>> 24) & 0xFF) + (((to >>> 24) & 0xFF) - ((from >>> 24) & 0xFF)) * t);
-                  int r = Math.round(((from >>> 16) & 0xFF) + (((to >>> 16) & 0xFF) - ((from >>> 16) & 0xFF)) * t);
-                  int g = Math.round(((from >>> 8) & 0xFF) + (((to >>> 8) & 0xFF) - ((from >>> 8) & 0xFF)) * t);
-                  int b = Math.round((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
-                  return (a << 24) | (r << 16) | (g << 8) | b;
-              }
-
-              private static final class ToggleAnimation {
-                  private float from;
-                  private float target;
-                  private long started;
-
-                  ToggleAnimation(boolean enabled) {
-                      from = target = enabled ? 1f : 0f;
-                      started = System.nanoTime();
-                  }
-
-                  float value(boolean enabled) {
-                      long now = System.nanoTime();
-                      float current = current(now);
-                      float desired = enabled ? 1f : 0f;
-                      if (desired != target) {
-                          from = current;
-                          target = desired;
-                          started = now;
-                      }
-                      return current;
-                  }
-
-                  private float current(long now) {
-                      if (from == target) return target;
-                      float elapsed = Math.min(1f, (now - started) / (float) TOGGLE_ANIMATION_NS);
-                      float value = from + (target - from) * UiDraw.easeOutCubic(elapsed);
-                      if (elapsed >= 1f) from = target;
-                      return value;
-                  }
-              }
-
-              private static float centered(float top, float bottom) {
-          '''
-          if text.count(marker) != 1:
-              raise SystemExit(f'ConfigContainer helper marker match count was {text.count(marker)}')
-          config.write_text(text.replace(marker, replacement))
+          helper_marker = "    private static float centered(float top, float bottom) {"
+          helper_pos = text.index(helper_marker)
+          helpers = "\n".join([
+              "    private static float toggleProgress(BooleanSetting setting) {",
+              "        return TOGGLE_ANIMATIONS.computeIfAbsent(setting, ignored -> new ToggleAnimation(setting.on()))",
+              "            .value(setting.on());",
+              "    }",
+              "",
+              "    private static int mixColor(int from, int to, float amount) {",
+              "        float t = clamp01(amount);",
+              "        int a0 = (from >>> 24) & 0xFF, r0 = (from >>> 16) & 0xFF, g0 = (from >>> 8) & 0xFF, b0 = from & 0xFF;",
+              "        int a1 = (to >>> 24) & 0xFF, r1 = (to >>> 16) & 0xFF, g1 = (to >>> 8) & 0xFF, b1 = to & 0xFF;",
+              "        int a = Math.round(a0 + (a1 - a0) * t);",
+              "        int r = Math.round(r0 + (r1 - r0) * t);",
+              "        int g = Math.round(g0 + (g1 - g0) * t);",
+              "        int b = Math.round(b0 + (b1 - b0) * t);",
+              "        return (a << 24) | (r << 16) | (g << 8) | b;",
+              "    }",
+              "",
+              "    private static final class ToggleAnimation {",
+              "        private float from;",
+              "        private float target;",
+              "        private long started;",
+              "",
+              "        ToggleAnimation(boolean enabled) {",
+              "            from = target = enabled ? 1f : 0f;",
+              "            started = System.nanoTime();",
+              "        }",
+              "",
+              "        float value(boolean enabled) {",
+              "            long now = System.nanoTime();",
+              "            float current = current(now);",
+              "            float desired = enabled ? 1f : 0f;",
+              "            if (desired != target) {",
+              "                from = current;",
+              "                target = desired;",
+              "                started = now;",
+              "            }",
+              "            return current;",
+              "        }",
+              "",
+              "        private float current(long now) {",
+              "            if (from == target) return target;",
+              "            float elapsed = Math.min(1f, (now - started) / (float) TOGGLE_ANIMATION_NS);",
+              "            float value = from + (target - from) * UiDraw.easeOutCubic(elapsed);",
+              "            if (elapsed >= 1f) from = target;",
+              "            return value;",
+              "        }",
+              "    }",
+              "",
+              "",
+          ])
+          text = text[:helper_pos] + helpers + text[helper_pos:]
+          config.write_text(text)
           PY
 
           rm .github/workflows/apply-ttf-toggle-polish.yml
