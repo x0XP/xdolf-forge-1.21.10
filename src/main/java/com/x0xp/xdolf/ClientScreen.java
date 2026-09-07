@@ -177,13 +177,12 @@ public final class ClientScreen extends Screen {
     private static void drawModuleRow(GuiGraphics graphics, ClientModule module, float x, float y,
                                       boolean hover, boolean expanded) {
         boolean enabled = module.enabled();
+        if (expanded) rect(graphics, x, y, x + 95, y + 12, hover ? 0xCC252E3B : 0xB81B222D);
         int color = enabled ? hover ? 0xFF44AAFF : 0xFFFFFFFF : hover ? 0xFF888888 : 0x99FFFFFF;
         rect(graphics, x + 95, y, x + 96, y + 12,
             enabled ? hover ? 0xFF44AAFF : 0xFFFF0000 : hover ? 0xFF888888 : 0x0033363D);
         String name = label(module);
         XdolfFont.draw(graphics, name, x + 48 - XdolfFont.width(name) / 2f, y, color);
-        XdolfFont.draw(graphics, expanded ? "-" : "+", x + 90, y,
-            enabled && hover ? 0xFF44AAFF : hover ? 0xFF888888 : 0xFFFFFFFF);
     }
 
     private static void drawScrollbar(GuiGraphics graphics, ClickGuiPanel panel, float displayHeight,
