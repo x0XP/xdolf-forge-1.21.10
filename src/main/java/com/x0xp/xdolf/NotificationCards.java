@@ -37,7 +37,7 @@ final class NotificationCards {
     private static void show(String title, String detail, int accent, int detailColor) {
         long now = System.nanoTime();
         expire(now);
-        for (Card card : ACTIVE) card.moveTo(card.targetSlot + 1.0f, now);
+        for (Card card : ACTIVE) card.moveTo(card.targetSlot + CARD_HEIGHT + CARD_GAP, now);
         if (ACTIVE.size() >= MAX_VISIBLE) {
             Card oldest = ACTIVE.remove(ACTIVE.size() - 1);
             oldest.startExit(now, true);
@@ -73,7 +73,7 @@ final class NotificationCards {
         boolean changed = false;
         for (int i = ACTIVE.size() - 1; i >= 0; i--) {
             Card card = ACTIVE.get(i);
-            if (now - card.created < ENTER_NS + HOLD_NS) continue;
+            if (now - card.created < ENTER_NS + card.holdNs()) continue;
             ACTIVE.remove(i);
             card.startExit(now, false);
             EXITING.add(card);
@@ -83,7 +83,8 @@ final class NotificationCards {
     }
 
     private static void reflow(long now) {
-        for (int i = 0; i < ACTIVE.size(); i++) ACTIVE.get(i).moveTo(i, now);
+        float offset = 0;
+        for (Card card : ACTIVE) { card.moveTo(offset, now); offset += card.height() + CARD_GAP; }
     }
 
     private static void draw(GuiGraphics graphics, Card card, int screenHeight, long now) {
@@ -97,37 +98,36 @@ final class NotificationCards {
         if (alpha <= 0.01f) return;
 
         float slot = card.slot(now);
-        float y = screenHeight / 2.0f - CARD_HEIGHT / 2.0f + slot * (CARD_HEIGHT + CARD_GAP);
+        float y = screenHeight / 2.0f - CARD_HEIGHT / 2.0f + slot;
         float hiddenX = -CARD_WIDTH - 6.0f;
         float x = hiddenX + (LEFT - hiddenX) * easeOutCubic(enter) - 10.0f * easeInCubic(exit);
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
 
+        float cardHeight = card.height();
         // Match the click GUI panels exactly: translucent black rather than a separate opaque HUD theme.
-        rect(graphics, 0, 0, CARD_WIDTH, CARD_HEIGHT, fade(0x80000000, alpha));
-        outline(graphics, 0, 0, CARD_WIDTH, CARD_HEIGHT, fade(0xF0000000, alpha));
-        rect(graphics, 1, 1, 3.5f, CARD_HEIGHT - 1, fade(card.accent, alpha));
+        rect(graphics, 0, 0, CARD_WIDTH, cardHeight, fade(0x80000000, alpha));
+        outline(graphics, 0, 0, CARD_WIDTH, cardHeight, fade(0xF0000000, alpha));
+        rect(graphics, 1, 1, 3.5f, cardHeight - 1, fade(card.accent, alpha));
 
-        int detailWidth = Math.min(63, XdolfFont.width(card.detail));
-        String detail = XdolfFont.trim(card.detail, detailWidth);
-        detailWidth = XdolfFont.width(detail);
-        int titleAvailable = Math.max(24, Math.round(CARD_WIDTH) - detailWidth - 18);
-        String title = XdolfFont.trim(card.title, titleAvailable);
-
-        XdolfFont.draw(graphics, title, 8, 6, fade(0xFFFFFFFF, alpha));
-        XdolfFont.draw(graphics, detail, CARD_WIDTH - detailWidth - 6, 6, fade(card.detailColor, alpha));
+        XdolfFont.drawCompact(graphics, XdolfFont.compactTrim(card.title, 128), 8, 4, fade(0xFFFFFFFF, alpha));
+        for (int i = 0; i < card.lines.size(); i++)
+            XdolfFont.drawCompact(graphics, card.lines.get(i), 8, 15 + i * 9, fade(card.detailColor, alpha));
 
         if (!card.exiting) {
-            float held = clamp01((now - card.created - ENTER_NS) / (float) HOLD_NS);
+            float held = clamp01((now - card.created - ENTER_NS) / (float) card.holdNs());
             float remaining = 1.0f - held;
-            rect(graphics, 4, CARD_HEIGHT - 1.5f, 4 + (CARD_WIDTH - 8) * remaining, CARD_HEIGHT - 1,
+            rect(graphics, 4, cardHeight - 1.5f, 4 + (CARD_WIDTH - 8) * remaining, cardHeight - 1,
                 fade(card.accent, alpha * 0.65f));
         }
         graphics.pose().popMatrix();
     }
 
     private static final class Card {
+        final List<String> lines;
+        float height() { return 19 + lines.size() * 9; }
+        long holdNs() { return Math.max(HOLD_NS, lines.size() * 1_200_000_000L); }
         final String title;
         final String detail;
         final int accent;
@@ -140,6 +140,16 @@ final class NotificationCards {
         long exitStarted;
 
         Card(String title, String detail, int accent, int detailColor, long created) {
+            this.lines = new ArrayList<>();
+            String remaining = detail;
+            while (!remaining.isEmpty()) {
+                String fit = XdolfFont.compactTrim(remaining, 128);
+                if (fit.isEmpty()) fit = remaining.substring(0, Character.charCount(remaining.codePointAt(0)));
+                int end = fit.length();
+                if (end < remaining.length() && fit.lastIndexOf(' ') > 0) end = fit.lastIndexOf(' ');
+                lines.add(remaining.substring(0, end));
+                remaining = remaining.substring(end).stripLeading();
+            }
             this.title = title;
             this.detail = detail;
             this.accent = accent;

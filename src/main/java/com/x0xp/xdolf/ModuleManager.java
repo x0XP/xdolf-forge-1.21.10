@@ -46,7 +46,7 @@ final class ModuleManager {
         }
         module.applyEnabled(true);
         if (!disabled.isEmpty())
-            NotificationCards.warning("Module conflict", String.join(", ", disabled) + " disabled");
+            NotificationCards.warning("Module conflict", String.join(", ", disabled) + " disabled because " + module.name + " was enabled.");
         return true;
     }
 

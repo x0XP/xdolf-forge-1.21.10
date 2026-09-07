@@ -80,10 +80,12 @@ final class ClientRuntime {
                 message(module.name + " disabled after an error; check latest.log.");
             }
         }
+        ChatQueue.tick(mc);
     }
 
     static void updateSession(Minecraft mc) {
         if (mc.level == previousLevel && mc.player == previousPlayer) return;
+        ChatQueue.clear();
         for (var module : MODULES) module.reset(mc);
         previousLevel = mc.level;
         previousPlayer = mc.player;

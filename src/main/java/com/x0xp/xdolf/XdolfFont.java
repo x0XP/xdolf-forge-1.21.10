@@ -27,6 +27,10 @@ public final class XdolfFont {
     private static final int MAX_RASTER_SCALE = 4;
     private static final int GLYPH_COUNT = 2048;
     private static final java.util.Map<String, FontAtlas> EXTRA_ATLASES = new java.util.HashMap<>();
+    // Hard cap avoids evicting textures still referenced by queued render commands.
+    // Each extra page is at most 2048 x 2048 RGBA: at most 64 MiB total.
+    private static final int MAX_EXTRA_ATLASES = 4;
+    private static final java.util.Map<ResourceLocation, FontAtlas> REPLACEMENT_ATLASES = new java.util.HashMap<>();
     private static java.awt.Font bundledFont;
     private static final FontAtlas[] ATLASES = new FontAtlas[MAX_RASTER_SCALE + 1];
     private static final FontAtlas[] COMPACT_ATLASES = new FontAtlas[MAX_RASTER_SCALE + 1];
@@ -134,6 +138,19 @@ public final class XdolfFont {
         if (page == 0) return base.texture.getPath().contains("compact") ? compactAtlas() : atlas();
         boolean compact = base.texture.getPath().contains("compact");
         String key = (compact ? "compact_" : "main_") + base.scale + "_" + page;
+        FontAtlas cached = EXTRA_ATLASES.get(key);
+        if (cached != null) return cached;
+        if (EXTRA_ATLASES.size() >= MAX_EXTRA_ATLASES) {
+            FontAtlas primary = compact ? compactAtlas() : atlas();
+            return REPLACEMENT_ATLASES.computeIfAbsent(primary.texture, ignored -> {
+                int[] widths = new int[GLYPH_COUNT], xs = new int[GLYPH_COUNT], ys = new int[GLYPH_COUNT];
+                java.util.Arrays.fill(widths, primary.width['?']);
+                java.util.Arrays.fill(xs, primary.x['?']);
+                java.util.Arrays.fill(ys, primary.y['?']);
+                return new FontAtlas(primary.scale, primary.textureHeight, primary.glyphHeight,
+                    primary.cellPadding, primary.visibleTop, primary.visibleBottom, widths, xs, ys, primary.texture);
+            });
+        }
         return EXTRA_ATLASES.computeIfAbsent(key, ignored -> buildAtlas(base.scale,
             compact ? COMPACT_FONT_SIZE : BASE_FONT_SIZE, "font_page_" + key + "_", "unicode", page));
     }

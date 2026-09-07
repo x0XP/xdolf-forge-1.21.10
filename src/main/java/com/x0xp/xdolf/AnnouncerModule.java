@@ -56,6 +56,7 @@ final class AnnouncerModule extends ClientModule {
         long now = System.nanoTime();
         if (intervalStarted == 0) intervalStarted = now;
         if (now - intervalStarted < Math.round(delay.get()) * 1_000_000L) return;
+        if (ChatQueue.pending(this)) return;
         intervalStarted = now;
 
         List<String> parts = new ArrayList<>();
@@ -83,7 +84,7 @@ final class AnnouncerModule extends ClientModule {
         if (parts.isEmpty()) return;
 
         String message = "I just " + join(parts) + ".";
-        mc.player.connection.sendChat(message.substring(0, Math.min(message.length(), 256)));
+        ChatQueue.offer(this, message.substring(0, Math.min(message.length(), 256)), Math.round(delay.get()));
     }
 
     void blockBroken(String name) {
@@ -106,6 +107,7 @@ final class AnnouncerModule extends ClientModule {
     }
 
     public void reset(Minecraft mc) {
+        ChatQueue.cancel(this);
         owner = null;
         previousPosition = null;
         previousGrounded = false;

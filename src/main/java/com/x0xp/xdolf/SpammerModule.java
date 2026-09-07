@@ -25,12 +25,13 @@ final class SpammerModule extends ClientModule {
         long now = System.nanoTime();
         if (lastMessage == 0) lastMessage = now;
         if (now - lastMessage < Math.round(delay.get()) * 1_000_000L) return;
+        if (ChatQueue.pending(this)) return;
         lastMessage = now;
         String suffix = mode.get().equals("antispam")
             ? " [" + UUID.randomUUID().toString().replace("-", "").substring(0, 16) + "]" : "";
         String value = message.get();
-        mc.player.connection.sendChat(value.substring(0, Math.min(value.length(), 256 - suffix.length())) + suffix);
+        ChatQueue.offer(this, value.substring(0, Math.min(value.length(), 256 - suffix.length())) + suffix, Math.round(delay.get()));
     }
 
-    public void reset(Minecraft mc) { lastMessage = 0; }
+    public void reset(Minecraft mc) { lastMessage = 0; ChatQueue.cancel(this); }
 }
