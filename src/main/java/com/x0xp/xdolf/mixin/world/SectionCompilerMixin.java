@@ -1,6 +1,6 @@
 package com.x0xp.xdolf.mixin;
 
-import com.x0xp.xdolf.XRayModule;
+import com.x0xp.xdolf.module.world.XRayModule;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
