@@ -35,7 +35,7 @@ Xdolf uses the original `.` command prefix. Examples:
 - `.waypoint add <name>`
 - `.xray add minecraft:diamond_ore`
 
-See [COMMANDS.md](COMMANDS.md) for the full command reference.
+See [docs/COMMANDS.md](docs/COMMANDS.md) for the full command reference.
 
 ## Current build
 
@@ -61,13 +61,27 @@ bash gradlew runClient
 
 Built JARs are written to `build/libs`. GitHub Actions also compiles the project and runs client/smoke validation for development commits.
 
-## Project files
+## Project structure
 
-- `src/` — Xdolf source and tests
-- `.github/` — GitHub Actions build/test workflow
+The Java source is grouped by responsibility so the repository is easier to navigate. The existing Java package declarations are intentionally retained while the client is actively being rebuilt, preserving package-private contracts without introducing unnecessary API churn.
+
+- `src/main/java/com/x0xp/xdolf/core/` — bootstrap, runtime hooks and core client state
+- `src/main/java/com/x0xp/xdolf/module/` — module base/registry code and modules grouped by role
+- `src/main/java/com/x0xp/xdolf/settings/` — typed settings, configuration and keybind handling
+- `src/main/java/com/x0xp/xdolf/chat/` — shared chat formatting, context and queueing
+- `src/main/java/com/x0xp/xdolf/command/` — command handling
+- `src/main/java/com/x0xp/xdolf/ui/clickgui/` — ClickGUI panels, options, persistence and tooltips
+- `src/main/java/com/x0xp/xdolf/ui/hud/` — HUD and notification rendering
+- `src/main/java/com/x0xp/xdolf/render/` — shared world/render infrastructure and visual styling
+- `src/main/java/com/x0xp/xdolf/social/` — friend/social state
+- `src/main/java/com/x0xp/xdolf/dev/` — development and smoke-test harnesses
+- `src/main/java/com/x0xp/xdolf/mixin/` — mixins grouped by target area
+- `src/main/resources/` — Forge metadata, mixin configuration and bundled assets
+- `src/test/` — standalone style/regression tests
+- `docs/` — user/developer documentation
+- `.github/` — GitHub Actions build/test workflows
 - `gradle/`, `gradlew`, `gradlew.bat` — Gradle wrapper required for reproducible builds
 - `build.gradle`, `gradle.properties`, `settings.gradle` — build configuration
-- `COMMANDS.md` — command reference
 - `LICENSE` — project license
 
 ## License and attribution
