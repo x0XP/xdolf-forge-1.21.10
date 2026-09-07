@@ -195,7 +195,7 @@ public final class XdolfFont {
             var nativeImage=new NativeImage(ATLAS_WIDTH,textureHeight,false);
             for(int py=0;py<textureHeight;py++)
                 for(int px=0;px<ATLAS_WIDTH;px++)
-                    nativeImage.setPixelARGB(px,py,imageBuffer.getRGB(px,py));
+                    nativeImage.setPixel(px,py,imageBuffer.getRGB(px,py));
             var dynamicTexture=new DynamicTexture(() -> "Xdolf "+role+" TTF font scale "+scale,nativeImage);
             dynamicTexture.setFilter(false,false);
             ResourceLocation texture=ResourceLocation.fromNamespaceAndPath("xdolf",texturePrefix+scale);
@@ -394,7 +394,7 @@ public final class XdolfFont {
             if(style.isItalic()) {
                 g.pose().pushMatrix();
                 g.pose().translate(x+offset[0],y);
-                g.pose().mul(new org.joml.Matrix3x2f().m10(-0.2f));
+                g.pose().mul(new org.joml.Matrix3x2f(1,0,-0.2f,1,0,0));
                 draw(g,value,0,0,tint,shadow);
                 if(style.isBold())draw(g,value,1,0,tint,false);
                 g.pose().popMatrix();
