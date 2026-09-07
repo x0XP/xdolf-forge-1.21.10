@@ -80,7 +80,7 @@ public abstract class ClientModule {
     protected final void runDuringFreecam() { runsDuringFreecam = true; }
     protected final void runWhilePaused() { runsWhilePaused = true; }
     final Set<String> conflicts() { return Set.copyOf(conflicts); }
-    final Set<String> dependencies() { return Set.copyOf(dependencies); }
+    public final Set<String> dependencies() { return Set.copyOf(dependencies); }
     final boolean runsDuringFreecam() { return runsDuringFreecam; }
     final boolean runsWhilePaused() { return runsWhilePaused; }
 
