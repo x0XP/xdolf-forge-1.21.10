@@ -33,7 +33,8 @@ final class ClickGuiTooltip {
             var conflicts = ModuleManager.conflicts(module);
             if (!conflicts.isEmpty()) body.add("Conflicts: " + String.join(", ", conflicts));
             if (!module.dependencies().isEmpty()) body.add("Requires: " + String.join(", ", module.dependencies()));
-            body.add("Left-click toggles | Right-click options");
+            body.add("Left-click to toggle");
+            body.add("Right-click for options");
         } else {
             title = ConfigContainer.label(setting);
             status = setting.display();
