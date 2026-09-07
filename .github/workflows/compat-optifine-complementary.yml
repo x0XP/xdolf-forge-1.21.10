@@ -82,35 +82,69 @@ jobs:
           test -s "run/shaderpacks/${shader_name}"
           ls -lh run/mods run/shaderpacks
 
-      - name: Inspect OptiFine shader API
-        run: |
-          {
-            echo '=== net.optifine.Config ==='
-            javap -classpath run/mods/OptiFine_1.21.10_HD_U_J7_pre11.jar net.optifine.Config || true
-            echo '=== net.optifine.shaders.Shaders ==='
-            javap -classpath run/mods/OptiFine_1.21.10_HD_U_J7_pre11.jar net.optifine.shaders.Shaders || true
-          } | tee build/diagnostics/optifine-api.txt
-
-      - name: Test Xdolf with OptiFine present and Complementary configured
+      - name: Test mapped Forge runtime with OptiFine present
         run: |
           set +e
-          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 360s bash gradlew runClient -PxdolfSmokeTest --console=plain > build/diagnostics/optifine-complementary-smoke.log 2>&1
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 360s bash gradlew runClient -PxdolfSmokeTest --console=plain > build/diagnostics/optifine-mapped-smoke.log 2>&1
           smoke_status=$?
           set -e
-          tail -n 120 build/diagnostics/optifine-complementary-smoke.log
+          tail -n 100 build/diagnostics/optifine-mapped-smoke.log
           test "$smoke_status" -eq 0
-          grep -q 'XDOLF_SMOKE_OK' build/diagnostics/optifine-complementary-smoke.log
-          grep -Eqi 'OptiFine|optifine' build/diagnostics/optifine-complementary-smoke.log
-          test -s run/optionsshaders.txt
-          grep -q 'ComplementaryReimagined_r5.9.zip' run/optionsshaders.txt
+          grep -q 'XDOLF_SMOKE_OK' build/diagnostics/optifine-mapped-smoke.log
+          grep -Eqi 'OptiFine|optifine' build/diagnostics/optifine-mapped-smoke.log
+
+      - name: Install production Forge 1.21.10-60.1.0 with PortableMC
+        run: |
+          mkdir -p build/portablemc build/production-minecraft
+          curl -fsSL \
+            https://github.com/theorzr/portablemc/releases/download/v5.0.4/portablemc-5.0.4-linux-x86_64-gnu.tar.gz \
+            -o build/portablemc.tar.gz
+          tar -xzf build/portablemc.tar.gz -C build/portablemc
+          PMC="$(find build/portablemc -type f -name portablemc | head -n 1)"
+          test -n "$PMC"
+          chmod +x "$PMC"
+          echo "$PMC" > build/diagnostics/portablemc-path.txt
+          "$PMC" --main-dir "$PWD/build/production-minecraft" --work-dir "$PWD/build/production-minecraft" \
+            start forge:1.21.10-60.1.0 -u Dev --jvm "$JAVA_HOME/bin/java" --dry
+
+      - name: Stage production Xdolf, OptiFine and Complementary
+        run: |
+          PROD="$PWD/build/production-minecraft"
+          mkdir -p "$PROD/mods" "$PROD/shaderpacks" "$PROD/screenshots"
+          cp build/libs/xdolf-4.0.0-dev.16.jar "$PROD/mods/"
+          cp run/mods/OptiFine_1.21.10_HD_U_J7_pre11.jar "$PROD/mods/"
+          shader_name="$(cat build/diagnostics/shader-name.txt)"
+          cp "run/shaderpacks/${shader_name}" "$PROD/shaderpacks/"
+          cp run/optionsshaders.txt "$PROD/optionsshaders.txt"
+          printf 'onboardAccessibility:false\nguiScale:2\nrenderDistance:3\nsimulationDistance:5\n' > "$PROD/options.txt"
+          ls -lh "$PROD/mods" "$PROD/shaderpacks"
+
+      - name: Test production Forge with Complementary shaders active
+        run: |
+          PMC="$(cat build/diagnostics/portablemc-path.txt)"
+          PROD="$PWD/build/production-minecraft"
+          set +e
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 480s "$PMC" \
+            --main-dir "$PROD" --work-dir "$PROD" \
+            start forge:1.21.10-60.1.0 -u Dev --jvm "$JAVA_HOME/bin/java" \
+            "--jvm-args=-Xmx3G -Dxdolf.smokeTest=true" --resolution 1280x800 \
+            > build/diagnostics/optifine-complementary-production.log 2>&1
+          smoke_status=$?
+          set -e
+          tail -n 160 build/diagnostics/optifine-complementary-production.log
+          test "$smoke_status" -eq 0
+          grep -q 'XDOLF_SMOKE_OK' build/diagnostics/optifine-complementary-production.log
+          grep -Eqi 'OptiFine|optifine' build/diagnostics/optifine-complementary-production.log
+          grep -Eqi 'ComplementaryReimagined|Complementary Reimagined' build/diagnostics/optifine-complementary-production.log
+          grep -Eqi '\[Shaders\].*(Loaded shaderpack|Shader pack|Complementary)|ComplementaryReimagined_r5\.9' build/diagnostics/optifine-complementary-production.log
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: optifine-complementary-diagnostics
           path: |
-            build/diagnostics/optifine-complementary-smoke.log
-            build/diagnostics/optifine-api.txt
+            build/diagnostics/optifine-mapped-smoke.log
+            build/diagnostics/optifine-complementary-production.log
             run/optionsshaders.txt
           if-no-files-found: warn
 
@@ -118,5 +152,7 @@ jobs:
         if: always()
         with:
           name: optifine-complementary-gui-screenshot
-          path: run/screenshots/*.png
+          path: |
+            run/screenshots/*.png
+            build/production-minecraft/screenshots/*.png
           if-no-files-found: warn
