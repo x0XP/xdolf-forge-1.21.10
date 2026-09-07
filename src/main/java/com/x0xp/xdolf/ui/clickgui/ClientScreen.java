@@ -1,5 +1,7 @@
 package com.x0xp.xdolf.ui.clickgui;
 
+import com.x0xp.xdolf.ui.UiDraw;
+
 import com.x0xp.xdolf.core.ClientRuntime;
 import com.x0xp.xdolf.dev.ClientSmoke;
 import com.x0xp.xdolf.settings.BooleanSetting;
@@ -62,7 +64,7 @@ public final class ClientScreen extends Screen {
     private ModuleSetting<?> tooltipSetting;
     private long tooltipStarted;
 
-    ClientScreen() {
+    public ClientScreen() {
         super(Component.literal("Xdolf"));
         setup();
     }

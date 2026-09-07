@@ -114,7 +114,7 @@ public final class XdolfFont {
     }
 
     /** CI-only override that exercises another raster scale without mutating Minecraft's live GUI. */
-    static void smokeRasterScale(int scale) {
+    public static void smokeRasterScale(int scale) {
         if(!Boolean.getBoolean("xdolf.smokeTest"))return;
         smokeRasterScale=scale>=1&&scale<=MAX_RASTER_SCALE?scale:0;
         activeAtlas=null;
