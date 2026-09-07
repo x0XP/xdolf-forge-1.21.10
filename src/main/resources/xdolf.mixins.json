@@ -20,7 +20,7 @@
     "accessor.ClientInputAccess",
     "render.LivingRendererMixin",
     "render.BlockRenderMixin",
-    "world.SectionCompilerMixin",
+    "world.BlockStateRenderMixin",
     "world.SectionOcclusionGraphMixin",
     "accessor.CreateWorldScreenAccess",
     "render.EntityNameTagMixin",
