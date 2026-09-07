@@ -24,7 +24,7 @@ final class Hud {
     private static final long MODULE_ENTER_NS = 180_000_000L;
     private static final long MODULE_MOVE_NS = 160_000_000L;
     private static final long MODULE_EXIT_NS = 160_000_000L;
-    private static final Map<ClientModule, ModuleHudEntry> MODULE_HUD = new IdentityHashMap();
+    private static final Map<ClientModule, ModuleHudEntry> MODULE_HUD = new IdentityHashMap<>();
 
     static void render(GuiGraphics graphics) {
         var mc=Minecraft.getInstance();
@@ -55,7 +55,7 @@ final class Hud {
 
     private static void renderModules(GuiGraphics graphics,int width) {
         long now=System.nanoTime();
-        var enabled=ClientRuntime.MODULES.stream().filter(m->m.enabled()&&!m.name.equals("Fulbright"))
+        var enabled=ClientRuntime.MODULES.stream().filter(m->m.enabled()&&!m.name.equals("Fullbright"))
             .sorted(Comparator.comparingInt((ClientModule m)->XdolfFont.width(ClientScreen.label(m))).reversed()).toList();
 
         for(int i=0;i<enabled.size();i++) {
@@ -64,7 +64,7 @@ final class Hud {
             float targetX=width-XdolfFont.width(text)-2;
             float targetY=i*10.0f;
             ModuleHudEntry entry=MODULE_HUD.get(module);
-            if(entry==null
+            if(entry==null) {
                 entry=new ModuleHudEntry(width+6.0f,targetY,now);
                 MODULE_HUD.put(module,entry);
             } else if(entry.exiting) {

@@ -212,7 +212,7 @@ public final class ClientScreen extends Screen {
         float thumbY = trackTop + Math.max(0, trackHeight - thumbHeight) * (scroll / max);
         // Keep the scrollbar left of the module's x+97..x+98 enabled rail.
         rect(graphics, panel.x + 96, trackTop, panel.x + 96.5f, trackBottom, 0x553A3D44);
-        rect(graphics, panel.x + 95.5f, thumbY, panel.x + 96.5f, thumbY + thumbHeight, 0xCCC7B828F);
+        rect(graphics, panel.x + 95.5f, thumbY, panel.x + 96.5f, thumbY + thumbHeight, 0xCC7B828F);
     }
 
     private static List<? extends Player> radar() {
