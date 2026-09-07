@@ -1,6 +1,6 @@
 package com.x0xp.xdolf.module;
 
-import com.x0xp.xdolf.ClientConfig;
+import com.x0xp.xdolf.settings.ClientConfig;
 import com.x0xp.xdolf.ClientRuntime;
 import com.x0xp.xdolf.settings.*;
 

@@ -1,5 +1,8 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.settings.ClientConfig;
+import com.x0xp.xdolf.settings.Keybinds;
+
 import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.module.ModuleManager;
 import com.x0xp.xdolf.settings.*;
@@ -76,7 +79,7 @@ public final class ClientScreen extends Screen {
         PANELS.add(panel);
     }
 
-    static String label(ClientModule module) {
+    public static String label(ClientModule module) {
         return switch (module.name) {
             case "Sprint" -> "AutoSprint";
             case "NoHurtCam" -> "NoHurtcam";

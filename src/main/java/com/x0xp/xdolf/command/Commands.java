@@ -1,5 +1,8 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.settings.ClientConfig;
+import com.x0xp.xdolf.settings.KeyNames;
+
 import com.x0xp.xdolf.module.ClientModule;
 
 import com.x0xp.xdolf.module.player.SpammerModule;

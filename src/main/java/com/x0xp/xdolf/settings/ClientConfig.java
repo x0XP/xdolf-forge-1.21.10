@@ -1,4 +1,6 @@
-package com.x0xp.xdolf;
+package com.x0xp.xdolf.settings;
+
+import com.x0xp.xdolf.ClientRuntime;
 
 import com.x0xp.xdolf.module.ClientModule;
 
@@ -18,9 +20,9 @@ import java.util.Properties;
 
 public final class ClientConfig {
     private static final Path FILE = FMLPaths.CONFIGDIR.get().resolve("xdolf.properties");
-    static int guiKey = org.lwjgl.glfw.GLFW.GLFW_KEY_GRAVE_ACCENT;
+    public static int guiKey = org.lwjgl.glfw.GLFW.GLFW_KEY_GRAVE_ACCENT;
 
-    static void load(List<ClientModule> modules) {
+    public static void load(List<ClientModule> modules) {
         if (!Files.isRegularFile(FILE)) return;
         Properties properties = new Properties();
         Properties legacyCommands = legacyCommands();
