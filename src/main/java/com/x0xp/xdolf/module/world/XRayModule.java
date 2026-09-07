@@ -9,7 +9,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.Tags;
 
 /** Immutable block selection and a volatile flag are safe to read on chunk workers. */
-public public final class XRayModule extends ClientModule {
+public final class XRayModule extends ClientModule {
     private record Selection(java.util.Set<String> added,java.util.Set<String> removed) {}
     private static volatile Selection selection=new Selection(java.util.Set.of(),java.util.Set.of());
     public static volatile boolean rendering;
