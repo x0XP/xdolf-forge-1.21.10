@@ -23,7 +23,8 @@ import static com.x0xp.xdolf.UiDraw.*;
 /** Xdolf's draggable click GUI. Typed option cards are rendered by {@link ConfigContainer}. */
 public final class ClientScreen extends Screen {
     private static final List<ClickGuiPanel> PANELS = new ArrayList<>();
-    private static boolean loaded;
+  private static boolean loaded;
+    private static final long OPEN_FADE_NS = 180_000_000L;
 
     private ClickGuiPanel dragging;
     private NumberSetting sliding;
@@ -35,7 +36,8 @@ public final class ClientScreen extends Screen {
     private int pendingBindingKey = -1;
     private List<ClientModule> pendingBindingConflicts = List.of();
     private double offsetX;
-    private double offsetY;
+  private double offsetY;
+    private final long openedAt = System.nanoTime();
 
     private ClientModule frameHoverModule;
     private ModuleSetting<?> frameHoverSetting;
@@ -84,12 +86,18 @@ public final class ClientScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         frameHoverModule = null;
         frameHoverSetting = null;
-        graphics.fill(0, 0, width, height, 0x8F000000);
-        for (ClickGuiPanel panel : PANELS) drawPanel(graphics, panel, mouseX, mouseY, true, this);
-        updateTooltip();
+        float uiAlpha = easeOutCubic(clamp01((System.nanoTime() - openedAt) / (float) OPEN_FADE_NS));
+        graphics.fill(0, 0, width, height, fade(0x8F000000, uiAlpha));
+        UiDraw.setGlobalAlpha(uiAlpha);
+        try {
+            for (ClickGuiPanel panel : PANELS) drawPanel(graphics, panel, mouseX, mouseY, true, this);
+            updateTooltip();
+            if (tooltipModule != null && System.nanoTime() - tooltipStarted >= 300_000_000L)
+                ClickGuiTooltip.draw(graphics, mouseX, mouseY, tooltipModule, tooltipSetting);
+        } finally {
+            UiDraw.setGlobalAlpha(1.0f);
+        }
         NotificationCards.render(graphics);
-        if (tooltipModule != null && System.nanoTime() - tooltipStarted >= 300_000_000L)
-            ClickGuiTooltip.draw(graphics, mouseX, mouseY, tooltipModule, tooltipSetting);
         ClientSmoke.frame();
     }
 
@@ -202,8 +210,9 @@ public final class ClientScreen extends Screen {
         float visible = Math.max(1, displayHeight - 13);
         float thumbHeight = Math.max(16, trackHeight * Math.min(1, visible / content));
         float thumbY = trackTop + Math.max(0, trackHeight - thumbHeight) * (scroll / max);
-        rect(graphics, panel.x + 97, trackTop, panel.x + 98, trackBottom, 0x553A3D44);
-        rect(graphics, panel.x + 96.5f, thumbY, panel.x + 98.5f, thumbY + thumbHeight, 0xCC7B828F);
+        // Keep the scrollbar left of the module's x+97..x+98 enabled rail.
+        rect(graphics, panel.x + 96, trackTop, panel.x + 96.5f, trackBottom, 0x553A3D44);
+        rect(graphics, panel.x + 95.5f, thumbY, panel.x + 96.5f, thumbY + thumbHeight, 0xCCC7B828F);
     }
 
     private static List<? extends Player> radar() {

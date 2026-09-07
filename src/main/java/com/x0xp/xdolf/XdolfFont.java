@@ -469,5 +469,8 @@ public final class XdolfFont {
         return (value+divisor-1)/divisor;
     }
 
-    private static int opaqueIfNeeded(int color) { return (color>>>24)==0?color|0xFF000000:color; }
+    private static int opaqueIfNeeded(int color) {
+        int opaque = (color >>> 24) == 0 ? color | 0xFF000000 : color;
+        return UiDraw.fade(opaque, UiDraw.globalAlpha());
+    }
 }

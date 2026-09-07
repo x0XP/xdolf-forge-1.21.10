@@ -13,12 +13,18 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Xdolf HUD, module list, potion list and screen-space player/logout labels. */
 final class Hud {
     static boolean showModules=true,showPotions=true;
+    private static final long MODULE_ENTER_NS = 180_000_000L;
+    private static final long MODULE_MOVE_NS = 160_000_000L;
+    private static final long MODULE_EXIT_NS = 160_000_000L;
+    private static final Map<ClientModule, ModuleHudEntry> MODULE_HUD = new IdentityHashMap();
 
     static void render(GuiGraphics graphics) {
         var mc=Minecraft.getInstance();
@@ -31,14 +37,7 @@ final class Hud {
 
         if(mc.screen instanceof ChatScreen||mc.getDebugOverlay().showDebugScreen())return;
         int width=graphics.guiWidth(),height=graphics.guiHeight();
-        if(showModules) {
-            var enabled=ClientRuntime.MODULES.stream().filter(m->m.enabled()&&!m.name.equals("Fullbright"))
-                .sorted(Comparator.comparingInt((ClientModule m)->XdolfFont.width(ClientScreen.label(m))).reversed()).toList();
-            for(int i=0;i<enabled.size();i++) {
-                String text=ClientScreen.label(enabled.get(i));
-                XdolfFont.draw(graphics,text,width-XdolfFont.width(text)-2,i*10,0xFFFFFFFF);
-            }
-        }
+        if(showModules) renderModules(graphics,width);
         if(showPotions) {
             int count=0;
             for(var effect:mc.player.getActiveEffects().stream().sorted().toList()) {
@@ -52,6 +51,105 @@ final class Hud {
                 potion(graphics,net.minecraft.client.resources.language.I18n.get(MobEffects.NIGHT_VISION.value().getDescriptionId()),"**:**",ResourceLocation.withDefaultNamespace("night_vision"),++count,width,height);
         }
         ClientScreen.renderPinned(graphics);
+    }
+
+    private static void renderModules(GuiGraphics graphics,int width) {
+        long now=System.nanoTime();
+        var enabled=ClientRuntime.MODULES.stream().filter(m->m.enabled()&&!m.name.equals("Fulbright"))
+            .sorted(Comparator.comparingInt((ClientModule m)->XdolfFont.width(ClientScreen.label(m))).reversed()).toList();
+
+        for(int i=0;i<enabled.size();i++) {
+            ClientModule module=enabled.get(i);
+            String text=ClientScreen.label(module);
+            float targetX=width-XdolfFont.width(text)-2;
+            float targetY=i*10.0f;
+            ModuleHudEntry entry=MODULE_HUD.get(module);
+            if(entry==null
+                entry=new ModuleHudEntry(width+6.0f,targetY,now);
+                MODULE_HUD.put(module,entry);
+            } else if(entry.exiting) {
+                entry.revive(now);
+            }
+            entry.moveTo(targetX,targetY,now);
+        }
+
+        var iterator=MODULE_HUD.entrySet().iterator();
+        while(iterator.hasNext()) {
+            var item=iterator.next();
+            ModuleHudEntry entry=item.getValue();
+            if(!enabled.contains(item.getKey())) entry.startExit(width+6.0f,now);
+            if(entry.finished(now)) iterator.remove();
+        }
+
+        for(var item:MODULE_HUD.entrySet()) {
+            ClientModule module=item.getKey();
+            ModuleHudEntry entry=item.getValue();
+            float alpha=entry.alpha(now);
+            if(alpha<=0.01f)continue;
+            XdolfFont.draw(graphics,ClientScreen.label(module),entry.x(now),entry.y(now),UiDraw.fade(0xFFFFFFFF,alpha));
+        }
+    }
+
+    private static final class ModuleHudEntry {
+        final long created;
+        float fromX;
+        float fromY;
+        float targetX;
+        float targetY;
+        long moveStarted;
+        boolean exiting;
+        long exitStarted;
+
+        ModuleHudEntry(float x,float y,long now) {
+            created=now;
+            fromX=targetX=x;
+            fromY=targetY=y;
+            moveStarted=now;
+        }
+
+        float x(long now) {
+            float t=UiDraw.easeOutCubic(UiDraw.clamp01((now-moveStarted)/(float)MODULE_MOVE_NS));
+            return fromX+(targetX-fromX)*t;
+        }
+
+        float y(long now) {
+            float t=UiDraw.easeOutCubic(UiDraw.clamp01((now-moveStarted)/(float)MODULE_MOVE_NS));
+            return fromY+(targetY-fromY)*t;
+        }
+
+        float alpha(long now) {
+            float enter=UiDraw.easeOutCubic(UiDraw.clamp01((now-created)/(float)MODULE_ENTER_NS));
+            if(!exiting)return enter;
+          float exit=UiDraw.easeInCubic(UiDraw.clamp01((now-exitStarted)/(float)MODULE_EXIT_NS));
+            return enter*(1.0f-exit);
+      }
+
+        void moveTo(float x,float y,long now) {
+            if(targetX==x&&targetY==y)return;
+            fromX=x(now);
+            fromY=y(now);
+            targetX=x;
+            targetY=y;
+            moveStarted=now;
+        }
+
+        void startExit(float hiddenX,long now) {
+            if(exiting)return;
+            exiting=true;
+            exitStarted=now;
+            moveTo(hiddenX,y(now),now);
+        }
+
+        void revive(long now) {
+            exiting=false;
+            fromX=x(now);
+            fromY=y(now);
+            moveStarted=now;
+      }
+
+        boolean finished(long now) {
+            return exiting&&now-exitStarted>=MODULE_EXIT_NS;
+        }
     }
 
     private static void renderNametags(GuiGraphics g,Minecraft mc) {

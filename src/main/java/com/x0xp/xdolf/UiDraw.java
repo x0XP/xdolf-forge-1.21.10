@@ -4,12 +4,17 @@ import net.minecraft.client.gui.GuiGraphics;
 
 /** Shared pixel-aligned primitives for Xdolf HUD and click-GUI rendering. */
 final class UiDraw {
+    private static float globalAlpha = 1.0f;
+
     private UiDraw() {}
+
+    static void setGlobalAlpha(float alpha) { globalAlpha = clamp01(alpha); }
+    static float globalAlpha() { return globalAlpha; }
 
     static void rect(GuiGraphics graphics, float x, float y, float right, float bottom, int color) {
         graphics.pose().pushMatrix();
         graphics.pose().scale(0.5f, 0.5f);
-        graphics.fill(Math.round(x * 2), Math.round(y * 2), Math.round(right * 2), Math.round(bottom * 2), color);
+        graphics.fill(Math.round(x * 2), Math.round(y * 2), Math.round(right * 2), Math.round(bottom * 2), fade(color, globalAlpha));
         graphics.pose().popMatrix();
     }
 
