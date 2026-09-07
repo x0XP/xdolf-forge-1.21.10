@@ -9,7 +9,8 @@ import static com.x0xp.xdolf.UiDraw.*;
 
 /** Rendering and geometry for the typed option cards shown beneath a module. */
 final class ConfigContainer {
-    static final float HEADER_HEIGHT = 13;
+    private static final float TOP_GAP = 2;
+    static final float HEADER_HEIGHT = 15;
     static final float KEYBIND_HEIGHT = 15;
     static final float NUMBER_HEIGHT = 25;
     static final float TEXT_HEIGHT = 25;
@@ -53,22 +54,23 @@ final class ConfigContainer {
         float contentLeft = left + CONTENT_LEFT_INSET;
         float contentRight = right - CONTENT_RIGHT_INSET;
         float fullHeight = height(module);
-        int scissorTop = (int) Math.floor(top);
+        float cardTop = top + TOP_GAP;
+        int scissorTop = (int) Math.floor(cardTop);
         int scissorBottom = (int) Math.ceil(top + fullHeight * progress);
         if (scissorBottom <= scissorTop) return;
 
         graphics.enableScissor((int) left, scissorTop, (int) Math.ceil(right), scissorBottom);
         // A distinct inset card: deep graphite body, red identity rail, blue interactive accent.
-        rect(graphics, left + 1, top + 1, right + 1, top + fullHeight + 1, fade(0x70000000, progress));
-        rect(graphics, left, top, right, top + fullHeight, fade(0xF20B0D12, progress));
-        outline(graphics, left, top, right, top + fullHeight, fade(0xFF343943, progress));
-        rect(graphics, left, top, left + 1, top + fullHeight, fade(0xFFFF2020, progress));
-        rect(graphics, left + 1, top, right, top + HEADER_HEIGHT, fade(0xF0181B22, progress));
+        rect(graphics, left + 1, cardTop + 1, right + 1, top + fullHeight + 1, fade(0x70000000, progress));
+        rect(graphics, left, cardTop, right, top + fullHeight, fade(0xF20B0D12, progress));
+        outline(graphics, left, cardTop, right, top + fullHeight, fade(0xFF343943, progress));
+        rect(graphics, left, cardTop, left + 1, top + fullHeight, fade(0xFFFF2020, progress));
+        rect(graphics, left + 1, cardTop, right, top + HEADER_HEIGHT, fade(0xF0181B22, progress));
 
         float headerMid = left + (right - left) / 2f;
         rect(graphics, left + 1, top + HEADER_HEIGHT - 1, headerMid, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
         rect(graphics, headerMid, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
-        float headerTextY = centered(top, top + HEADER_HEIGHT - 1);
+        float headerTextY = centered(cardTop, top + HEADER_HEIGHT - 1);
         String moduleName = XdolfFont.compactTrim(ClientScreen.label(module), 42);
         float leftHalfStart = left + 1;
         float leftHalfWidth = headerMid - leftHalfStart;
