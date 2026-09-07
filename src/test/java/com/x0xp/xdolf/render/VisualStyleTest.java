@@ -1,5 +1,7 @@
 package com.x0xp.xdolf;
 
+import com.x0xp.xdolf.settings.*;
+
 /** Golden cases for Xdolf's retained visual behaviour. */
 public final class VisualStyleTest {
     private static void equal(Object expected,Object actual) {
