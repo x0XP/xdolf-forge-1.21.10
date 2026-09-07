@@ -115,12 +115,29 @@ tasks.register('visualStyleTest', JavaExec) {
 
 tasks.register('architectureCheck') {
     group = 'verification'
-    description = 'Enforces Xdolf source ownership and one-module-per-file rules.'
+    description = 'Enforces Xdolf source ownership, Java package layout and one-module-per-file rules.'
 
     doLast {
         def violations = []
         def xdolfRoot = file('src/main/java/com/x0xp/xdolf')
         def moduleRoot = new File(xdolfRoot, 'module')
+
+        // Package names are part of the ownership model: every Java source must declare
+        // exactly the package represented by its directory below the Java source root.
+        [file('src/main/java'), file('src/test/java')].each { sourceRoot ->
+            if (!sourceRoot.isDirectory()) return
+            fileTree(sourceRoot).matching { include '**/*.java' }.files.each { source ->
+                def relative = sourceRoot.toPath().relativize(source.toPath())
+                def parent = relative.getParent()
+                def expectedPackage = parent == null ? '' : parent.collect { it.toString() }.join('.')
+                def text = source.getText('UTF-8')
+                def packageMatch = text =~ /(?m)^\s*package\s+([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)\s*;/
+                def actualPackage = packageMatch.find() ? packageMatch.group(1) : ''
+                if (actualPackage != expectedPackage) {
+                    violations << "Package/path mismatch: ${project.relativePath(source)} declares '${actualPackage ?: '<none>'}' but must declare '${expectedPackage ?: '<default>'}'"
+                }
+            }
+        }
 
         fileTree(xdolfRoot).matching { include '**/*.java' }.files.each { source ->
             if (source.getText('UTF-8').contains('new ClientModule('))
