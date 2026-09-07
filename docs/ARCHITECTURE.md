@@ -32,12 +32,35 @@ A support class must not silently become a second registry or a container for un
 - `settings/` — typed settings, persistence and keybind configuration
 - `chat/` — chat formatting/context/queue behaviour
 - `command/` — dot-command parsing and command persistence
-- `ui/clickgui/` — ClickGUI interaction and option rendering
+- `ui/` — shared UI primitives and font infrastructure
+- `ui/clickgui/` — ClickGUI interaction, panels, persistence, tooltips and option rendering
 - `ui/hud/` — HUD and notification rendering
 - `render/` — shared world-render infrastructure
 - `social/` — friend/social state
 - `dev/` — smoke/development harnesses
-- `mixin/` — mixins grouped by target area
+- `mixin/accessor/` — Minecraft accessors
+- `mixin/chat/` — chat and text-input mixins
+- `mixin/core/` — Minecraft lifecycle/runtime mixins
+- `mixin/network/` — packet and connection mixins
+- `mixin/player/` — player/entity interaction mixins
+- `mixin/render/` — rendering mixins
+- `mixin/world/` — world/block mixins
+
+## Java package invariant
+
+The Java namespace must mirror the source tree exactly. A source at:
+
+`src/main/java/com/x0xp/xdolf/ui/clickgui/ClientScreen.java`
+
+must therefore declare:
+
+`package com.x0xp.xdolf.ui.clickgui;`
+
+This applies to both production and test Java sources. Moving a class to a different ownership folder requires moving its package at the same time; changing only the directory or only the package is not valid.
+
+Cross-package access must be deliberate. If another subsystem genuinely needs a type or operation, expose the narrow contract it needs and keep unrelated implementation details private or package-private. Do not flatten packages or make entire classes public merely to avoid defining a boundary.
+
+The Gradle `architectureCheck` task enforces package/path equality as part of `check`, alongside the module ownership rules. A mismatched package therefore fails the normal build before it can be treated as stable.
 
 ## File design rules
 
@@ -47,7 +70,4 @@ A support class must not silently become a second registry or a container for un
 4. Registries contain registration; renderers contain rendering; persistence classes contain persistence. Avoid convenience dumping grounds.
 5. Preserve existing runtime behaviour while reorganising. Structural refactors must pass the normal Forge build and the full client/GUI/world smoke test before they are considered stable.
 6. New folders should represent durable ownership boundaries. Do not create a folder for a single temporary implementation detail unless it is expected to own a coherent family of code.
-
-## Java packages
-
-Some existing source files still use the historical `com.x0xp.xdolf` package to preserve package-private contracts during the rebuild. Folder ownership is enforced now; package namespace migration should be performed deliberately as API boundaries are extracted, rather than by exposing internals purely to make a move compile.
+7. Package boundaries are architectural boundaries. Public APIs should remain intentional and as narrow as the consuming subsystem requires.
