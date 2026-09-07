@@ -71,21 +71,14 @@ final class ConfigContainer {
         rect(graphics, left, cardTop, left + 1, top + fullHeight, fade(0xFFFF2020, progress));
         rect(graphics, left + 1, cardTop, right, top + HEADER_HEIGHT, fade(0xF0181B22, progress));
 
-        float headerMid = left + (right - left) / 2f;
-        rect(graphics, left + 1, top + HEADER_HEIGHT - 1, headerMid, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
-        rect(graphics, headerMid, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
+        rect(graphics, left + 1, top + HEADER_HEIGHT - 1, left + 47, top + HEADER_HEIGHT, fade(0xFFFF2020, progress));
+        rect(graphics, left + 47, top + HEADER_HEIGHT - 1, right, top + HEADER_HEIGHT, fade(0xFF329CFF, progress));
         float headerTextY = centered(cardTop, top + HEADER_HEIGHT - 1);
-        String moduleName = XdolfFont.compactTrim(ClientScreen.label(module), 42);
-        float leftHalfStart = left + 1;
-        float leftHalfWidth = headerMid - leftHalfStart;
-        XdolfFont.drawCompact(graphics, moduleName,
-            leftHalfStart + (leftHalfWidth - XdolfFont.compactWidth(moduleName)) / 2f,
-            headerTextY, fade(0xFFFFFFFF, progress));
+        XdolfFont.drawCompact(graphics, XdolfFont.compactTrim(ClientScreen.label(module), 48),
+            left + 4, headerTextY, fade(0xFFFFFFFF, progress));
         String options = "OPTIONS";
-        float rightHalfWidth = right - headerMid;
-        XdolfFont.drawCompact(graphics, options,
-            headerMid + (rightHalfWidth - XdolfFont.compactWidth(options)) / 2f,
-            headerTextY, fade(0xFF8C929D, progress));
+        XdolfFont.drawCompact(graphics, options, right - 4 - XdolfFont.compactWidth(options), headerTextY,
+            fade(0xFF8C929D, progress));
 
         boolean interactive = panel.expansion(module).open && progress >= 0.95f && screen != null;
         float y = top + HEADER_HEIGHT + 2;
