@@ -180,15 +180,16 @@ public final class ClientSmoke {
                     int b=net.minecraft.util.ARGB.blue(pixel);
                     if(r>=180&&r>g*2&&r>b*2)red++;
                     if(g>=180&&g>r*2&&g>b*2)green++;
-                    if(b>=180&&b>r*2&&b>g*2)blue++;
+                    // The far-distance tracer is intentionally cyan-blue (0x1A99FF), not pure blue.
+                    if(b>=220&&b>r*3&&g>=80&&g<=210)blue++;
                 }
                 int required=Math.max(8,image.getWidth()*image.getHeight()/200000);
-                if(red<required||green<required||blue<required)
-                    throw new IllegalStateException("World overlays were submitted but not visible in the final framebuffer: red="+red+", green="+green+", blue="+blue);
-
                 java.nio.file.Path screenshots=java.nio.file.Path.of("screenshots");
                 java.nio.file.Files.createDirectories(screenshots);
                 image.writeToFile(screenshots.resolve("xdolf-world-visuals.png"));
+                if(red<required||green<required||blue<required)
+                    throw new IllegalStateException("World overlays were submitted but not visible in the final framebuffer: red="+red+", green="+green+", cyan-blue="+blue);
+
                 LogUtils.getLogger().info("XDOLF_SHADER_OVERLAYS_OK: final framebuffer contains visible red, green and blue world overlays ({}/{}/{})",red,green,blue);
                 worldCaptureDone=true;
             } catch(java.io.IOException error) {
