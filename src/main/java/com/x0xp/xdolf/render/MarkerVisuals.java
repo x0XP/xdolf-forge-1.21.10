@@ -41,6 +41,7 @@ import java.util.OptionalDouble;
 
 /** World rendering for Waypoints and LogoutSpot. */
 public final class MarkerVisuals implements FramePassManager.PassDefinition {
+    private static final MarkerVisuals INSTANCE=new MarkerVisuals();
     private record Segment(Vec3 a,Vec3 b,int color,double width,boolean stableStart) {
         Segment(Vec3 a,Vec3 b,int color,double width){this(a,b,color,width,false);}
     }
@@ -65,7 +66,12 @@ public final class MarkerVisuals implements FramePassManager.PassDefinition {
 
     private static ResourceLocation id(String path){return ResourceLocation.fromNamespaceAndPath(Xdolf.ID,path);}
 
-    public static void register(){AddFramePassEvent.BUS.addListener(event->event.addPass(id("marker_visuals"),new MarkerVisuals()));}
+    public static void register(){AddFramePassEvent.BUS.addListener(event->event.addPass(id("marker_visuals"),INSTANCE));}
+
+    /** Draw marker primitives after OptiFine's final shader composite instead of into its transient target. */
+    public static void renderAfterShaderComposite() {
+        if(ShaderCompatibility.shadersActive())INSTANCE.renderScene();
+    }
 
     @Override
     public void targets(LevelTargetBundle targets,FramePass pass) {
@@ -86,6 +92,11 @@ public final class MarkerVisuals implements FramePassManager.PassDefinition {
 
     @Override
     public void executes(LevelRenderState state) {
+        if(ShaderCompatibility.shadersActive())return;
+        renderScene();
+    }
+
+    private void renderScene() {
         if(scene.lines.isEmpty()&&scene.boxes.isEmpty())return;
 
         var pose=new PoseStack();
@@ -240,3 +251,4 @@ public final class MarkerVisuals implements FramePassManager.PassDefinition {
         for(int i=0;i<8;i++)for(int mask:new int[]{1,2,4})if(i<(i^mask))line(buffers,matrix,p[i],p[i^mask],box.edge,1.0);
     }
 }
+
