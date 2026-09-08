@@ -3,7 +3,6 @@ package com.x0xp.xdolf.mixin.render;
 import com.x0xp.xdolf.module.world.XRayModule;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.BlockModelPart;
@@ -27,22 +26,28 @@ public abstract class BlockRenderMixin {
     }
 
     /**
-     * XRay-selected blocks should remain readable regardless of shader lighting direction.
-     * Wrapping the consumer here keeps the compatibility hook at BlockRenderDispatcher's stable
-     * public render entry point instead of injecting into OptiFine-rewritten model internals.
+     * Lift XRay-selected blocks out of deep shader darkness without making them emissive.
+     * The consumer preserves normal per-face contrast, but applies a modest brightness/light floor
+     * so side faces remain readable through terrain with Complementary enabled.
      */
     @ModifyVariable(method = "renderBatched", at = @At("HEAD"), argsOnly = true, ordinal = 0)
-    private VertexConsumer xdolf$xrayFullbright(VertexConsumer consumer) {
-        return XRayModule.rendering ? new XRayFullbrightConsumer(consumer) : consumer;
+    private VertexConsumer xdolf$xrayReadableLight(VertexConsumer consumer) {
+        return XRayModule.rendering ? new XRayReadableLightConsumer(consumer) : consumer;
     }
 
     @Inject(method = "renderLiquid", at = @At("HEAD"), cancellable = true)
     private void xdolf$fluid(CallbackInfo ci) { if (XRayModule.rendering) ci.cancel(); }
 
-    private static final class XRayFullbrightConsumer implements VertexConsumer {
+    private static final class XRayReadableLightConsumer implements VertexConsumer {
+        private static final float BRIGHTNESS_FLOOR = 0.72f;
+        // Packed block/sky light use four-bit values shifted into bits 4 and 20 respectively.
+        // 11/15 is deliberately below full-bright while still keeping shader-darkened faces legible.
+        private static final int LIGHT_FLOOR = 0xB000B0;
+        private static final int LIGHT_MASK = 0xF000F0;
+
         private final VertexConsumer delegate;
 
-        private XRayFullbrightConsumer(VertexConsumer delegate) {
+        private XRayReadableLightConsumer(VertexConsumer delegate) {
             this.delegate = delegate;
         }
 
@@ -72,7 +77,7 @@ public abstract class BlockRenderMixin {
 
         @Override
         public VertexConsumer setUv2(int u, int v) {
-            delegate.setLight(LightTexture.FULL_BRIGHT);
+            delegate.setLight(liftLight((v << 16) | (u & 0xFFFF)));
             return this;
         }
 
@@ -85,19 +90,29 @@ public abstract class BlockRenderMixin {
         @Override
         public void putBulkData(PoseStack.Pose pose, BakedQuad quad, float red, float green, float blue,
                                 float alpha, int packedLight, int packedOverlay) {
-            delegate.putBulkData(pose, quad, red, green, blue, alpha, LightTexture.FULL_BRIGHT, packedOverlay);
+            delegate.putBulkData(pose, quad, red, green, blue, alpha, liftLight(packedLight), packedOverlay);
         }
 
         @Override
         public void putBulkData(PoseStack.Pose pose, BakedQuad quad, float[] brightness,
                                 float red, float green, float blue, float alpha,
                                 int[] lightmap, int packedOverlay, boolean readExistingColor) {
-            float[] fullBrightness = new float[brightness.length];
-            Arrays.fill(fullBrightness, 1.0f);
-            int[] fullLight = new int[lightmap.length];
-            Arrays.fill(fullLight, LightTexture.FULL_BRIGHT);
-            delegate.putBulkData(pose, quad, fullBrightness, red, green, blue, alpha,
-                fullLight, packedOverlay, readExistingColor);
+            float[] liftedBrightness = Arrays.copyOf(brightness, brightness.length);
+            for (int i = 0; i < liftedBrightness.length; i++)
+                liftedBrightness[i] = Math.max(liftedBrightness[i], BRIGHTNESS_FLOOR);
+
+            int[] liftedLight = Arrays.copyOf(lightmap, lightmap.length);
+            for (int i = 0; i < liftedLight.length; i++)
+                liftedLight[i] = liftLight(liftedLight[i]);
+
+            delegate.putBulkData(pose, quad, liftedBrightness, red, green, blue, alpha,
+                liftedLight, packedOverlay, readExistingColor);
+        }
+
+        private static int liftLight(int packedLight) {
+            int block = Math.max(packedLight & 0xF0, LIGHT_FLOOR & 0xF0);
+            int sky = Math.max(packedLight & 0xF00000, LIGHT_FLOOR & 0xF00000);
+            return (packedLight & ~LIGHT_MASK) | block | sky;
         }
     }
 }
