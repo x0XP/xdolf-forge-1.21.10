@@ -68,9 +68,9 @@ public final class MarkerVisuals implements FramePassManager.PassDefinition {
 
     public static void register(){AddFramePassEvent.BUS.addListener(event->event.addPass(id("marker_visuals"),INSTANCE));}
 
-    /** Draw marker primitives after OptiFine's final shader composite instead of into its transient target. */
-    public static void renderAfterShaderComposite() {
-        if(ShaderCompatibility.shadersActive())INSTANCE.renderScene();
+    /** Draw marker primitives after level rendering instead of into OptiFine's transient target. */
+    public static void renderAfterLevel() {
+        INSTANCE.renderScene();
     }
 
     @Override
@@ -92,8 +92,7 @@ public final class MarkerVisuals implements FramePassManager.PassDefinition {
 
     @Override
     public void executes(LevelRenderState state) {
-        if(ShaderCompatibility.shadersActive())return;
-        renderScene();
+        // Extraction and logout-model submission remain attached to this pass; primitives draw later.
     }
 
     private void renderScene() {
