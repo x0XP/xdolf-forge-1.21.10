@@ -10,6 +10,7 @@ import com.x0xp.xdolf.module.ClientModule;
 import com.x0xp.xdolf.module.world.XRayModule;
 import com.x0xp.xdolf.mixin.accessor.CreateWorldScreenAccess;
 import com.mojang.logging.LogUtils;
+import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -149,7 +150,7 @@ public final class ClientSmoke {
                 throw new IllegalStateException("Dev.16 XRay screenshot did not complete before world visual smoke");
             if (ticks == 280) {
                 WorldVisuals.assertSmokeRendered();
-                net.minecraft.client.Screenshot.grab(new java.io.File("."), mc.getMainRenderTarget(), message -> worldCaptureDone=true);
+                captureAndAssertWorldVisuals(mc);
             }
             if (ticks >= 300 && worldCaptureDone) {
                 WorldVisuals.smokeFixture=false;
@@ -164,6 +165,36 @@ public final class ClientSmoke {
                 phase = 4; frames = 0; mc.setScreen(new ClientScreen());
             }
         }
+    }
+
+    private static void captureAndAssertWorldVisuals(Minecraft mc) {
+        net.minecraft.client.Screenshot.takeScreenshot(mc.getMainRenderTarget(), image -> {
+            try(image) {
+                int red=0,green=0,blue=0;
+                int minX=image.getWidth()/10,maxX=image.getWidth()*9/10;
+                int minY=image.getHeight()/10,maxY=image.getHeight()*9/10;
+                for(int y=minY;y<maxY;y++)for(int x=minX;x<maxX;x++) {
+                    int pixel=image.getPixel(x,y);
+                    int r=net.minecraft.util.ARGB.red(pixel);
+                    int g=net.minecraft.util.ARGB.green(pixel);
+                    int b=net.minecraft.util.ARGB.blue(pixel);
+                    if(r>=180&&r>g*2&&r>b*2)red++;
+                    if(g>=180&&g>r*2&&g>b*2)green++;
+                    if(b>=180&&b>r*2&&b>g*2)blue++;
+                }
+                int required=Math.max(8,image.getWidth()*image.getHeight()/200000);
+                if(red<required||green<required||blue<required)
+                    throw new IllegalStateException("World overlays were submitted but not visible in the final framebuffer: red="+red+", green="+green+", blue="+blue);
+
+                java.nio.file.Path screenshots=java.nio.file.Path.of("screenshots");
+                java.nio.file.Files.createDirectories(screenshots);
+                image.writeToFile(screenshots.resolve("xdolf-world-visuals.png"));
+                LogUtils.getLogger().info("XDOLF_SHADER_OVERLAYS_OK: final framebuffer contains visible red, green and blue world overlays ({}/{}/{})",red,green,blue);
+                worldCaptureDone=true;
+            } catch(java.io.IOException error) {
+                throw new IllegalStateException("Could not save verified world-overlay screenshot",error);
+            }
+        });
     }
 
     public static void frame() {
@@ -231,3 +262,4 @@ public final class ClientSmoke {
         mc.stop();
     }
 }
+
