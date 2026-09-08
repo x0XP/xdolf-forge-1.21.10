@@ -92,9 +92,9 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
         AddFramePassEvent.BUS.addListener(event->event.addPass(id("world_visuals"),INSTANCE));
     }
 
-    /** OptiFine composites its shader framebuffer after Forge frame passes, so draw retained overlays afterwards. */
-    public static void renderAfterShaderComposite() {
-        if(ShaderCompatibility.shadersActive())INSTANCE.renderScene();
+    /** Draw after level rendering so OptiFine's final shader composite cannot overwrite the overlays. */
+    public static void renderAfterLevel() {
+        INSTANCE.renderScene();
     }
 
     @Override
@@ -111,8 +111,7 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
 
     @Override
     public void executes(LevelRenderState state) {
-        if(ShaderCompatibility.shadersActive())return;
-        renderScene();
+        // Extraction remains attached to this pass; rendering happens after LevelRenderer returns.
     }
 
     private void renderScene() {
