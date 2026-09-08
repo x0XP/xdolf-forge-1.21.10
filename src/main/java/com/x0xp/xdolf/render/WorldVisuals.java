@@ -50,6 +50,7 @@ import java.util.OptionalDouble;
 
 /** World-space renderer for Xdolf tracers, ESP, storage, trajectories and visual smoke fixtures. */
 public final class WorldVisuals implements FramePassManager.PassDefinition {
+    private static final WorldVisuals INSTANCE=new WorldVisuals();
     private record Segment(Vec3 a,Vec3 b,int color,double width,boolean stableStart) {
         Segment(Vec3 a,Vec3 b,int color,double width){this(a,b,color,width,false);}
     }
@@ -88,7 +89,12 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
     private static ResourceLocation id(String path){return ResourceLocation.fromNamespaceAndPath(Xdolf.ID,path);}
 
     public static void register() {
-        AddFramePassEvent.BUS.addListener(event->event.addPass(id("world_visuals"),new WorldVisuals()));
+        AddFramePassEvent.BUS.addListener(event->event.addPass(id("world_visuals"),INSTANCE));
+    }
+
+    /** OptiFine composites its shader framebuffer after Forge frame passes, so draw retained overlays afterwards. */
+    public static void renderAfterShaderComposite() {
+        if(ShaderCompatibility.shadersActive())INSTANCE.renderScene();
     }
 
     @Override
@@ -105,6 +111,11 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
 
     @Override
     public void executes(LevelRenderState state) {
+        if(ShaderCompatibility.shadersActive())return;
+        renderScene();
+    }
+
+    private void renderScene() {
         if(scene.lines.isEmpty()&&scene.boxes.isEmpty()&&scene.tags.isEmpty())return;
         if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
             smokeLines=scene.lines.size();smokeBoxes=scene.boxes.size();smokeTags=scene.tags.size();
@@ -331,3 +342,4 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
         boxes.add(new Box(new AABB(position.x-0.35,position.y-0.5,position.z-0.5,position.x+0.65,position.y+0.5,position.z+0.5),(color&0xFFFFFF)|0x2F000000,position,angle));
     }
 }
+
