@@ -23,8 +23,8 @@ public abstract class GameRendererMixin {
         )
     )
     private void xdolf$renderShaderWorldVisuals(CallbackInfo ci) {
-        WorldVisuals.renderAfterShaderComposite();
-        MarkerVisuals.renderAfterShaderComposite();
+        WorldVisuals.renderAfterLevel();
+        MarkerVisuals.renderAfterLevel();
     }
 
     @Inject(method = "processBlurEffect", at = @At("HEAD"), cancellable = true)
