@@ -313,6 +313,10 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
             boxes.add(new Box(new AABB(end.x-0.35,end.y,end.z-0.35,end.x+0.35,end.y+1.9,end.z+0.35),0x26000000|color,null,0));
             tags.add(new Tag(end.add(0,2.3,0),VisualStyle.tag("VisualTest"+i,20-i*3,20-i*4,i==3),VisualStyle.tagScale((float)distance),-14));
         }
+        // A real ore block, rather than a camera-relative synthetic box, exposes FOV
+        // mismatches in the proof screenshot: this white outline must hug its faces.
+        var alignment = com.x0xp.xdolf.dev.ClientSmoke.alignmentBlock();
+        if (alignment != null) boxes.add(new Box(new AABB(alignment), 0x40FFFFFF, null, 0));
         return new Scene(camera,rotation,List.copyOf(lines),List.copyOf(boxes),List.copyOf(tags));
     }
 
