@@ -34,6 +34,10 @@ public final class ClientSmoke {
     private static boolean worldFixtureStarted;
     private static BlockPos xrayFixtureBase;
 
+    public static BlockPos alignmentBlock() {
+        return xrayFixtureBase == null ? null : xrayFixtureBase.offset(-4, 1, 7);
+    }
+
     private static void placeXrayFixture(Level level, BlockPos base) {
         // Four solid stone layers completely occlude the targets in normal rendering.
         for (int x = -5; x <= 5; x++) {
@@ -143,6 +147,8 @@ public final class ClientSmoke {
                 for (String name : new String[] {"NoHurtCam", "Chams", "EntityESP", "StorageESP", "Nametags", "Tracers", "Trajectories"})
                     ClientRuntime.find(name).setEnabled(true);
                 worldFixtureStarted = true;
+                mc.options.fov().set(100);
+                mc.options.bobView().set(true);
                 WorldVisuals.smokeFixture=true;
                 LogUtils.getLogger().info("XDOLF_XRAY_CAPTURE_OK: dev.16 clean coal/iron XRay shader frame captured before synthetic world visuals");
             }
