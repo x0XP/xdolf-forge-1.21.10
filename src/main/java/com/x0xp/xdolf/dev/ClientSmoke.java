@@ -154,6 +154,8 @@ public final class ClientSmoke {
             }
             if (ticks == 200 && !worldFixtureStarted)
                 throw new IllegalStateException("Dev.16 XRay screenshot did not complete before world visual smoke");
+            if (ticks == 220) mc.options.keyLeft.setDown(true);
+            if (ticks == 282) mc.options.keyLeft.setDown(false);
             if (ticks == 280) {
                 WorldVisuals.assertSmokeRendered();
                 captureAndAssertWorldVisuals(mc);
