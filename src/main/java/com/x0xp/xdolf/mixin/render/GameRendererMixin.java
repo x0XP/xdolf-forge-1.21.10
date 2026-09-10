@@ -14,14 +14,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
-    @Inject(
-        method = "renderLevel",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/LevelRenderer;renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;Z)V",
-            shift = At.Shift.AFTER
-        )
-    )
+    // OptiFine performs its final composite after LevelRenderer.renderLevel returns.
+    // Wait for GameRenderer's entire world stage, including that composite, to finish.
+    @Inject(method = "renderLevel", at = @At("RETURN"))
     private void xdolf$renderShaderWorldVisuals(CallbackInfo ci) {
         WorldVisuals.renderAfterLevel();
         MarkerVisuals.renderAfterLevel();
