@@ -4,13 +4,16 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
+import java.util.List;
 import java.util.Locale;
 
 /** Startup prompt and download progress UI for Xdolf updates. */
 public final class UpdateScreen extends Screen {
-    private static final int PANEL_WIDTH = 330;
-    private static final int PANEL_HEIGHT = 184;
+    private static final int MAX_PANEL_WIDTH = 390;
+    private static final int PANEL_HEIGHT = 196;
+    private static final int HORIZONTAL_MARGIN = 20;
     private static final int ACCENT = 0xFFE21C2A;
     private static final int PANEL = 0xF0151518;
     private static final int PANEL_INNER = 0xFF1D1D21;
@@ -29,22 +32,29 @@ public final class UpdateScreen extends Screen {
         this.release = release;
     }
 
+    private int panelWidth() {
+        return Math.min(MAX_PANEL_WIDTH, Math.max(280, width - HORIZONTAL_MARGIN * 2));
+    }
+
     @Override
     protected void init() {
-        int left = (width - PANEL_WIDTH) / 2;
+        int panelWidth = panelWidth();
+        int left = (width - panelWidth) / 2;
         int top = (height - PANEL_HEIGHT) / 2;
         int buttonY = top + PANEL_HEIGHT - 34;
+        int gap = 14;
+        int buttonWidth = (panelWidth - 40 - gap) / 2;
 
         updateButton = addRenderableWidget(Button.builder(Component.literal("Update now"), button -> {
             button.active = false;
             if (laterButton != null) laterButton.active = false;
             AutoUpdater.downloadAndRestart();
-        }).bounds(left + 20, buttonY, 138, 20).build());
+        }).bounds(left + 20, buttonY, buttonWidth, 20).build());
 
         laterButton = addRenderableWidget(Button.builder(Component.literal("Later"), button -> {
             AutoUpdater.dismiss();
             if (minecraft != null) minecraft.setScreen(parent);
-        }).bounds(left + PANEL_WIDTH - 158, buttonY, 138, 20).build());
+        }).bounds(left + 20 + buttonWidth + gap, buttonY, buttonWidth, 20).build());
 
         syncButtons();
     }
@@ -68,20 +78,23 @@ public final class UpdateScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0xE509090B);
 
-        int left = (width - PANEL_WIDTH) / 2;
+        int panelWidth = panelWidth();
+        int left = (width - panelWidth) / 2;
         int top = (height - PANEL_HEIGHT) / 2;
-        int right = left + PANEL_WIDTH;
+        int right = left + panelWidth;
         int bottom = top + PANEL_HEIGHT;
+        int centerX = width / 2;
+        int innerTextWidth = panelWidth - 56;
 
         graphics.fill(left - 1, top - 1, right + 1, bottom + 1, 0xFF000000);
         graphics.fill(left, top, right, bottom, PANEL);
         graphics.fill(left, top, right, top + 3, ACCENT);
         graphics.fill(left + 12, top + 42, right - 12, bottom - 48, PANEL_INNER);
 
-        graphics.drawCenteredString(font, Component.literal("XDOLF UPDATE"), width / 2, top + 14, TEXT);
+        graphics.drawCenteredString(font, Component.literal("XDOLF UPDATE"), centerX, top + 14, TEXT);
         graphics.drawCenteredString(font,
             Component.literal(AutoUpdater.currentVersion() + "  →  " + release.version()),
-            width / 2, top + 28, MUTED);
+            centerX, top + 28, MUTED);
 
         AutoUpdater.Phase phase = AutoUpdater.phase();
         String headline = switch (phase) {
@@ -93,29 +106,42 @@ public final class UpdateScreen extends Screen {
             case ERROR -> "The update could not be completed.";
             default -> "Preparing update...";
         };
-        graphics.drawCenteredString(font, Component.literal(headline), width / 2, top + 54, TEXT);
+        drawWrappedCentered(graphics, headline, centerX, top + 54, innerTextWidth, TEXT, 10);
 
         if (phase == AutoUpdater.Phase.AVAILABLE) {
-            graphics.drawCenteredString(font,
-                Component.literal("Update now to install " + release.tag() + ", or continue with this build."),
-                width / 2, top + 70, MUTED);
-            graphics.drawCenteredString(font,
-                Component.literal("The new JAR is downloaded from the official Xdolf GitHub release."),
-                width / 2, top + 84, MUTED);
-            graphics.drawCenteredString(font,
-                Component.literal("Minecraft will restart automatically after the download is verified."),
-                width / 2, top + 98, MUTED);
+            int y = top + 72;
+            y = drawWrappedCentered(graphics,
+                "Install " + release.tag() + " now, or continue with this build.",
+                centerX, y, innerTextWidth, MUTED, 10);
+            y += 3;
+            y = drawWrappedCentered(graphics,
+                "The new JAR is downloaded from the official Xdolf GitHub release.",
+                centerX, y, innerTextWidth, MUTED, 10);
+            y += 3;
+            drawWrappedCentered(graphics,
+                "Minecraft will restart automatically after the download is verified.",
+                centerX, y, innerTextWidth, MUTED, 10);
         } else {
-            drawProgress(graphics, left + 28, top + 79, PANEL_WIDTH - 56, phase);
-            graphics.drawCenteredString(font, Component.literal(AutoUpdater.status()), width / 2, top + 101,
-                phase == AutoUpdater.Phase.ERROR ? 0xFFFF7777 : MUTED);
+            drawProgress(graphics, left + 28, top + 83, panelWidth - 56, phase);
+            drawWrappedCentered(graphics, AutoUpdater.status(), centerX, top + 105, innerTextWidth,
+                phase == AutoUpdater.Phase.ERROR ? 0xFFFF7777 : MUTED, 10);
             if (phase == AutoUpdater.Phase.ERROR && !AutoUpdater.errorMessage().isBlank()) {
-                graphics.drawCenteredString(font,
-                    Component.literal(trim(AutoUpdater.errorMessage(), 52)), width / 2, top + 116, 0xFFFF9999);
+                drawWrappedCentered(graphics, trim(AutoUpdater.errorMessage(), 110), centerX, top + 121,
+                    innerTextWidth, 0xFFFF9999, 10);
             }
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    private int drawWrappedCentered(GuiGraphics graphics, String text, int centerX, int y,
+                                    int maxWidth, int color, int lineHeight) {
+        List<FormattedCharSequence> lines = font.split(Component.literal(text), maxWidth);
+        for (FormattedCharSequence line : lines) {
+            graphics.drawCenteredString(font, line, centerX, y, color);
+            y += lineHeight;
+        }
+        return y;
     }
 
     private void drawProgress(GuiGraphics graphics, int x, int y, int width, AutoUpdater.Phase phase) {
