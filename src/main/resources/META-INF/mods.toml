@@ -7,6 +7,7 @@ clientSideOnly=true
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
+logoFile="assets/xdolf/textures/logo.png"
 authors="${mod_authors}"
 displayURL="https://github.com/x0XP/xdolf-forge-1.21.10"
 description='''${mod_description}'''

@@ -85,6 +85,7 @@ public final class Modules {
     }
 
     private static void registerRender(List<ClientModule> modules) {
+        modules.add(new com.x0xp.xdolf.module.render.DiscordRPCModule());
         modules.add(new TracersModule());
         modules.add(new StorageESPModule());
         modules.add(new EntityESPModule());

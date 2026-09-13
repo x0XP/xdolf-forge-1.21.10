@@ -27,6 +27,7 @@ public abstract class ClientModule {
     private final Set<String> dependencies = new LinkedHashSet<>();
     private boolean runsDuringFreecam;
     private boolean runsWhilePaused;
+    private boolean runsWithoutWorld;
 
     protected ClientModule(String name, String description, String category) {
         this.name = name;
@@ -84,6 +85,8 @@ public abstract class ClientModule {
     protected final void dependsOn(String... moduleNames) { dependencies.addAll(List.of(moduleNames)); }
     protected final void runDuringFreecam() { runsDuringFreecam = true; }
     protected final void runWhilePaused() { runsWhilePaused = true; }
+    protected final void runWithoutWorld() { runsWithoutWorld = true; }
+    final boolean runsWithoutWorld() { return runsWithoutWorld; }
     final Set<String> conflicts() { return Set.copyOf(conflicts); }
     public final Set<String> dependencies() { return Set.copyOf(dependencies); }
     final boolean runsDuringFreecam() { return runsDuringFreecam; }

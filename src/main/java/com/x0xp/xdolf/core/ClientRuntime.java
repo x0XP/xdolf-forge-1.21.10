@@ -77,13 +77,13 @@ public final class ClientRuntime {
         ClientSmoke.tick(mc);
         updateSession(mc);
         Commands.recordDeath(mc);
-        if (mc.player == null || mc.level == null || mc.getConnection() == null) return;
 
         for (ClientModule module : MODULES) {
             if (!module.enabled()) continue;
 
             boolean respawnScreen = module.name.equals("AutoRespawn") && mc.screen instanceof DeathScreen;
             var status = ModuleManager.status(module, mc);
+            if (status.activity() == ModuleManager.Activity.WAITING_FOR_WORLD) continue;
             if (status.activity() == ModuleManager.Activity.SUSPENDED
                 || status.activity() == ModuleManager.Activity.MISSING_DEPENDENCY) {
                 module.reset(mc);
