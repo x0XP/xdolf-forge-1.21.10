@@ -25,67 +25,43 @@ jobs:
           path = Path('src/main/java/com/x0xp/xdolf/render/WorldVisuals.java')
           text = path.read_text()
 
-          old = '''    private void renderScene(Matrix4f worldProjection) {
-              if(scene.lines.isEmpty()&&scene.boxes.isEmpty()&&scene.tags.isEmpty())return;
-              if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
-                  smokeLines=scene.lines.size();smokeBoxes=scene.boxes.size();smokeTags=scene.tags.size();
-              }
+          replacements = [
+              (
+                  '            for(var box:scene.boxes)drawBox(buffers,pose.last().pose(),box,scene.camera);',
+                  '            for(var box:scene.boxes)drawBox(buffers,pose.last().pose(),box,scene.camera);'
+              ),
+              (
+                  '            modelView.popMatrix();\n        }',
+                  '            modelView.popMatrix();\n            // Never allow the late renderer to reuse primitives from a previous extraction.\n            scene=Scene.empty();\n        }'
+              ),
+              (
+                  '        for(var entity:mc.level.entitiesForRendering()) {\n            if(entity instanceof Player player&&player!=mc.player) {',
+                  '        for(var entity:mc.level.entitiesForRendering()) {\n            if(entity.isRemoved())continue;\n            if(entity instanceof Player player&&player!=mc.player) {'
+              ),
+              (
+                  '                    segments.add(new Segment(start,entity.position(),VisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),VisualStyle.TRACER_WIDTH,true));',
+                  '                    segments.add(new Segment(start,player.getPosition(partial).add(0.0,player.getBbHeight()*0.5,0.0),VisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),VisualStyle.TRACER_WIDTH,true));'
+              ),
+              (
+                  '            int radius=mc.options.renderDistance().get()+2;',
+                  '            // Scan only the effective visible distance, not Minecraft\'s extra client chunk buffer.\n            int radius=mc.options.getEffectiveRenderDistance();'
+              ),
+              (
+                  '                for(var be:loaded.getBlockEntities().values()) {\n                    var pos=be.getBlockPos();',
+                  '                for(var be:loaded.getBlockEntities().values()) {\n                    if(be.isRemoved())continue;\n                    var pos=be.getBlockPos();'
+              ),
+              (
+                  '                        segments.add(new Segment(start,Vec3.atLowerCornerOf(pos),VisualStyle.CHEST_TRACER,VisualStyle.TRACER_WIDTH,true));',
+                  '                        segments.add(new Segment(start,Vec3.atCenterOf(pos),VisualStyle.CHEST_TRACER,VisualStyle.TRACER_WIDTH,true));'
+              ),
+          ]
 
-              var pose=new PoseStack();
-              pose.mulPose(new Quaternionf(scene.rotation).conjugate());
-          '''
-          new = '''    private void renderScene(Matrix4f worldProjection) {
-              // Consume an extracted scene exactly once. The late OptiFine-compatible pass must never
-              // redraw a previous frame if Forge skips or delays the extraction stage.
-              Scene frameScene=scene;
-              scene=Scene.empty();
-              if(frameScene.lines.isEmpty()&&frameScene.boxes.isEmpty()&&frameScene.tags.isEmpty())return;
-              if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
-                  smokeLines=frameScene.lines.size();smokeBoxes=frameScene.boxes.size();smokeTags=frameScene.tags.size();
-              }
-
-              var pose=new PoseStack();
-              pose.mulPose(new Quaternionf(frameScene.rotation).conjugate());
-          '''
-          if old not in text:
-              raise SystemExit('renderScene header did not match expected source')
-          text = text.replace(old, new, 1)
-
-          replacements = {
-              'for(var box:scene.boxes)drawBox(buffers,pose.last().pose(),box,scene.camera);':
-                  'for(var box:frameScene.boxes)drawBox(buffers,pose.last().pose(),box,frameScene.camera);',
-              'for(var segment:scene.lines) {':
-                  'for(var segment:frameScene.lines) {',
-              'var a=segment.a.subtract(scene.camera);':
-                  'var a=segment.a.subtract(frameScene.camera);',
-              'var b=segment.b.subtract(scene.camera);':
-                  'var b=segment.b.subtract(frameScene.camera);',
-              'for(var tag:scene.tags) {':
-                  'for(var tag:frameScene.tags) {',
-              '.translate((float)(tag.position.x-scene.camera.x),(float)(tag.position.y-scene.camera.y),(float)(tag.position.z-scene.camera.z))':
-                  '.translate((float)(tag.position.x-frameScene.camera.x),(float)(tag.position.y-frameScene.camera.y),(float)(tag.position.z-frameScene.camera.z))',
-              '        for(var entity:mc.level.entitiesForRendering()) {\n            if(entity instanceof Player player&&player!=mc.player) {':
-                  '        for(var entity:mc.level.entitiesForRendering()) {\n            if(entity.isRemoved())continue;\n            if(entity instanceof Player player&&player!=mc.player) {',
-              '''                if(tracers&&Hooks.setting("Tracers","players",1)!=0)
-                    segments.add(new Segment(start,entity.position(),VisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),VisualStyle.TRACER_WIDTH,true));''':
-                  '''                if(tracers&&Hooks.setting("Tracers","players",1)!=0) {
-                    // Use the same partial-tick interpolation as Minecraft's entity renderer so
-                    // the line lands on the entity actually visible this frame, not its last tick.
-                    var target=player.getPosition(partial).add(0.0,player.getBbHeight()*0.5,0.0);
-                    segments.add(new Segment(start,target,VisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),VisualStyle.TRACER_WIDTH,true));
-                }''',
-              '            int radius=mc.options.renderDistance().get()+2;':
-                  '            // Do not scan Minecraft\'s extra client chunk buffer. Objects outside the\n            // effective visible render distance must not keep producing tracers.\n            int radius=mc.options.getEffectiveRenderDistance();',
-              '                for(var be:loaded.getBlockEntities().values()) {\n                    var pos=be.getBlockPos();':
-                  '                for(var be:loaded.getBlockEntities().values()) {\n                    if(be.isRemoved())continue;\n                    var pos=be.getBlockPos();',
-              'segments.add(new Segment(start,Vec3.atLowerCornerOf(pos),VisualStyle.CHEST_TRACER,VisualStyle.TRACER_WIDTH,true));':
-                  'segments.add(new Segment(start,Vec3.atCenterOf(pos),VisualStyle.CHEST_TRACER,VisualStyle.TRACER_WIDTH,true));'
-          }
-
-          for old_text, new_text in replacements.items():
-              if old_text not in text:
-                  raise SystemExit(f'expected tracer source not found: {old_text[:80]!r}')
-              text = text.replace(old_text, new_text, 1)
+          for old, new in replacements:
+              if old == new:
+                  continue
+              if old not in text:
+                  raise SystemExit(f'expected source not found: {old!r}')
+              text = text.replace(old, new, 1)
 
           path.write_text(text)
           PY
