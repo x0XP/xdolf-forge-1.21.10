@@ -1,0 +1,70 @@
+name: Publish Xdolf Developer Release
+
+on:
+  push:
+    branches: [main]
+    paths: [gradle.properties]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xdolf-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(grep '^mod_version=' gradle.properties | cut -d= -f2-)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=xdolf-$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compile and package
+        run: bash gradlew clean build --console=plain
+
+      - name: Test client, GUI controls and world
+        run: |
+          mkdir -p build/diagnostics
+          set +e
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a timeout 300s bash gradlew runClient -PxdolfSmokeTest --console=plain > build/diagnostics/release-smoke.log 2>&1
+          smoke_status=$?
+          set -e
+          tail -n 80 build/diagnostics/release-smoke.log
+          test "$smoke_status" -eq 0
+          grep -q 'XDOLF_SMOKE_OK' build/diagnostics/release-smoke.log
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          JAR="build/libs/xdolf-${VERSION}.jar"
+          test -f "$JAR"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to overwrite it."
+            exit 1
+          fi
+          gh release create "$TAG" "$JAR" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --notes "Xdolf 4 Developer Build" \
+            --prerelease
