@@ -21,6 +21,8 @@ public abstract class ClientModule {
     public final String description;
     public final String category;
     private boolean enabled;
+    private boolean defaultEnabled;
+    private boolean requiresWorld = true;
     public int key = -1;
     public final List<ModuleSetting<?>> settings = new ArrayList<>();
     private final Set<String> conflicts = new LinkedHashSet<>();
@@ -37,6 +39,21 @@ public abstract class ClientModule {
 
     public final boolean enabled() { return enabled; }
     public final void restoreEnabled(boolean value) { enabled = value; }
+    public final boolean defaultEnabled() { return defaultEnabled; }
+    public final boolean requiresWorld() { return requiresWorld; }
+
+    /** Marks a module as enabled until the user explicitly persists another choice. */
+    protected final void enableByDefault() {
+        defaultEnabled = true;
+        enabled = true;
+    }
+
+    /** Marks a client service as valid on menus as well as inside a world. */
+    protected final void runWithoutWorld() {
+        requiresWorld = false;
+        runsDuringFreecam = true;
+        runsWhilePaused = true;
+    }
 
     protected final NumberSetting setting(String name, double value, double min, double max, double step) {
         return numberSetting(name, name, "", value, min, max, step);
@@ -96,8 +113,10 @@ public abstract class ClientModule {
     final void applyEnabled(boolean value) {
         if (enabled == value) return;
         enabled = value;
-        if (value && Minecraft.getInstance().player != null && Minecraft.getInstance().level != null) activate(Minecraft.getInstance());
-        else reset(Minecraft.getInstance());
+        Minecraft mc = Minecraft.getInstance();
+        boolean worldReady = mc.player != null && mc.level != null && mc.getConnection() != null;
+        if (value && (!requiresWorld || worldReady)) activate(mc);
+        else reset(mc);
         ClientConfig.save(ClientRuntime.MODULES);
     }
 
