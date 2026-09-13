@@ -26,9 +26,9 @@ public final class DiscordRPCModule extends ClientModule {
         JsonObject activity = new JsonObject();
         activity.addProperty("details", details.get().isBlank() ? "Playing with Xdolf" : details.get());
         String state = mc.level == null ? "In the menus" : mc.hasSingleplayerServer() ? "Singleplayer" : "Multiplayer";
-        if (showServer.get() && mc.getCurrentServer() != null) state = mc.getCurrentServer().ip;
+        if (showServer.on() && mc.getCurrentServer() != null) state = mc.getCurrentServer().ip;
         activity.addProperty("state", state.substring(0, Math.min(128, state.length())));
-        if (showTime.get()) {
+        if (showTime.on()) {
             JsonObject timestamps = new JsonObject(); timestamps.addProperty("start", started);
             activity.add("timestamps", timestamps);
         }
