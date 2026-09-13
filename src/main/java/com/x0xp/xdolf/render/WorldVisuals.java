@@ -165,6 +165,8 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
             }
         } finally {
             modelView.popMatrix();
+            // Never allow the late renderer to reuse primitives from a previous extraction.
+            scene=Scene.empty();
         }
     }
 
@@ -242,9 +244,10 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
         var start=origin.add(forward.x,forward.y,forward.z);
 
         for(var entity:mc.level.entitiesForRendering()) {
+            if(entity.isRemoved())continue;
             if(entity instanceof Player player&&player!=mc.player) {
                 if(tracers&&Hooks.setting("Tracers","players",1)!=0)
-                    segments.add(new Segment(start,entity.position(),VisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),VisualStyle.TRACER_WIDTH,true));
+                    segments.add(new Segment(start,player.getPosition(partial).add(0.0,player.getBbHeight()*0.5,0.0),VisualStyle.tracerColor(mc.player.distanceTo(entity),SocialState.isFriend(entity.getName().getString())),VisualStyle.TRACER_WIDTH,true));
                 if(names&&player.deathTime<=0) {
                     String text=VisualStyle.tag(player.getName().getString(),player.getHealth(),player.getArmorValue(),SocialState.isFriend(player.getName().getString()));
                     float distance=mc.player.distanceTo(player);
@@ -270,17 +273,19 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
 
         boolean chestTracers=tracers&&Hooks.setting("Tracers","chests",0)!=0;
         if(storage||chestTracers) {
-            int radius=mc.options.renderDistance().get()+2;
+            // Scan only the effective visible distance, not Minecraft's extra client chunk buffer.
+            int radius=mc.options.getEffectiveRenderDistance();
             int cx=mc.player.blockPosition().getX()>>4,cz=mc.player.blockPosition().getZ()>>4;
             var merged=new HashSet<BlockPos>();
             for(int x=cx-radius;x<=cx+radius;x++)for(int z=cz-radius;z<=cz+radius;z++) {
                 var chunk=mc.level.getChunkSource().getChunk(x,z,ChunkStatus.FULL,false);
                 if(!(chunk instanceof LevelChunk loaded))continue;
                 for(var be:loaded.getBlockEntities().values()) {
+                    if(be.isRemoved())continue;
                     var pos=be.getBlockPos();
                     var blockState=be.getBlockState();
                     if(chestTracers&&be instanceof ChestBlockEntity)
-                        segments.add(new Segment(start,Vec3.atLowerCornerOf(pos),VisualStyle.CHEST_TRACER,VisualStyle.TRACER_WIDTH,true));
+                        segments.add(new Segment(start,Vec3.atCenterOf(pos),VisualStyle.CHEST_TRACER,VisualStyle.TRACER_WIDTH,true));
                     if(!storage||merged.contains(pos))continue;
 
                     int color;
