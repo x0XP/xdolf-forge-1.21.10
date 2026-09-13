@@ -24,8 +24,7 @@ public abstract class GameRendererMixin {
     /**
      * Keep a CPU-side copy rather than retaining RenderSystem's GpuBufferSlice. GameRenderer
      * reuses the level projection uniform later in the frame, so a stored slice does not preserve
-     * its matrix contents. That made tracer-origin bob cancellation use a later projection while
-     * ESP could still appear aligned.
+     * its matrix contents.
      */
     @Unique
     private Matrix4f xdolf$worldProjectionMatrix;
@@ -45,8 +44,9 @@ public abstract class GameRendererMixin {
     }
 
     // OptiFine performs its final composite after LevelRenderer.renderLevel returns. Draw Xdolf
-    // after the complete world stage, but first re-upload the captured world matrix so ESP and
-    // tracer bob compensation operate against the same projection used for the terrain.
+    // after the complete world stage, but first re-upload the captured world matrix. WorldVisuals
+    // also receives the CPU matrix so tracer starts can be locked in clip space without disabling
+    // Minecraft's view-bobbing option for the rest of the scene.
     @Inject(method = "renderLevel", at = @At("RETURN"))
     private void xdolf$renderShaderWorldVisuals(CallbackInfo ci) {
         Matrix4f worldProjection = xdolf$worldProjectionMatrix;
@@ -58,7 +58,7 @@ public abstract class GameRendererMixin {
         com.mojang.blaze3d.systems.RenderSystem.setProjectionMatrix(restoredWorldProjection,
             com.mojang.blaze3d.ProjectionType.PERSPECTIVE);
         try {
-            WorldVisuals.renderAfterLevel();
+            WorldVisuals.renderAfterLevel(worldProjection);
             MarkerVisuals.renderAfterLevel();
         } finally {
             com.mojang.blaze3d.systems.RenderSystem.setProjectionMatrix(previous, previousType);
