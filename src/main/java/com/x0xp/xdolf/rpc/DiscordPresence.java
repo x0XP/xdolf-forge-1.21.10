@@ -5,13 +5,13 @@ import com.google.gson.JsonParser;
 import java.io.*;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
-import java.nio.channels.Channels;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /** Local desktop IPC only. All blocking I/O stays off Minecraft's thread. */
 public final class DiscordPresence implements AutoCloseable {
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     private volatile String activity;
     private volatile Session session;
     private String appId = "";
@@ -42,24 +42,41 @@ public final class DiscordPresence implements AutoCloseable {
                             byte[] data = owner.input.readNBytes(size);
                             if (data.length != size || op == 2) throw new EOFException();
                             if (op == 3) owner.write(4, new String(data, StandardCharsets.UTF_8));
-                            if (op == 1 && new String(data, StandardCharsets.UTF_8).contains("READY")) owner.ready = true;
+                            if (op == 1) {
+                                var response = JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonObject();
+                                if (response.has("evt") && !response.get("evt").isJsonNull() && "READY".equals(response.get("evt").getAsString())) {
+                                    owner.ready = true;
+                                    LOGGER.info("Xdolf Discord RPC connected");
+                                } else if (response.has("evt") && !response.get("evt").isJsonNull() && "ERROR".equals(response.get("evt").getAsString())) {
+                                    LOGGER.warn("Xdolf Discord RPC rejected request: {}", response.get("data"));
+                                }
+                            }
                         }
-                    } catch (IOException failure) { owner.disconnect(); }
+                    } catch (IOException | RuntimeException failure) {
+                        if (!owner.closed) LOGGER.debug("Xdolf Discord RPC reader disconnected", failure);
+                        owner.disconnect();
+                    }
                 }, "Xdolf Discord reader");
                 reader.setDaemon(true); reader.start();
                 String sent = null;
+                long lastSent = 0;
                 while (!owner.closed && owner.connection != null) {
-                    if (owner.ready && !java.util.Objects.equals(sent, activity)) {
+                    if (owner.ready && !java.util.Objects.equals(sent, activity)
+                        && (lastSent == 0 || System.nanoTime() - lastSent >= 15_000_000_000L)) {
                         JsonObject args = new JsonObject(); args.addProperty("pid", ProcessHandle.current().pid());
                         args.add("activity", JsonParser.parseString(activity));
                         JsonObject command = new JsonObject(); command.addProperty("cmd", "SET_ACTIVITY");
                         command.add("args", args); command.addProperty("nonce", UUID.randomUUID().toString());
                         owner.write(1, command.toString()); sent = activity;
+                        lastSent = System.nanoTime();
                     }
-                    Thread.sleep(15000);
+                    Thread.sleep(100);
                 }
                 reader.join();
-            } catch (IOException | InterruptedException failure) { owner.disconnect(); }
+            } catch (IOException | InterruptedException | RuntimeException failure) {
+                if (!owner.closed) LOGGER.debug("Xdolf Discord RPC unavailable; retrying in 15 seconds", failure);
+                owner.disconnect();
+            }
             if (!owner.closed) try { Thread.sleep(15000); } catch (InterruptedException ignored) { return; }
         }
     }
@@ -72,8 +89,18 @@ public final class DiscordPresence implements AutoCloseable {
                     synchronized (owner) {
                         if (owner.closed) { pipe.close(); return; }
                         owner.connection = pipe;
-                        owner.input = new DataInputStream(new FileInputStream(pipe.getFD()));
-                        owner.output = new FileOutputStream(pipe.getFD());
+                        owner.input = new DataInputStream(new InputStream() {
+                            public int read() throws IOException { return pipe.read(); }
+                            public int read(byte[] bytes, int offset, int length) throws IOException {
+                                return pipe.read(bytes, offset, length);
+                            }
+                        });
+                        owner.output = new OutputStream() {
+                            public void write(int value) throws IOException { pipe.write(value); }
+                            public void write(byte[] bytes, int offset, int length) throws IOException {
+                                pipe.write(bytes, offset, length);
+                            }
+                        };
                     }
                 } else {
                     String directory = System.getenv("XDG_RUNTIME_DIR");
@@ -113,7 +140,12 @@ public final class DiscordPresence implements AutoCloseable {
 
     public synchronized void close() {
         Session old = session; session = null;
-        if (old != null) { old.closed = true; old.disconnect(); }
+        if (old != null) {
+            old.closed = true;
+            Thread cleanup = new Thread(old::disconnect, "Xdolf Discord cleanup");
+            cleanup.setDaemon(true);
+            cleanup.start();
+        }
     }
 
     private static final class Session {
@@ -124,9 +156,11 @@ public final class DiscordPresence implements AutoCloseable {
         synchronized void write(int opcode, String json) throws IOException {
             if (connection == null || closed) throw new EOFException();
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-            DataOutputStream stream = new DataOutputStream(output);
+            ByteArrayOutputStream frame = new ByteArrayOutputStream(bytes.length + 8);
+            DataOutputStream stream = new DataOutputStream(frame);
             stream.writeInt(Integer.reverseBytes(opcode)); stream.writeInt(Integer.reverseBytes(bytes.length));
-            stream.write(bytes); stream.flush();
+            stream.write(bytes);
+            output.write(frame.toByteArray()); output.flush();
         }
         void disconnect() {
             Closeable old = connection; connection = null; ready = false;
