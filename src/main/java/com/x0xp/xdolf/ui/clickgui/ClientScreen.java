@@ -73,7 +73,7 @@ public final class ClientScreen extends Screen {
         if (loaded) return;
         loaded = true;
         addModules("Player", 47, "AutoFish Flight Spammer Announcer AutoRespawn AutoWalk SafeWalk NoSlowdown HorseJump Sprint NoFall AntiHunger AutoEat Jesus EntitySpeed EntityStep ElytraFly ElytraPlus");
-        addModules("Render", 62, "Tracers StorageESP EntityESP NoHurtCam Chams Trajectories Nametags Waypoints LogoutSpot");
+        addModules("Render", 62, "DiscordRPC Tracers StorageESP EntityESP NoHurtCam Chams Trajectories Nametags Waypoints LogoutSpot");
         PANELS.add(new ClickGuiPanel("Info", 17));
         PANELS.add(new ClickGuiPanel("Radar", 92));
         addModules("Combat", 32, "AntiVelocity KillAura AutoArmor AutoTotem AutoLog CrystalAura Criticals CrystalLog");
