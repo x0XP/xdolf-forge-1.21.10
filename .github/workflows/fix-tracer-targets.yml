@@ -17,35 +17,36 @@ jobs:
           token: ${{ github.token }}
 
       - name: Patch tracer rendering
-        shell: python
+        shell: bash
         run: |
+          python3 - <<'PY'
           from pathlib import Path
 
           path = Path('src/main/java/com/x0xp/xdolf/render/WorldVisuals.java')
           text = path.read_text()
 
           old = '''    private void renderScene(Matrix4f worldProjection) {
-        if(scene.lines.isEmpty()&&scene.boxes.isEmpty()&&scene.tags.isEmpty())return;
-        if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
-            smokeLines=scene.lines.size();smokeBoxes=scene.boxes.size();smokeTags=scene.tags.size();
-        }
+              if(scene.lines.isEmpty()&&scene.boxes.isEmpty()&&scene.tags.isEmpty())return;
+              if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
+                  smokeLines=scene.lines.size();smokeBoxes=scene.boxes.size();smokeTags=scene.tags.size();
+              }
 
-        var pose=new PoseStack();
-        pose.mulPose(new Quaternionf(scene.rotation).conjugate());
-'''
+              var pose=new PoseStack();
+              pose.mulPose(new Quaternionf(scene.rotation).conjugate());
+          '''
           new = '''    private void renderScene(Matrix4f worldProjection) {
-        // Consume an extracted scene exactly once. The late OptiFine-compatible pass must never
-        // redraw a previous frame if Forge skips or delays the extraction stage.
-        Scene frameScene=scene;
-        scene=Scene.empty();
-        if(frameScene.lines.isEmpty()&&frameScene.boxes.isEmpty()&&frameScene.tags.isEmpty())return;
-        if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
-            smokeLines=frameScene.lines.size();smokeBoxes=frameScene.boxes.size();smokeTags=frameScene.tags.size();
-        }
+              // Consume an extracted scene exactly once. The late OptiFine-compatible pass must never
+              // redraw a previous frame if Forge skips or delays the extraction stage.
+              Scene frameScene=scene;
+              scene=Scene.empty();
+              if(frameScene.lines.isEmpty()&&frameScene.boxes.isEmpty()&&frameScene.tags.isEmpty())return;
+              if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
+                  smokeLines=frameScene.lines.size();smokeBoxes=frameScene.boxes.size();smokeTags=frameScene.tags.size();
+              }
 
-        var pose=new PoseStack();
-        pose.mulPose(new Quaternionf(frameScene.rotation).conjugate());
-'''
+              var pose=new PoseStack();
+              pose.mulPose(new Quaternionf(frameScene.rotation).conjugate());
+          '''
           if old not in text:
               raise SystemExit('renderScene header did not match expected source')
           text = text.replace(old, new, 1)
@@ -87,6 +88,7 @@ jobs:
               text = text.replace(old_text, new_text, 1)
 
           path.write_text(text)
+          PY
 
       - name: Commit fix and remove temporary workflow
         shell: bash
