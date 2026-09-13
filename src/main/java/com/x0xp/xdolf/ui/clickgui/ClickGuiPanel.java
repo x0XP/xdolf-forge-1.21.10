@@ -1,10 +1,12 @@
 package com.x0xp.xdolf.ui.clickgui;
 
+import com.x0xp.xdolf.core.ClientRuntime;
 import com.x0xp.xdolf.ui.UiDraw;
 
 import com.x0xp.xdolf.module.ClientModule;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +47,18 @@ final class ClickGuiPanel {
         }
     }
 
+    private static final class SortedModuleList extends ArrayList<ClientModule> {
+        @Override
+        public boolean add(ClientModule module) {
+            if (contains(module)) return false;
+            boolean added = super.add(module);
+            sort(Comparator.comparing(ClientScreen::label, String.CASE_INSENSITIVE_ORDER));
+            return added;
+        }
+    }
+
     final String title;
-    final List<ClientModule> modules = new ArrayList<>();
+    final List<ClientModule> modules = new SortedModuleList();
     final Map<ClientModule, Expansion> expansions = new HashMap<>();
     int x = 2;
     int y;
@@ -64,6 +76,11 @@ final class ClickGuiPanel {
     ClickGuiPanel(String title, int y) {
         this.title = title;
         this.y = y;
+        if (!text()) {
+            ClientRuntime.MODULES.stream()
+                .filter(module -> module.category.equalsIgnoreCase(title))
+                .forEach(modules::add);
+        }
     }
 
     boolean text() { return title.equals("Info") || title.equals("Radar"); }
