@@ -79,6 +79,7 @@ jobs:
           grep -q 'XDOLF_XRAY_OK: dev.16' build/diagnostics/optifine-complementary-smoke.log
           grep -q 'XDOLF_XRAY_CAPTURE_OK: dev.16' build/diagnostics/optifine-complementary-smoke.log
           grep -q 'XDOLF_XRAY_RESTORE_OK: dev.16' build/diagnostics/optifine-complementary-smoke.log
+          grep -q 'XDOLF_SHADER_OVERLAYS_OK' build/diagnostics/optifine-complementary-smoke.log
           grep -q 'XDOLF_GUI_OK: redesigned typed option cards' build/diagnostics/optifine-complementary-smoke.log
           grep -q 'XDOLF_LOW_RES_FONT_OK' build/diagnostics/optifine-complementary-smoke.log
           grep -q 'XDOLF_SCREEN_MODULES_OK' build/diagnostics/optifine-complementary-smoke.log
@@ -154,6 +155,7 @@ jobs:
           grep -q 'XDOLF_XRAY_OK: dev.16' "$LOG"
           grep -q 'XDOLF_XRAY_CAPTURE_OK: dev.16' "$LOG"
           grep -q 'XDOLF_XRAY_RESTORE_OK: dev.16' "$LOG"
+          grep -q 'XDOLF_SHADER_OVERLAYS_OK' "$LOG"
 
           # Require Complementary itself to be active and rendering.
           grep -Fq 'Loaded shaderpack: ComplementaryReimagined_r5.9.zip' "$LOG"
@@ -215,3 +217,4 @@ jobs:
             ${{ runner.temp }}/xdolf-dev16-production/optionsshaders.txt
             ${{ runner.temp }}/xdolf-dev16-production/screenshots/*.png
           if-no-files-found: warn
+

@@ -50,6 +50,7 @@ import java.util.OptionalDouble;
 
 /** World-space renderer for Xdolf tracers, ESP, storage, trajectories and visual smoke fixtures. */
 public final class WorldVisuals implements FramePassManager.PassDefinition {
+    private static final WorldVisuals INSTANCE=new WorldVisuals();
     private record Segment(Vec3 a,Vec3 b,int color,double width,boolean stableStart) {
         Segment(Vec3 a,Vec3 b,int color,double width){this(a,b,color,width,false);}
     }
@@ -88,7 +89,12 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
     private static ResourceLocation id(String path){return ResourceLocation.fromNamespaceAndPath(Xdolf.ID,path);}
 
     public static void register() {
-        AddFramePassEvent.BUS.addListener(event->event.addPass(id("world_visuals"),new WorldVisuals()));
+        AddFramePassEvent.BUS.addListener(event->event.addPass(id("world_visuals"),INSTANCE));
+    }
+
+    /** Draw after level rendering so OptiFine's final shader composite cannot overwrite the overlays. */
+    public static void renderAfterLevel() {
+        INSTANCE.renderScene();
     }
 
     @Override
@@ -105,6 +111,10 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
 
     @Override
     public void executes(LevelRenderState state) {
+        // Extraction remains attached to this pass; rendering happens after LevelRenderer returns.
+    }
+
+    private void renderScene() {
         if(scene.lines.isEmpty()&&scene.boxes.isEmpty()&&scene.tags.isEmpty())return;
         if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
             smokeLines=scene.lines.size();smokeBoxes=scene.boxes.size();smokeTags=scene.tags.size();
@@ -303,6 +313,10 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
             boxes.add(new Box(new AABB(end.x-0.35,end.y,end.z-0.35,end.x+0.35,end.y+1.9,end.z+0.35),0x26000000|color,null,0));
             tags.add(new Tag(end.add(0,2.3,0),VisualStyle.tag("VisualTest"+i,20-i*3,20-i*4,i==3),VisualStyle.tagScale((float)distance),-14));
         }
+        // A real ore block, rather than a camera-relative synthetic box, exposes FOV
+        // mismatches in the proof screenshot: this white outline must hug its faces.
+        var alignment = com.x0xp.xdolf.dev.ClientSmoke.alignmentBlock();
+        if (alignment != null) boxes.add(new Box(new AABB(alignment), 0x40FFFFFF, null, 0));
         return new Scene(camera,rotation,List.copyOf(lines),List.copyOf(boxes),List.copyOf(tags));
     }
 
@@ -331,3 +345,4 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
         boxes.add(new Box(new AABB(position.x-0.35,position.y-0.5,position.z-0.5,position.x+0.65,position.y+0.5,position.z+0.5),(color&0xFFFFFF)|0x2F000000,position,angle));
     }
 }
+
