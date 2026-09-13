@@ -14,15 +14,14 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 
 /**
  * Minimal Discord desktop IPC client for Xdolf Rich Presence.
  *
- * <p>All pipe I/O lives off the Minecraft render thread. Module disable only
- * requests a clear/close and never lets an IPC exception escape into the game.
+ * <p>All blocking pipe I/O lives off the Minecraft render thread. Live activity
+ * changes are written only when the requested presence actually changes.
  */
 public final class DiscordPresence {
     public static final String APPLICATION_ID = "1548709727276376184";
@@ -39,21 +38,40 @@ public final class DiscordPresence {
     private static final int MAX_PAYLOAD_BYTES = 1024 * 1024;
     private static final long RETRY_MILLIS = 2500L;
     private static final long READ_POLL_MILLIS = 20L;
-    private static final long STARTED_AT = Instant.now().getEpochSecond();
 
     private static volatile boolean running;
+    private static volatile boolean ready;
     private static volatile long generation;
     private static volatile RandomAccessFile pipe;
     private static volatile Thread worker;
     private static volatile String activityNonce;
+    private static volatile ActivitySpec desiredActivity = new ActivitySpec("Playing with Xdolf", "In the menus", 0L);
+    private static volatile ActivitySpec lastSentActivity;
 
     private DiscordPresence() {}
+
+    /** Update the presence requested by the module. Unchanged values are not resent. */
+    public static void update(String details, String state, long startedAt) {
+        ActivitySpec requested = new ActivitySpec(limit(details, 128), limit(state, 128), Math.max(0L, startedAt));
+        desiredActivity = requested;
+
+        RandomAccessFile current = pipe;
+        if (!running || !ready || current == null || requested.equals(lastSentActivity)) return;
+        try {
+            sendActivity(current, requested);
+        } catch (IOException error) {
+            LOGGER.debug("Could not update Xdolf Discord RPC activity; reconnecting", error);
+            closeQuietly(current);
+        }
+    }
 
     public static void start() {
         final long token;
         synchronized (STATE_LOCK) {
             if (running) return;
             running = true;
+            ready = false;
+            lastSentActivity = null;
             token = ++generation;
             Thread thread = new Thread(() -> runLoop(token), "Xdolf Discord RPC");
             thread.setDaemon(true);
@@ -68,12 +86,14 @@ public final class DiscordPresence {
         synchronized (STATE_LOCK) {
             if (!running && pipe == null) return;
             running = false;
+            ready = false;
             generation++;
             current = pipe;
             pipe = null;
             currentWorker = worker;
             worker = null;
             activityNonce = null;
+            lastSentActivity = null;
         }
 
         if (current != null) {
@@ -89,7 +109,7 @@ public final class DiscordPresence {
     }
 
     public static boolean connected() {
-        return running && pipe != null;
+        return running && ready && pipe != null;
     }
 
     private static void runLoop(long token) {
@@ -110,11 +130,10 @@ public final class DiscordPresence {
 
                     writeFrame(connection, OP_HANDSHAKE, handshakePayload());
                     awaitReady(connection, token);
-                    if (!active(token)) return;
+                    if (!markReady(token, connection)) return;
 
-                    String nonce = UUID.randomUUID().toString();
-                    activityNonce = nonce;
-                    writeFrame(connection, OP_FRAME, setActivityPayload(nonce));
+                    lastSentActivity = null;
+                    sendActivity(connection, desiredActivity);
                     LOGGER.info("Xdolf Discord RPC connected; activity sent");
 
                     readLoop(connection, token);
@@ -168,6 +187,13 @@ public final class DiscordPresence {
         }
     }
 
+    private static void sendActivity(RandomAccessFile connection, ActivitySpec activity) throws IOException {
+        String nonce = UUID.randomUUID().toString();
+        activityNonce = nonce;
+        writeFrame(connection, OP_FRAME, setActivityPayload(nonce, activity));
+        lastSentActivity = activity;
+    }
+
     private static void handleFrame(String payload) {
         JsonObject message;
         try {
@@ -219,15 +245,16 @@ public final class DiscordPresence {
         return payload.toString();
     }
 
-    private static String setActivityPayload(String nonce) {
-        JsonObject timestamps = new JsonObject();
-        timestamps.addProperty("start", STARTED_AT);
-
+    private static String setActivityPayload(String nonce, ActivitySpec spec) {
         JsonObject activity = new JsonObject();
         activity.addProperty("type", 0);
-        activity.addProperty("details", "Minecraft 1.21.10");
-        activity.addProperty("state", "Xdolf Client");
-        activity.add("timestamps", timestamps);
+        activity.addProperty("details", spec.details);
+        activity.addProperty("state", spec.state);
+        if (spec.startedAt > 0L) {
+            JsonObject timestamps = new JsonObject();
+            timestamps.addProperty("start", spec.startedAt);
+            activity.add("timestamps", timestamps);
+        }
 
         JsonObject args = new JsonObject();
         args.addProperty("pid", ProcessHandle.current().pid());
@@ -332,6 +359,15 @@ public final class DiscordPresence {
         synchronized (STATE_LOCK) {
             if (!running || generation != token) return false;
             pipe = connection;
+            ready = false;
+            return true;
+        }
+    }
+
+    private static boolean markReady(long token, RandomAccessFile connection) {
+        synchronized (STATE_LOCK) {
+            if (!running || generation != token || pipe != connection) return false;
+            ready = true;
             return true;
         }
     }
@@ -339,7 +375,12 @@ public final class DiscordPresence {
     private static void clearConnection(RandomAccessFile connection) {
         if (connection == null) return;
         synchronized (STATE_LOCK) {
-            if (pipe == connection) pipe = null;
+            if (pipe == connection) {
+                pipe = null;
+                ready = false;
+                lastSentActivity = null;
+                activityNonce = null;
+            }
         }
     }
 
@@ -361,6 +402,11 @@ public final class DiscordPresence {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
     }
 
+    private static String limit(String value, int maxLength) {
+        String safe = value == null || value.isBlank() ? "" : value;
+        return safe.length() <= maxLength ? safe : safe.substring(0, maxLength);
+    }
+
     private static void closeQuietly(RandomAccessFile connection) {
         if (connection == null) return;
         try {
@@ -368,5 +414,6 @@ public final class DiscordPresence {
         } catch (IOException ignored) { }
     }
 
+    private record ActivitySpec(String details, String state, long startedAt) { }
     private record Frame(int opcode, String payload) { }
 }
