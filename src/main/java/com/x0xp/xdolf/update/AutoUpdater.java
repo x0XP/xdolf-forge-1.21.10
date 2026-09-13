@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -294,9 +295,9 @@ public final class AutoUpdater {
     }
 
     private static void launchRestartHelper(Path currentJar, Path downloadedJar, Path finalJar) throws Exception {
-        ProcessHandle.Info info = ProcessHandle.current().info();
-        String command = info.command().orElseThrow(() -> new IOException("Could not determine Java launch command"));
-        String[] arguments = info.arguments().orElseThrow(() -> new IOException("Could not capture Minecraft launch arguments"));
+        RestartCommand restartCommand = captureRestartCommand();
+        String command = restartCommand.command();
+        List<String> arguments = restartCommand.arguments();
         Path gameDirectory = FMLPaths.GAMEDIR.get().toAbsolutePath().normalize();
         Path helperRoot = gameDirectory.resolve(".xdolf-updater");
         Path helperClass = helperRoot.resolve("com/x0xp/xdolf/update/UpdateBootstrap.class");
@@ -316,7 +317,7 @@ public final class AutoUpdater {
         lines.add(encode(finalJar.toString()));
         lines.add(encode(gameDirectory.toString()));
         lines.add(encode(command));
-        lines.add(Integer.toString(arguments.length));
+        lines.add(Integer.toString(arguments.size()));
         for (String argument : arguments) lines.add(encode(argument));
         Files.write(state, lines, StandardCharsets.UTF_8,
             StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
@@ -340,6 +341,80 @@ public final class AutoUpdater {
         Minecraft mc = Minecraft.getInstance();
         CompletableFuture.delayedExecutor(450, java.util.concurrent.TimeUnit.MILLISECONDS)
             .execute(() -> mc.execute(mc::stop));
+    }
+
+    /**
+     * ProcessHandle.Info.arguments() is optional and is commonly absent for a Minecraft Java
+     * process launched on Windows. Prefer it when the OS supplies it, then reconstruct the same
+     * Forge launch from the JVM's own runtime state when it does not.
+     */
+    private static RestartCommand captureRestartCommand() throws IOException {
+        ProcessHandle.Info info = ProcessHandle.current().info();
+        String command = info.command().orElseGet(AutoUpdater::javaExecutable);
+        Optional<String[]> processArguments = info.arguments();
+        if (processArguments.isPresent() && processArguments.get().length > 0) {
+            return new RestartCommand(command, List.copyOf(java.util.Arrays.asList(processArguments.get())));
+        }
+
+        List<String> arguments = new ArrayList<>();
+        arguments.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
+
+        String classPath = System.getProperty("java.class.path", "");
+        if (!classPath.isBlank()) {
+            arguments.add("-cp");
+            arguments.add(classPath);
+        }
+
+        String sunJavaCommand = System.getProperty("sun.java.command", "");
+        List<String> applicationArguments = splitCommandLine(sunJavaCommand);
+        if (applicationArguments.isEmpty())
+            throw new IOException("Could not reconstruct Minecraft launch arguments from the running JVM");
+        arguments.addAll(applicationArguments);
+
+        LOGGER.info("Native process arguments unavailable; reconstructed Minecraft restart command from JVM runtime state");
+        return new RestartCommand(command, List.copyOf(arguments));
+    }
+
+    private static String javaExecutable() {
+        boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+        Path bin = Path.of(System.getProperty("java.home"), "bin");
+        Path preferred = bin.resolve(windows ? "javaw.exe" : "java");
+        if (Files.isRegularFile(preferred)) return preferred.toString();
+        Path fallback = bin.resolve(windows ? "java.exe" : "java");
+        return fallback.toString();
+    }
+
+    /** Small quote-aware parser for the JVM's sun.java.command property. */
+    private static List<String> splitCommandLine(String commandLine) throws IOException {
+        List<String> result = new ArrayList<>();
+        if (commandLine == null || commandLine.isBlank()) return result;
+
+        StringBuilder current = new StringBuilder();
+        char quote = 0;
+        for (int i = 0; i < commandLine.length(); i++) {
+            char c = commandLine.charAt(i);
+            if (c == '\'' || c == '"') {
+                if (quote == 0) {
+                    quote = c;
+                    continue;
+                }
+                if (quote == c) {
+                    quote = 0;
+                    continue;
+                }
+            }
+            if (Character.isWhitespace(c) && quote == 0) {
+                if (!current.isEmpty()) {
+                    result.add(current.toString());
+                    current.setLength(0);
+                }
+            } else {
+                current.append(c);
+            }
+        }
+        if (quote != 0) throw new IOException("Could not parse Minecraft launch command");
+        if (!current.isEmpty()) result.add(current.toString());
+        return result;
     }
 
     private static boolean startupScreen(Screen screen) {
@@ -390,6 +465,8 @@ public final class AutoUpdater {
         try { return object.get(key).getAsLong(); }
         catch (RuntimeException ignored) { return 0L; }
     }
+
+    private record RestartCommand(String command, List<String> arguments) { }
 
     private record ParsedVersion(int major, int minor, int patch, Integer dev) implements Comparable<ParsedVersion> {
         static ParsedVersion parse(String value) {
