@@ -66,7 +66,6 @@ public final class AutoUpdater {
     private static volatile long downloadedBytes;
     private static volatile long totalBytes;
     private static volatile boolean prompted;
-    private static volatile Path pendingDownload;
 
     private AutoUpdater() {}
 
@@ -98,9 +97,11 @@ public final class AutoUpdater {
         });
     }
 
-    /** Called from the normal client tick so screen changes happen on Minecraft's thread. */
+    /** Called from the normal client tick so checking starts only after client loading has completed. */
     public static void tick(Minecraft mc) {
-        if (Boolean.getBoolean("xdolf.smokeTest") || prompted || phase != Phase.AVAILABLE || release == null) return;
+        if (Boolean.getBoolean("xdolf.smokeTest")) return;
+        beginCheck();
+        if (prompted || phase != Phase.AVAILABLE || release == null) return;
         Screen current = mc.screen;
         if (!startupScreen(current)) return;
         prompted = true;
@@ -130,7 +131,6 @@ public final class AutoUpdater {
                 phase = Phase.VERIFYING;
                 status = "Verifying downloaded update...";
                 verify(target, temporary);
-                pendingDownload = temporary;
                 phase = Phase.READY;
                 status = "Update verified. Restarting Xdolf...";
 
@@ -162,6 +162,7 @@ public final class AutoUpdater {
     public static long downloadedBytes() { return downloadedBytes; }
     public static long totalBytes() { return totalBytes; }
     public static ReleaseInfo release() { return release; }
+
     public static String currentVersion() {
         try {
             return ModList.get().getModContainerById(Xdolf.ID)
