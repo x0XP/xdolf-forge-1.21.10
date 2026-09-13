@@ -50,7 +50,6 @@ public final class ClientRuntime {
         ModuleManager.reconcileRestoredSelections();
         SocialState.load();
         Commands.load();
-        AutoUpdater.beginCheck();
         TickEvent.ClientTickEvent.Post.BUS.addListener(ClientRuntime::tick);
         InputEvent.Key.BUS.addListener(ClientRuntime::key);
         MovementInputUpdateEvent.BUS.addListener(event -> {
