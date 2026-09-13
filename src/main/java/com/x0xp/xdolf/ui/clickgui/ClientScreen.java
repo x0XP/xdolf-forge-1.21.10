@@ -72,22 +72,21 @@ public final class ClientScreen extends Screen {
     private static void setup() {
         if (loaded) return;
         loaded = true;
-        addModules("Player", 47, "AutoFish Flight Spammer Announcer AutoRespawn AutoWalk SafeWalk NoSlowdown HorseJump Sprint NoFall AntiHunger AutoEat Jesus EntitySpeed EntityStep ElytraFly ElytraPlus");
-        addModules("Render", 62, "DiscordRPC Tracers StorageESP EntityESP NoHurtCam Chams Trajectories Nametags Waypoints LogoutSpot");
+        addModules("Player", 47);
+        addModules("Render", 62);
         PANELS.add(new ClickGuiPanel("Info", 17));
         PANELS.add(new ClickGuiPanel("Radar", 92));
-        addModules("Combat", 32, "AntiVelocity KillAura AutoArmor AutoTotem AutoLog CrystalAura Criticals CrystalLog");
-        addModules("World", 77, "Fullbright Timer XRay FastPlace Freecam Speedmine");
+        addModules("Combat", 32);
+        addModules("World", 77);
         ClickGuiPersistence.load(PANELS);
     }
 
-    private static void addModules(String title, int y, String names) {
+    private static void addModules(String title, int y) {
         var panel = new ClickGuiPanel(title, y);
-        for (String name : names.split(" ")) {
-            var module = ClientRuntime.find(name);
-            if (module == null) throw new IllegalStateException("Missing GUI module: " + name);
-            panel.modules.add(module);
-        }
+        ClientRuntime.MODULES.stream()
+            .filter(module -> module.category.equals(title))
+            .sorted(java.util.Comparator.comparing(ClientScreen::label, String.CASE_INSENSITIVE_ORDER))
+            .forEach(panel.modules::add);
         PANELS.add(panel);
     }
 
