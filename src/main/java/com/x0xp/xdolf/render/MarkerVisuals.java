@@ -154,7 +154,7 @@ public final class MarkerVisuals implements FramePassManager.PassDefinition {
         for(var spot:LogoutSpotModule.spots()) {
             if(!dimension.equals(spot.dimension())||spot.ghost()==null)continue;
             try {
-                EntityRenderer renderer=(EntityRenderer)dispatcher.getRenderer(spot.ghost(),partial);
+                EntityRenderer renderer=(EntityRenderer)dispatcher.getRenderer(spot.ghost());
                 EntityRenderState renderState=(EntityRenderState)renderer.createRenderState(spot.ghost(),partial);
                 Vec3 marker=spot.position();
                 Vec3 model=marker.add(0.5,0.0,0.5);
