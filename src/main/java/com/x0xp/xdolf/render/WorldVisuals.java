@@ -5,7 +5,6 @@ import com.x0xp.xdolf.core.Xdolf;
 import com.x0xp.xdolf.social.SocialState;
 import com.x0xp.xdolf.ui.XdolfFont;
 
-import com.x0xp.xdolf.mixin.accessor.GameRendererAccess;
 import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -43,6 +42,7 @@ import net.minecraftforge.client.FramePassManager;
 import net.minecraftforge.client.event.AddFramePassEvent;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
+import org.joml.Vector4f;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -93,8 +93,8 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
     }
 
     /** Draw after level rendering so OptiFine's final shader composite cannot overwrite the overlays. */
-    public static void renderAfterLevel() {
-        INSTANCE.renderScene();
+    public static void renderAfterLevel(Matrix4f worldProjection) {
+        INSTANCE.renderScene(worldProjection);
     }
 
     @Override
@@ -114,7 +114,7 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
         // Extraction remains attached to this pass; rendering happens after LevelRenderer returns.
     }
 
-    private void renderScene() {
+    private void renderScene(Matrix4f worldProjection) {
         if(scene.lines.isEmpty()&&scene.boxes.isEmpty()&&scene.tags.isEmpty())return;
         if(Boolean.getBoolean("xdolf.smokeTest")&&smokeFixture) {
             smokeLines=scene.lines.size();smokeBoxes=scene.boxes.size();smokeTags=scene.tags.size();
@@ -122,13 +122,15 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
 
         var pose=new PoseStack();
         pose.mulPose(new Quaternionf(scene.rotation).conjugate());
-        Matrix4f inverseBob=null,inverseView=null;
-        var mc=Minecraft.getInstance();
-        if(mc.options.bobView().get()) {
-            var bob=new PoseStack();
-            ((GameRendererAccess)mc.gameRenderer).xdolf$bobView(bob,mc.gameRenderer.getMainCamera().getPartialTickTime());
-            inverseBob=new Matrix4f(bob.last().pose()).invert();
-            inverseView=new Matrix4f(pose.last().pose()).invert();
+
+        // Minecraft applies view bobbing inside the world projection matrix. Keep that projection
+        // for the scene so the world still visibly bobs, but for tracer starts move only the start
+        // vertex in clip space back onto the crosshair. The target end remains untouched and keeps
+        // the same bobbing/world alignment as ESP and terrain.
+        Matrix4f tracerMvp=null,inverseTracerMvp=null;
+        if(Minecraft.getInstance().options.bobView().get()&&worldProjection!=null) {
+            tracerMvp=new Matrix4f(worldProjection).mul(pose.last().pose());
+            inverseTracerMvp=new Matrix4f(tracerMvp).invert();
         }
 
         var modelView=RenderSystem.getModelViewStack();
@@ -140,7 +142,8 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
             for(var segment:scene.lines) {
                 var a=segment.a.subtract(scene.camera);
                 var b=segment.b.subtract(scene.camera);
-                if(segment.stableStart&&inverseBob!=null)a=unbobbedStart(a,pose.last().pose(),inverseBob,inverseView);
+                if(segment.stableStart&&tracerMvp!=null)
+                    a=screenLockedStart(a,tracerMvp,inverseTracerMvp);
                 line(buffers,pose.last().pose(),a,b,segment.color,segment.width);
             }
             buffers.endBatch();
@@ -165,12 +168,20 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
         }
     }
 
-    private static Vec3 unbobbedStart(Vec3 relative,Matrix4f view,Matrix4f inverseBob,Matrix4f inverseView) {
-        var point=new org.joml.Vector3f((float)relative.x,(float)relative.y,(float)relative.z);
-        view.transformPosition(point);
-        inverseBob.transformPosition(point);
-        inverseView.transformPosition(point);
-        return new Vec3(point.x,point.y,point.z);
+    /**
+     * Repositions only a tracer's camera-side endpoint so its final projected X/Y are exactly the
+     * centre of the screen. We preserve its clip Z/W, so depth and the rest of the line keep using
+     * Minecraft's real bobbed world projection. This avoids disabling view bobbing globally.
+     */
+    private static Vec3 screenLockedStart(Vec3 relative,Matrix4f mvp,Matrix4f inverseMvp) {
+        var clip=new Vector4f((float)relative.x,(float)relative.y,(float)relative.z,1.0f);
+        mvp.transform(clip);
+        clip.x=0.0f;
+        clip.y=0.0f;
+        inverseMvp.transform(clip);
+        if(Math.abs(clip.w)<1.0E-6f)return relative;
+        float invW=1.0f/clip.w;
+        return new Vec3(clip.x*invW,clip.y*invW,clip.z*invW);
     }
 
     private static final class LineStates extends RenderStateShard {
@@ -345,4 +356,3 @@ public final class WorldVisuals implements FramePassManager.PassDefinition {
         boxes.add(new Box(new AABB(position.x-0.35,position.y-0.5,position.z-0.5,position.x+0.65,position.y+0.5,position.z+0.5),(color&0xFFFFFF)|0x2F000000,position,angle));
     }
 }
-
