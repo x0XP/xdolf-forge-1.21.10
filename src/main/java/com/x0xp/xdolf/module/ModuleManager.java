@@ -74,7 +74,7 @@ public final class ModuleManager {
 
     public static Status status(ClientModule module, Minecraft mc) {
         if (!module.enabled()) return new Status(Activity.DISABLED, "Disabled");
-        if (mc == null || mc.player == null || mc.level == null || mc.getConnection() == null)
+        if (module.requiresWorld() && (mc == null || mc.player == null || mc.level == null || mc.getConnection() == null))
             return new Status(Activity.WAITING_FOR_WORLD, "Waiting for a world");
         for (String name : module.dependencies()) {
             ClientModule dependency = ClientRuntime.find(name);
@@ -84,7 +84,7 @@ public final class ModuleManager {
         ClientModule freecam = ClientRuntime.find("Freecam");
         if (freecam != null && freecam.enabled() && module != freecam && !module.runsDuringFreecam())
             return new Status(Activity.SUSPENDED, "Paused by Freecam");
-        if (mc.isPaused() && !module.runsWhilePaused())
+        if (mc != null && mc.isPaused() && !module.runsWhilePaused())
             return new Status(Activity.PAUSED, "Paused with the game");
         return new Status(Activity.ACTIVE, "Active");
     }

@@ -31,7 +31,8 @@ public final class ClientConfig {
             guiKey = KeyNames.read(properties.getProperty("GUI.key"), guiKey);
             for (ClientModule module : modules) {
                 module.restoreEnabled(!module.name.equals("Spammer") && !module.name.equals("Freecam")
-                    && Boolean.parseBoolean(properties.getProperty(module.name + ".enabled", "false")));
+                    && Boolean.parseBoolean(properties.getProperty(module.name + ".enabled",
+                        Boolean.toString(module.defaultEnabled()))));
                 int defaultKey = module.key;
                 String raw = properties.getProperty(module.name + ".key", Integer.toString(defaultKey));
                 try {

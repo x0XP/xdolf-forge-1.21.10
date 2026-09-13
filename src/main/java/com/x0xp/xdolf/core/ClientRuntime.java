@@ -40,6 +40,7 @@ public final class ClientRuntime {
     public static final List<ClientModule> MODULES = Modules.create();
     private static ClientLevel previousLevel;
     private static net.minecraft.client.player.LocalPlayer previousPlayer;
+    private static boolean standaloneModulesStarted;
 
     public static void register() {
         WorldVisuals.register();
@@ -74,16 +75,18 @@ public final class ClientRuntime {
 
     private static void tick(TickEvent.ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
+        startStandaloneModules(mc);
         ClientSmoke.tick(mc);
         updateSession(mc);
         Commands.recordDeath(mc);
-        if (mc.player == null || mc.level == null || mc.getConnection() == null) return;
 
+        boolean worldReady = mc.player != null && mc.level != null && mc.getConnection() != null;
         for (ClientModule module : MODULES) {
             if (!module.enabled()) continue;
 
             boolean respawnScreen = module.name.equals("AutoRespawn") && mc.screen instanceof DeathScreen;
             var status = ModuleManager.status(module, mc);
+            if (status.activity() == ModuleManager.Activity.WAITING_FOR_WORLD) continue;
             if (status.activity() == ModuleManager.Activity.SUSPENDED
                 || status.activity() == ModuleManager.Activity.MISSING_DEPENDENCY) {
                 module.reset(mc);
@@ -100,18 +103,35 @@ public final class ClientRuntime {
                 message(module.name + " disabled after an error; check latest.log.");
             }
         }
+
+        if (!worldReady) return;
         ChatQueue.tick(mc);
+    }
+
+    private static void startStandaloneModules(Minecraft mc) {
+        if (standaloneModulesStarted) return;
+        standaloneModulesStarted = true;
+        for (ClientModule module : MODULES) {
+            if (!module.enabled() || module.requiresWorld()) continue;
+            try {
+                module.activate(mc);
+            } catch (RuntimeException error) {
+                module.setEnabled(false);
+                LogUtils.getLogger().error("Xdolf disabled failed standalone module {}", module.name, error);
+            }
+        }
     }
 
     public static void updateSession(Minecraft mc) {
         if (mc.level == previousLevel && mc.player == previousPlayer) return;
         ChatQueue.clear();
-        for (var module : MODULES) module.reset(mc);
+        for (var module : MODULES) if (module.requiresWorld()) module.reset(mc);
         previousLevel = mc.level;
         previousPlayer = mc.player;
         Commands.worldChanged(mc);
         if (mc.level != null && mc.player != null)
-            for (var module : MODULES) if (module.enabled()) module.activate(mc);
+            for (var module : MODULES)
+                if (module.enabled() && module.requiresWorld()) module.activate(mc);
     }
 
     private static void key(InputEvent.Key event) { handleKey(event.getKey(),event.getAction()); }
