@@ -12,6 +12,7 @@ import com.x0xp.xdolf.social.SocialState;
 import com.x0xp.xdolf.ui.clickgui.ClientScreen;
 import com.x0xp.xdolf.ui.hud.Hud;
 import com.x0xp.xdolf.ui.hud.NotificationCards;
+import com.x0xp.xdolf.update.AutoUpdater;
 
 import com.x0xp.xdolf.settings.ClientConfig;
 
@@ -49,6 +50,7 @@ public final class ClientRuntime {
         ModuleManager.reconcileRestoredSelections();
         SocialState.load();
         Commands.load();
+        AutoUpdater.beginCheck();
         TickEvent.ClientTickEvent.Post.BUS.addListener(ClientRuntime::tick);
         InputEvent.Key.BUS.addListener(ClientRuntime::key);
         MovementInputUpdateEvent.BUS.addListener(event -> {
@@ -75,6 +77,7 @@ public final class ClientRuntime {
 
     private static void tick(TickEvent.ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
+        AutoUpdater.tick(mc);
         startStandaloneModules(mc);
         ClientSmoke.tick(mc);
         updateSession(mc);
