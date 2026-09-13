@@ -14,6 +14,7 @@ import com.x0xp.xdolf.module.player.AutoEatModule;
 import com.x0xp.xdolf.module.player.AutoFishModule;
 import com.x0xp.xdolf.module.player.AutoRespawnModule;
 import com.x0xp.xdolf.module.player.AutoWalkModule;
+import com.x0xp.xdolf.module.player.DiscordRPCModule;
 import com.x0xp.xdolf.module.player.ElytraFlyModule;
 import com.x0xp.xdolf.module.player.ElytraPlusModule;
 import com.x0xp.xdolf.module.player.EntitySpeedModule;
@@ -43,7 +44,6 @@ import com.x0xp.xdolf.module.world.TimerModule;
 import com.x0xp.xdolf.module.world.XRayModule;
 
 import com.x0xp.xdolf.module.ClientModule;
-
 
 import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
@@ -82,6 +82,7 @@ public final class Modules {
         modules.add(new EntityStepModule());
         modules.add(new ElytraFlyModule());
         modules.add(new ElytraPlusModule());
+        modules.add(new DiscordRPCModule());
     }
 
     private static void registerRender(List<ClientModule> modules) {
