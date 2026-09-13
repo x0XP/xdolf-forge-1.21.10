@@ -7,7 +7,9 @@ import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 
+import java.io.EOFException;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -36,6 +38,7 @@ public final class DiscordPresence {
     private static final int OP_PONG = 4;
     private static final int MAX_PAYLOAD_BYTES = 1024 * 1024;
     private static final long RETRY_MILLIS = 2500L;
+    private static final long READ_POLL_MILLIS = 20L;
     private static final long STARTED_AT = Instant.now().getEpochSecond();
 
     private static volatile boolean running;
@@ -134,7 +137,7 @@ public final class DiscordPresence {
 
     private static void awaitReady(RandomAccessFile connection, long token) throws IOException {
         while (active(token)) {
-            Frame frame = readFrame(connection);
+            Frame frame = readFrame(connection, token);
             if (frame.opcode == OP_PING) {
                 writeFrame(connection, OP_PONG, frame.payload);
                 continue;
@@ -150,12 +153,12 @@ public final class DiscordPresence {
             }
             logRpcError(message);
         }
-        throw new IOException("Discord RPC stopped during handshake");
+        throw new InterruptedIOException("Discord RPC stopped during handshake");
     }
 
     private static void readLoop(RandomAccessFile connection, long token) throws IOException {
         while (active(token)) {
-            Frame frame = readFrame(connection);
+            Frame frame = readFrame(connection, token);
             switch (frame.opcode) {
                 case OP_PING -> writeFrame(connection, OP_PONG, frame.payload);
                 case OP_CLOSE -> throw new IOException("Discord closed RPC connection");
@@ -198,10 +201,12 @@ public final class DiscordPresence {
     private static RandomAccessFile openDiscordPipe() throws IOException {
         IOException last = null;
         for (int index = 0; index < 10; index++) {
-            try {
-                return new RandomAccessFile("\\\\?\\pipe\\discord-ipc-" + index, "rw");
-            } catch (IOException error) {
-                last = error;
+            for (String prefix : new String[]{"\\\\.\\pipe\\discord-ipc-", "\\\\?\\pipe\\discord-ipc-"}) {
+                try {
+                    return new RandomAccessFile(prefix + index, "rw");
+                } catch (IOException error) {
+                    last = error;
+                }
             }
         }
         throw last == null ? new IOException("No Discord IPC pipe found") : last;
@@ -249,25 +254,63 @@ public final class DiscordPresence {
 
     private static void writeFrame(RandomAccessFile connection, int opcode, String payload) throws IOException {
         byte[] body = payload.getBytes(StandardCharsets.UTF_8);
-        byte[] header = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
-            .putInt(opcode).putInt(body.length).array();
+        ByteBuffer frame = ByteBuffer.allocate(8 + body.length).order(ByteOrder.LITTLE_ENDIAN);
+        frame.putInt(opcode);
+        frame.putInt(body.length);
+        frame.put(body);
         synchronized (WRITE_LOCK) {
-            connection.write(header);
-            connection.write(body);
+            // Discord's IPC transport expects one complete frame per pipe write.
+            connection.write(frame.array());
         }
     }
 
-    private static Frame readFrame(RandomAccessFile connection) throws IOException {
+    private static Frame readFrame(RandomAccessFile connection, long token) throws IOException {
         byte[] header = new byte[8];
-        connection.readFully(header);
+        readFullyPolling(connection, header, token);
         ByteBuffer values = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN);
         int opcode = values.getInt();
         int length = values.getInt();
         if (length < 0 || length > MAX_PAYLOAD_BYTES)
             throw new IOException("Invalid Discord RPC payload length: " + length);
         byte[] body = new byte[length];
-        connection.readFully(body);
+        readFullyPolling(connection, body, token);
         return new Frame(opcode, new String(body, StandardCharsets.UTF_8));
+    }
+
+    /**
+     * RandomAccessFile opens a synchronous Windows pipe. Poll buffered bytes before
+     * reading so a blocked ReadFile cannot prevent the render thread's disable write.
+     */
+    private static void readFullyPolling(RandomAccessFile connection, byte[] destination, long token) throws IOException {
+        int offset = 0;
+        while (offset < destination.length) {
+            if (!active(token) || Thread.currentThread().isInterrupted())
+                throw new InterruptedIOException("Discord RPC read interrupted");
+
+            long available = connection.length();
+            if (available <= 0) {
+                sleepReadPoll();
+                continue;
+            }
+
+            int request = (int) Math.min(destination.length - offset, Math.min(available, Integer.MAX_VALUE));
+            int count = connection.read(destination, offset, request);
+            if (count < 0) throw new EOFException("Discord IPC pipe closed");
+            if (count == 0) {
+                sleepReadPoll();
+                continue;
+            }
+            offset += count;
+        }
+    }
+
+    private static void sleepReadPoll() throws InterruptedIOException {
+        try {
+            Thread.sleep(READ_POLL_MILLIS);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("Discord RPC read interrupted");
+        }
     }
 
     private static JsonObject parseObject(String payload) {
